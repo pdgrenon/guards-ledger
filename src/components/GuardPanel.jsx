@@ -9,18 +9,31 @@ const EQUIPMENT_SLOTS = [
   { key: 'item',      label: 'Item',      options: ITEMS      },
 ];
 
-// Fixed per-guard colors — persistent visual identity
+// 8 unique identity colours — no guard shares a colour with another or with
+// the UI accent (gold), keeping avatars visually distinct from active states.
 const GUARD_COLORS = {
-  Alek:    'purple',
+  Alek:    'gold',
   Grigory: 'amber',
-  Dasha:   'green',
-  Zoya:    'red',
-  Borya:   'amber',
-  Mila:    'purple',
-  Seva:    'green',
-  Kira:    'red',
+  Dasha:   'forest',
+  Zoya:    'vermilion',
+  Borya:   'indigo',
+  Mila:    'teal',
+  Seva:    'rose',
+  Kira:    'cerulean',
 };
-const FALLBACK_COLORS = ['purple', 'amber', 'green', 'red'];
+const FALLBACK_COLORS = ['gold', 'amber', 'forest', 'vermilion', 'indigo', 'teal', 'rose', 'cerulean'];
+
+// Short role descriptors replace the redundant "Guard · active" sub-line
+const GUARD_ROLES = {
+  Alek:    'The Vanguard',
+  Grigory: 'The Warden',
+  Dasha:   'The Seeker',
+  Zoya:    'The Blade',
+  Borya:   'The Bulwark',
+  Mila:    'The Sage',
+  Seva:    'The Scout',
+  Kira:    'The Arcanist',
+};
 
 function initials(name) {
   return name.slice(0, 2).toUpperCase();
@@ -38,6 +51,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
   const satchelSize = guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE;
   const color = GUARD_COLORS[guard.name] ?? FALLBACK_COLORS[guardIdx % FALLBACK_COLORS.length];
+  const role  = GUARD_ROLES[guard.name] ?? 'Guard';
 
   const weaponBonus = WEAPON_STATS[guard.equipment.weapon] ?? 0;
   const armorBonus  = ARMOR_STATS[guard.equipment.armor]  ?? 0;
@@ -51,7 +65,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
         <div className={`guard-avatar ${color}`}>{initials(guard.name)}</div>
         <div>
           <div className="guard-name">{guard.name}</div>
-          <div className="text-hint" style={{ fontSize: 11 }}>Guard · active</div>
+          <div className="guard-role">{role}</div>
         </div>
       </div>
 
@@ -160,8 +174,34 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       <div className="divider" />
 
+      {/* Speaking Stones */}
+      {guard.stones && guard.stones.length > 0 && (
+        <>
+          <div className="sec-label">Speaking stones</div>
+          <div className="stones-row">
+            {guard.stones.map((stone, si) => (
+              <div
+                key={si}
+                className={`stone-pill ${stone.state ?? 'ready'}`}
+                onClick={() => actions.updateGuard && actions.updateGuard(guardIdx, 'stones',
+                  guard.stones.map((s, i) => i === si
+                    ? { ...s, state: s.state === 'ready' ? 'cooling' : 'ready' }
+                    : s
+                  )
+                )}
+              >
+                <div className="stone-dot" />
+                Stone {si + 1}
+              </div>
+            ))}
+          </div>
+          <div className="stone-hint">Tap to toggle ready / cooling</div>
+          <div className="divider" />
+        </>
+      )}
+
       {/* Chip Bag */}
-      <div className="sec-label">Chip Bag</div>
+      <div className="sec-label">Chip bag</div>
       <div className="chips-grid">
         {CHIP_TYPES.map(({ id, label, color: chipColor }) => (
           <div key={id} className={`chip-row ${chipColor}`}>
