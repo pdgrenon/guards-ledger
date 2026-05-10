@@ -29,6 +29,10 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --shadow-card: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06);
+  --shadow-elevated: 0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -64,7 +68,7 @@
 html { font-size: 16px; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-ui);
   background: var(--c-bg);
   color: var(--c-text);
   min-height: 100dvh;
@@ -73,12 +77,20 @@ body {
 
 #root { max-width: 900px; margin: 0 auto; padding: 12px; }
 
+button, input, select, textarea {
+  font-family: var(--font-ui);
+}
+
 /* Cards */
 .card {
   background: var(--c-surface);
   border: 0.5px solid var(--c-border);
   border-radius: var(--radius-lg);
   padding: 12px;
+}
+.guard-card {
+  border-width: 1px;
+  box-shadow: var(--shadow-card);
 }
 
 /* Section label */
@@ -89,6 +101,7 @@ body {
   text-transform: uppercase;
   color: var(--c-text2);
   margin-bottom: 6px;
+  font-family: var(--font-ui);
 }
 
 /* Divider */
@@ -137,11 +150,44 @@ body {
 /* Top bar — holds title, resource pills, round button, settings */
 .top-bar {
   background: var(--c-surface);
-  border: 0.5px solid var(--c-border);
+  border: 1px solid var(--c-border);
   border-radius: var(--radius-lg);
-  padding: 8px 10px;
+  padding: 14px 18px;
   margin-bottom: 12px;
   display: flex; align-items: center; gap: 6px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Wordmark structure */
+.top-bar-brand {
+  display: flex;
+  flex-direction: column;
+}
+.top-bar-wordmark {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 5px;
+}
+.wordmark-the {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--c-text3);
+  font-weight: 400;
+}
+.wordmark-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--c-text);
+  line-height: 1;
+}
+.top-bar-tagline {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--c-text3);
+  font-style: italic;
+  margin-top: 2px;
 }
 
 /* Resource pills (Sil / Lux) */
@@ -261,36 +307,37 @@ body {
 /* Taller counter buttons for Sil/Lux in stash tab */
 .resource-counter-btn { height: 48px; font-size: 24px; }
 
-/* Tabs — horizontal scroll, never wraps */
-.tabs-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  margin-bottom: 12px;
-}
-.tabs-scroll::-webkit-scrollbar { display: none; }
+/* Tabs — underline style, horizontal scroll */
 .tabs {
   display: flex;
-  gap: 4px;
-  white-space: nowrap;
-  width: max-content;
-  min-width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 12px;
+  gap: 0;
 }
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
   padding: 8px 14px;
-  border-radius: var(--radius-md);
   font-size: 13px;
-  border: 0.5px solid var(--c-border);
-  background: var(--c-surface);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
   color: var(--c-text2);
   cursor: pointer;
   touch-action: manipulation;
   white-space: nowrap;
   flex-shrink: 0;
-  font-family: inherit;
+  margin-bottom: -1.5px;
+  font-family: var(--font-ui);
   line-height: 1;
 }
-.tab.active { background: var(--c-purple); border-color: var(--c-purple); color: #eeedfe; }
+.tab.active {
+  color: var(--c-purple);
+  border-bottom-color: var(--c-purple);
+  font-weight: 500;
+}
 
 /* Guards grid - stacks on mobile */
 .guards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -355,7 +402,6 @@ body {
 .autocomplete-option:active, .autocomplete-option.highlighted { background: var(--c-surface2); }
 
 /* Satchel */
-.satchel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .satchel-slot {
   border: 0.5px dashed var(--c-border2);
   border-radius: var(--radius-sm);
@@ -424,7 +470,7 @@ body {
 .chip-row.chip-red .chip-name { color: var(--c-red-text); }
 .chip-row.chip-purple { background: var(--c-purple-bg); border-color: var(--c-purple); }
 .chip-row.chip-purple .chip-name { color: var(--c-purple-text); }
-.chip-name { font-size: 11px; }
+.chip-name { font-size: 11px; font-family: var(--font-ui); }
 .chip-controls { display: flex; align-items: center; gap: 3px; }
 .chip-btn {
   width: 28px; height: 28px;
@@ -466,7 +512,7 @@ body {
 .cities-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (min-width: 600px) { .cities-grid { grid-template-columns: repeat(3, 1fr); } }
 .city-card { background: var(--c-surface); border: 0.5px solid var(--c-border); border-radius: var(--radius-lg); padding: 10px 12px; }
-.city-name { font-size: 14px; font-weight: 500; color: var(--c-text); margin-bottom: 0; }
+.city-name { font-size: 14px; font-weight: 500; color: var(--c-text); margin-bottom: 0; font-family: var(--font-display); }
 /* Prestige pips — read-only, derived from quests */
 .prestige-pips { display: flex; gap: 5px; }
 .prestige-pip {
@@ -662,20 +708,68 @@ body {
 /* Session log */
 .log-entry { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-bottom: 0.5px solid var(--c-border); }
 .log-entry:last-child { border-bottom: none; }
-.log-time { font-size: 10px; color: var(--c-text3); flex-shrink: 0; }
-.log-text { font-size: 12px; color: var(--c-text2); }
+.log-time { font-size: 10px; color: var(--c-text3); flex-shrink: 0; font-family: var(--font-ui); }
+.log-text { font-size: 12px; color: var(--c-text2); font-family: var(--font-ui); }
 .log-text strong { color: var(--c-text); font-weight: 500; }
 
-/* Guard header */
+/* Guard header and avatar */
+.guard-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 0.5px solid var(--c-border);
+  margin-bottom: 8px;
+}
+.guard-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--c-text);
+}
 .guard-avatar {
   width: 36px; height: 36px;
-  border-radius: 50%;
+  border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 500;
+  font-family: var(--font-display);
   flex-shrink: 0;
 }
-.guard-avatar.purple { background: var(--c-purple-bg); color: var(--c-purple-text); }
-.guard-avatar.amber { background: var(--c-amber-bg); color: var(--c-amber-text); }
+.guard-avatar.purple { background: var(--c-purple-bg); color: var(--c-purple-text); border: 1px solid var(--c-purple); }
+.guard-avatar.amber  { background: var(--c-amber-bg);  color: var(--c-amber-text);  border: 1px solid var(--c-amber);  }
+.guard-avatar.green  { background: var(--c-green-bg);  color: var(--c-green-text);  border: 1px solid var(--c-green);  }
+.guard-avatar.red    { background: var(--c-red-bg);    color: var(--c-red-text);    border: 1px solid var(--c-red);    }
+
+/* Stat fraction display */
+.stat-fraction { font-size: 12px; }
+
+/* Small adj button pair */
+.adj-btn-sm { width: 24px !important; height: 24px !important; font-size: 14px !important; }
+.adj-pair { display: flex; flex-direction: row; gap: 3px; flex-shrink: 0; }
+
+/* Combat stats grid */
+.combat-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.combat-stat-box {
+  background: var(--c-surface2);
+  border: 0.5px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 7px 10px;
+}
+.combat-stat-label { font-size: 10px; color: var(--c-text3); margin-bottom: 3px; font-family: var(--font-ui); }
+.combat-stat-value { font-size: 20px; font-weight: 500; color: var(--c-text); line-height: 1; }
+.combat-stat-value-row { display: flex; flex-direction: row; align-items: baseline; gap: 4px; }
+.combat-stat-temp { font-size: 11px; color: var(--c-text3); }
+.combat-stat-breakdown { font-size: 10px; color: var(--c-text3); margin-top: 2px; font-family: var(--font-ui); }
+
+/* Satchel grid — 4 columns always; expanded toggle just shows more rows */
+.satchel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.satchel-grid.satchel-expanded { grid-template-columns: repeat(4, 1fr); }
 
 /* Settings panel */
 .settings-overlay {
@@ -695,8 +789,36 @@ body {
 }
 .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid var(--c-border); }
 .settings-row:last-child { border-bottom: none; }
-.settings-label { font-size: 13px; color: var(--c-text); }
-.settings-sub { font-size: 11px; color: var(--c-text2); margin-top: 1px; }
+.settings-label { font-size: 13px; color: var(--c-text); font-family: var(--font-ui); }
+.settings-sub { font-size: 11px; color: var(--c-text2); margin-top: 1px; font-family: var(--font-ui); }
+.settings-panel-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--c-text);
+}
+.settings-action-btn {
+  width: auto;
+  padding: 0 12px;
+  height: 28px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  border: 0.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface2);
+  color: var(--c-text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+  line-height: 1;
+}
+.settings-action-btn:active { opacity: 0.6; }
+.settings-action-btn--danger {
+  border-color: var(--c-red);
+  color: var(--c-red);
+  background: var(--c-red-bg);
+}
 
 /* Toggle */
 .toggle {

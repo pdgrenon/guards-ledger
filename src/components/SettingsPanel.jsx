@@ -11,7 +11,7 @@ export function SettingsPanel({ state, actions, onClose }) {
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="settings-panel">
         <div className="flex items-center justify-between mb-3">
-          <div className="font-medium" style={{ fontSize: 16 }}>Settings</div>
+          <div className="settings-panel-title">Settings</div>
           <button className="icon-btn" onClick={onClose}>✕</button>
         </div>
 
@@ -73,7 +73,7 @@ export function SettingsPanel({ state, actions, onClose }) {
 
         <div className="settings-row">
           <div className="settings-label">Export save file</div>
-          <button className="adj-btn" style={{ width: 'auto', padding: '0 12px', fontSize: 12 }} onClick={exportState}>
+          <button className="settings-action-btn" onClick={exportState}>
             Export JSON
           </button>
         </div>
@@ -82,7 +82,7 @@ export function SettingsPanel({ state, actions, onClose }) {
           <div className="settings-label">Import save file</div>
           <label style={{ cursor: 'pointer' }}>
             <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
-            <div className="adj-btn" style={{ width: 'auto', padding: '0 12px', fontSize: 12 }}>
+            <div className="settings-action-btn">
               Import JSON
             </div>
           </label>
@@ -94,8 +94,7 @@ export function SettingsPanel({ state, actions, onClose }) {
             <div className="settings-sub">Wipes all game state — cannot be undone</div>
           </div>
           <button
-            className="adj-btn"
-            style={{ width: 'auto', padding: '0 12px', fontSize: 12, borderColor: 'var(--c-red)', color: 'var(--c-red)' }}
+            className="settings-action-btn settings-action-btn--danger"
             onClick={() => { resetState(); onClose(); }}
           >
             Reset

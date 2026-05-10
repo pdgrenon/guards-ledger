@@ -1,11 +1,46 @@
 import { useState, useCallback } from 'react';
 import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
 
-const STORAGE_KEY = 'isofarian_companion_v1';
+const STORAGE_KEY = 'guards_ledger_v1';
+const LEGACY_KEY  = 'isofarian_companion_v1';
+
+function migrateGuard(g) {
+  return {
+    ...g,
+    hp:              g.hp              ?? 20,
+    maxHp:           g.maxHp           ?? 20,
+    apGray:          g.apGray          ?? 0,
+    apTemp:          g.apTemp          ?? 0,
+    baseAtk:         g.baseAtk         ?? 0,
+    baseDef:         g.baseDef         ?? 0,
+    tempDef:         g.tempDef         ?? 0,
+    expandedSatchel: g.expandedSatchel ?? false,
+    satchel:         Array(8).fill(null).map((_, i) =>
+                       g.satchel?.[i] ?? { item: '', qty: 1 }
+                     ),
+    equipment: {
+      weapon:    g.equipment?.weapon    ?? '',
+      armor:     g.equipment?.armor     ?? '',
+      accessory: g.equipment?.accessory ?? '',
+      item:      g.equipment?.item      ?? '',
+    },
+    stones: Array(4).fill(null).map((_, i) =>
+               g.stones?.[i] ?? { state: 'ready', cooldownRound: null }
+             ),
+    chips: {
+      black:  g.chips?.black  ?? 8,
+      green:  g.chips?.green  ?? 0,
+      red:    g.chips?.red    ?? 0,
+      purple: g.chips?.purple ?? 0,
+    },
+    startingBlack: g.startingBlack ?? 8,
+  };
+}
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Try new key first, fall back to legacy key
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw);
 
@@ -14,35 +49,20 @@ function loadState() {
       parsed.stonebound = { max: parsed.stonebound.max, locations: [] };
     }
 
-    // Migrate guards: strip removed fields, collapse purple chips
+    // Migrate and validate each guard
     if (parsed.guards) {
-      parsed.guards = parsed.guards.map(g => {
-        const { blueCubes, apGray, apTemp, tempDef, stones, ...rest } = g;
-        const oldChips = rest.chips ?? {};
-        const purpleCount =
-          (oldChips.weaken ?? 0) +
-          (oldChips.break  ?? 0) +
-          (oldChips.freeze ?? 0) +
-          (oldChips.poison ?? 0) +
-          (oldChips.corrupt ?? 0);
-        rest.chips = {
-          black:  oldChips.black  ?? 8,
-          green:  oldChips.green  ?? 0,
-          red:    oldChips.red    ?? 0,
-          purple: oldChips.purple ?? purpleCount,
-        };
-        return rest;
-      });
+      parsed.guards = parsed.guards.map(migrateGuard);
     }
 
-    // Migrate round / campaign fields out (keep them harmlessly if present,
-    // but strip so state stays clean)
+    // Strip old top-level fields; ensure required ones exist
     const { round, campaign, ...cleanParsed } = parsed;
 
-    // Ensure activeGuardIdx exists
-    if (typeof cleanParsed.activeGuardIdx !== 'number') {
-      cleanParsed.activeGuardIdx = 0;
-    }
+    if (typeof cleanParsed.activeGuardIdx !== 'number') cleanParsed.activeGuardIdx = 0;
+    if (!Array.isArray(cleanParsed.cities))             cleanParsed.cities = createInitialState().cities;
+    if (typeof cleanParsed.stash !== 'object' || Array.isArray(cleanParsed.stash)) cleanParsed.stash = {};
+    if (!Array.isArray(cleanParsed.log))                cleanParsed.log = [];
+    if (typeof cleanParsed.sil !== 'number')            cleanParsed.sil = 0;
+    if (typeof cleanParsed.lux !== 'number')            cleanParsed.lux = 0;
 
     return cleanParsed;
   } catch {
@@ -212,7 +232,7 @@ export function useGameState() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `isofarian-save-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `guards-ledger-save-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [state]);

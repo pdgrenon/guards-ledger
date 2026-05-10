@@ -1,5 +1,5 @@
 {
-  "name": "isofarian-companion",
+  "name": "guards-ledger",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -27,5 +27,5 @@
     "globals": "^17.5.0",
     "vite": "^8.0.10"
   },
-  "homepage": "https://YOUR_GITHUB_USERNAME.github.io/isofarian-companion"
+  "homepage": "https://pdgrenon.github.io/isofarian-companion"
 }

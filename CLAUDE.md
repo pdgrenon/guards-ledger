@@ -21,15 +21,15 @@ Single-page React 19 app (Vite) for tracking game state in *The Isofarian Guard*
 ### State management
 
 All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
-- loading from / saving to `localStorage` key `isofarian_companion_v1` after every action
+- loading from / saving to `localStorage` key `guards_ledger_v1` after every action (falls back to legacy key `isofarian_companion_v1` for migration)
 - 30+ action functions (validate → mutate → log → return new state)
-- export/import of full state as a dated JSON file
+- export/import of full state as a dated JSON file (`guards-ledger-save-YYYY-MM-DD.json`)
 
 `App.jsx` calls `useGameState()` and passes state + action callbacks down via props. There is no context, no state library — pure prop drilling.
 
 ### Component structure
 
-- **`App.jsx`** — shell: tab nav, top bar, party strip (Sil/Lux/round trackers), settings overlay trigger
+- **`App.jsx`** — shell: tab nav, top bar with "The Guard's Ledger" wordmark, party strip (Sil/Lux/round trackers), settings overlay trigger
 - **`GuardPanel.jsx`** — HP, AP, equipment, satchel, speaking stones, chip bag per guard
 - **`CitiesTab.jsx`** — prestige pips (0–3), puzzle quest checkbox, two bounties per city
 - **`StashTab.jsx`** — Fort Istra crafting material inventory + stonebound cube tracker
@@ -43,7 +43,7 @@ All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
 
 ### Styling
 
-Single `src/index.css` with CSS custom properties (`--c-bg`, `--c-text`, etc.) for light/dark theming. Dark mode is automatic via `prefers-color-scheme`. No UI library; all components are custom CSS.
+Single `src/index.css` with CSS custom properties (`--c-bg`, `--c-text`, `--font-display`, `--font-ui`, etc.) for light/dark theming. Dark mode is automatic via `prefers-color-scheme`. No UI library; all components are custom CSS. Typography uses Cinzel (display) and system UI fonts.
 
 ## Deployment
 

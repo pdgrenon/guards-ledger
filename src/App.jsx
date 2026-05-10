@@ -4,9 +4,13 @@ import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
 import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
+import { GUARDS } from './data/constants';
 import './index.css';
 
 const TABS = ['Guard', 'Cities', 'Stash & stonebound', 'Session log'];
+
+// Build highlight regex dynamically from all guard names
+const GUARD_NAME_REGEX = new RegExp(`\\b(${GUARDS.concat(['Party', 'Stash']).join('|')})\\b`, 'g');
 
 export default function App() {
   const [tab, setTab] = useState('Guard');
@@ -37,23 +41,26 @@ export default function App() {
     <div>
       {/* Top bar */}
       <div className="top-bar">
-        <span className="font-medium" style={{ fontSize: 14, marginRight: 'auto' }}>Isofarian Guard</span>
+        <div className="top-bar-brand" style={{ marginRight: 'auto' }}>
+          <div className="top-bar-wordmark">
+            <span className="wordmark-the">The</span>
+            <span className="wordmark-title">Guard's Ledger</span>
+          </div>
+          <div className="top-bar-tagline">Campaign Tracker · The Isofarian Guard</div>
+        </div>
         <button className="icon-btn" onClick={() => setSettingsOpen(true)} title="Settings">⚙</button>
       </div>
 
-      {/* Tabs — global, always visible */}
-      <div className="tabs-scroll">
-        <div className="tabs">
-          {TABS.map(t => (
-            <button key={t} className={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>{t}</button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="tabs">
+        {TABS.map(t => (
+          <button key={t} className={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>{t}</button>
+        ))}
       </div>
 
       {/* Tab content */}
       {tab === 'Guard' && (
         <>
-          {/* Guard switcher — only visible in Guard tab */}
           <div className="guard-switcher">
             {state.guards.map((g, i) => (
               <button
@@ -104,7 +111,7 @@ export default function App() {
           {state.log.map(entry => (
             <div key={entry.id} className="log-entry">
               <span className="log-time">{entry.time}</span>
-              <span className="log-text" dangerouslySetInnerHTML={{ __html: entry.message.replace(/\b(Alek|Grigory|Party|Stash)\b/g, '<strong>$1</strong>') }} />
+              <span className="log-text" dangerouslySetInnerHTML={{ __html: entry.message.replace(GUARD_NAME_REGEX, '<strong>$1</strong>') }} />
             </div>
           ))}
         </div>

@@ -9,7 +9,18 @@ const EQUIPMENT_SLOTS = [
   { key: 'item',      label: 'Item',      options: ITEMS      },
 ];
 
-const AVATAR_COLORS = ['purple', 'amber'];
+// Fixed per-guard colors — persistent visual identity
+const GUARD_COLORS = {
+  Alek:    'purple',
+  Grigory: 'amber',
+  Dasha:   'green',
+  Zoya:    'red',
+  Borya:   'amber',
+  Mila:    'purple',
+  Seva:    'green',
+  Kira:    'red',
+};
+const FALLBACK_COLORS = ['purple', 'amber', 'green', 'red'];
 
 function initials(name) {
   return name.slice(0, 2).toUpperCase();
@@ -26,7 +37,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
   } = actions;
 
   const satchelSize = guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE;
-  const color = AVATAR_COLORS[guardIdx % AVATAR_COLORS.length];
+  const color = GUARD_COLORS[guard.name] ?? FALLBACK_COLORS[guardIdx % FALLBACK_COLORS.length];
 
   const weaponBonus = WEAPON_STATS[guard.equipment.weapon] ?? 0;
   const armorBonus  = ARMOR_STATS[guard.equipment.armor]  ?? 0;
@@ -34,12 +45,12 @@ export function GuardPanel({ guard, guardIdx, actions }) {
   const totalDef = (guard.baseDef ?? 0) + armorBonus;
 
   return (
-    <div className="card">
+    <div className="card guard-card">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-2" style={{ paddingBottom: 10, borderBottom: '0.5px solid var(--c-border)' }}>
+      <div className="guard-header">
         <div className={`guard-avatar ${color}`}>{initials(guard.name)}</div>
         <div>
-          <div className="font-medium" style={{ fontSize: 14 }}>{guard.name}</div>
+          <div className="guard-name">{guard.name}</div>
           <div className="text-hint" style={{ fontSize: 11 }}>Guard · active</div>
         </div>
       </div>
@@ -53,10 +64,10 @@ export function GuardPanel({ guard, guardIdx, actions }) {
             <div key={i} className={`pip${i < guard.hp ? ' hp' : ''}`} />
           ))}
         </div>
-        <div className="adj-val" style={{ fontSize: 12 }}>{guard.hp}/{guard.maxHp}</div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button className="stat-adj-btn" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
-          <button className="stat-adj-btn" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
+        <div className="adj-val stat-fraction">{guard.hp}/{guard.maxHp}</div>
+        <div className="adj-pair">
+          <button className="stat-adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
+          <button className="stat-adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
         </div>
       </div>
 
@@ -64,21 +75,25 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       {/* Combat Stats */}
       <div className="sec-label">Combat stats</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
-        <div style={{ background: 'var(--c-surface2)', border: '0.5px solid var(--c-border)', borderRadius: 'var(--radius-md)', padding: '7px 10px' }}>
-          <div style={{ fontSize: 10, color: 'var(--c-text3)', marginBottom: 3 }}>Attack</div>
-          <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1 }}>{totalAtk}</div>
+      <div className="combat-stats-grid">
+        <div className="combat-stat-box">
+          <div className="combat-stat-label">Attack</div>
+          <div className="combat-stat-value-row">
+            <div className="combat-stat-value">{totalAtk}</div>
+          </div>
           {weaponBonus > 0 && (
-            <div style={{ fontSize: 10, color: 'var(--c-text3)', marginTop: 2 }}>
+            <div className="combat-stat-breakdown">
               {guard.baseAtk} base + {weaponBonus} weapon
             </div>
           )}
         </div>
-        <div style={{ background: 'var(--c-surface2)', border: '0.5px solid var(--c-border)', borderRadius: 'var(--radius-md)', padding: '7px 10px' }}>
-          <div style={{ fontSize: 10, color: 'var(--c-text3)', marginBottom: 3 }}>Defense</div>
-          <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1 }}>{totalDef}</div>
+        <div className="combat-stat-box">
+          <div className="combat-stat-label">Defense</div>
+          <div className="combat-stat-value-row">
+            <div className="combat-stat-value">{totalDef}</div>
+          </div>
           {armorBonus > 0 && (
-            <div style={{ fontSize: 10, color: 'var(--c-text3)', marginTop: 2 }}>
+            <div className="combat-stat-breakdown">
               {guard.baseDef} base + {armorBonus} armor
             </div>
           )}
@@ -120,7 +135,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
         </div>
       </div>
 
-      <div className="satchel-grid" style={{ gridTemplateColumns: `repeat(${satchelSize > 4 ? 4 : 4}, 1fr)` }}>
+      <div className={`satchel-grid${guard.expandedSatchel ? ' satchel-expanded' : ''}`}>
         {Array(satchelSize).fill(0).map((_, si) => {
           const slot = guard.satchel[si] || { item: '', qty: 1 };
           return (
