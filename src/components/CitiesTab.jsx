@@ -1,11 +1,9 @@
-// Each city gets a distinct accent color — same CSS variable pattern as guard cards
+// All cities share the app accent color — consistent, restrained, professional.
+// Color identifies guards (characters); cities are locations and don't need personalities.
+const CITY_COLOR = 'var(--c-accent)';
 const CITY_COLORS = {
-  Mir:    'var(--c-guard-cerulean-border)',  // blue
-  Razdor: 'var(--c-guard-vermilion-border)', // red-coral
-  Ryba:   'var(--c-guard-teal-border)',      // teal
-  Silny:  'var(--c-guard-amber-border)',     // amber
-  Strofa: 'var(--c-guard-indigo-border)',    // indigo
-  Vouno:  'var(--c-guard-forest-border)',    // forest green
+  Mir: CITY_COLOR, Razdor: CITY_COLOR, Ryba: CITY_COLOR,
+  Silny: CITY_COLOR, Strofa: CITY_COLOR, Vouno: CITY_COLOR,
 };
 
 function Checkmark() {

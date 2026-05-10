@@ -657,7 +657,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .city-name {
   font-size: 15px;
   font-weight: 600;
-  color: var(--city-color, var(--c-text));
+  color: var(--c-text);
   font-family: var(--font-display);
   line-height: 1.2;
   margin-bottom: 4px;
@@ -690,8 +690,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
   transition: background 0.1s;
 }
 .quest-row:last-child { border-bottom: none; }
-/* Completed row gets subtle green tint — scannable at a glance */
-.quest-row.done { background: var(--c-green-bg); }
+/* Completed row gets a very subtle tint — scannable but not distracting */
+.quest-row.done { background: var(--c-surface2); }
 .quest-box {
   width: 22px; height: 22px;
   border: 1.5px solid var(--c-border2);
