@@ -12,7 +12,6 @@ function getSelectionOptions(type) {
   return [];
 }
 
-// Flat sorted list of all items with their category label for grouping
 const ALL_ITEMS = MATERIAL_CATEGORIES.flatMap(cat =>
   cat.items.map(item => ({ item, category: cat.label }))
 );
@@ -34,10 +33,8 @@ export function StashTab({
   const cubesAvailable = stonebound.max - cubesUsed;
   const overBudget = cubesAvailable < 0;
 
-  // Items currently in the stash (qty > 0), sorted by category then name
   const activeItems = ALL_ITEMS.filter(({ item }) => (stash[item] ?? 0) > 0);
 
-  // Items matching the add-search that aren't already in the stash
   const addResults = addSearch.length > 0
     ? ALL_ITEMS.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&
@@ -51,7 +48,6 @@ export function StashTab({
     setAddingItem(false);
   }
 
-  // Group active items by category for display
   const activeByCategory = MATERIAL_CATEGORIES
     .map(cat => ({
       label: cat.label,
@@ -59,7 +55,6 @@ export function StashTab({
     }))
     .filter(cat => cat.items.length > 0);
 
-  // Filter by search if searching
   const filteredCategories = search.length > 0
     ? activeByCategory
         .map(cat => ({
@@ -71,43 +66,50 @@ export function StashTab({
 
   return (
     <>
-      {/* Party resources */}
+      {/* ── Party resources ── */}
       <div className="card mb-3">
-        <div className="font-medium mb-3" style={{ fontSize: 13 }}>Party resources</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="card-title mb-3">Party resources</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Sil */}
           <div>
             <div className="sec-label">Sil</div>
-            <div style={{ fontSize: 32, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1, marginBottom: 8 }}>{sil}</div>
-            <div className="step-selector" style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10 }}>
+              {sil}
+            </div>
+            <div className="step-selector">
               {[1, 5, 10].map(s => (
                 <button key={s} className={`step-btn${silStep === s ? ' active' : ''}`} onClick={() => setSilStep(s)}>{s}</button>
               ))}
             </div>
             <div className="counter-actions">
-              <button className="counter-btn resource-counter-btn" onClick={() => setSil(-silStep)}>−</button>
-              <button className="counter-btn resource-counter-btn" onClick={() => setSil(silStep)}>+</button>
+              <button className="counter-btn" onClick={() => setSil(-silStep)}>−</button>
+              <button className="counter-btn" onClick={() => setSil(silStep)}>+</button>
             </div>
           </div>
+
+          {/* Lux Essence */}
           <div>
             <div className="sec-label">Lux Essence</div>
-            <div style={{ fontSize: 32, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1, marginBottom: 8 }}>{lux}</div>
-            <div className="step-selector" style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10 }}>
+              {lux}
+            </div>
+            <div className="step-selector">
               {[1, 5, 10].map(s => (
                 <button key={s} className={`step-btn${luxStep === s ? ' active' : ''}`} onClick={() => setLuxStep(s)}>{s}</button>
               ))}
             </div>
             <div className="counter-actions">
-              <button className="counter-btn resource-counter-btn" onClick={() => setLux(-luxStep)}>−</button>
-              <button className="counter-btn resource-counter-btn" onClick={() => setLux(luxStep)}>+</button>
+              <button className="counter-btn" onClick={() => setLux(-luxStep)}>−</button>
+              <button className="counter-btn" onClick={() => setLux(luxStep)}>+</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stonebound */}
+      {/* ── Stonebound ── */}
       <div className="card mb-3">
         <div className="flex items-center justify-between mb-2">
-          <div className="font-medium" style={{ fontSize: 13 }}>Stonebound</div>
+          <div className="card-title">Stonebound</div>
           <div className="flex items-center gap-2">
             <span className={`text-xs${overBudget ? ' sb-over-budget' : ' text-muted'}`}>
               {cubesUsed} / {stonebound.max} cubes
@@ -167,10 +169,10 @@ export function StashTab({
         </button>
       </div>
 
-      {/* Stash */}
+      {/* ── Fort Istra Stash ── */}
       <div className="card">
         <div className="flex items-center justify-between mb-2">
-          <div className="font-medium" style={{ fontSize: 13 }}>Fort Istra stash</div>
+          <div className="card-title">Fort Istra stash</div>
           {!addingItem && (
             <button className="stash-add-btn" onClick={() => setAddingItem(true)}>+ Add item</button>
           )}
@@ -207,7 +209,7 @@ export function StashTab({
           </div>
         )}
 
-        {/* Search active stash */}
+        {/* Filter search */}
         {!addingItem && activeItems.length > 0 && (
           <input
             className="stash-search"
@@ -218,16 +220,22 @@ export function StashTab({
           />
         )}
 
-        {/* Active stash list */}
+        {/* Empty state */}
         {activeItems.length === 0 && !addingItem && (
           <div className="text-hint text-sm" style={{ padding: '8px 0' }}>
             No items in stash. Tap "+ Add item" to get started.
           </div>
         )}
 
+        {/* Category bands + item rows */}
         {filteredCategories.map(cat => (
-          <div key={cat.label} className="mb-2">
-            <div className="sec-label">{cat.label}</div>
+          <div key={cat.label}>
+            {/* Full-bleed tinted category header */}
+            <div className="stash-category-header">
+              <span className="stash-category-label">{cat.label}</span>
+              <span className="stash-category-count">{cat.items.length} item{cat.items.length !== 1 ? 's' : ''}</span>
+            </div>
+
             {cat.items.map(item => (
               <div key={item} className="stash-row">
                 <span className="stash-row-name">{item}</span>

@@ -649,39 +649,53 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .city-card {
   background: var(--c-surface);
   border: 0.5px solid var(--c-border);
+  border-top: 3px solid var(--city-color, var(--c-accent));
   border-radius: var(--radius-lg);
   padding: 10px 12px;
+  box-shadow: var(--shadow-card);
 }
 .city-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--c-text);
-  margin-bottom: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--city-color, var(--c-text));
   font-family: var(--font-display);
+  line-height: 1.2;
+  margin-bottom: 4px;
 }
-.prestige-pips { display: flex; gap: 5px; }
+/* Prestige pips — below name, larger, clearer */
+.prestige-pips { display: flex; gap: 5px; margin-bottom: 8px; }
 .prestige-pip {
-  width: 10px; height: 10px;
+  width: 13px; height: 13px;
   border-radius: 50%;
-  border: 0.5px solid var(--c-border2);
+  border: 1.5px solid var(--c-border2);
   background: var(--c-surface2);
   flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
 }
-.prestige-pip.filled { background: var(--c-accent); border-color: var(--c-accent); }
+.prestige-pip.filled {
+  background: var(--city-color, var(--c-accent));
+  border-color: var(--city-color, var(--c-accent));
+}
+/* Quest rows — negative margin trick so hover/done tint bleeds to edges */
 .quest-row {
   display: flex; align-items: center; gap: 10px;
   min-height: 44px;
-  padding: 4px 0;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border-radius: var(--radius-sm);
   border-bottom: 0.5px solid var(--c-border);
   cursor: pointer;
   touch-action: manipulation;
   user-select: none; -webkit-user-select: none;
+  transition: background 0.1s;
 }
 .quest-row:last-child { border-bottom: none; }
+/* Completed row gets subtle green tint — scannable at a glance */
+.quest-row.done { background: var(--c-green-bg); }
 .quest-box {
   width: 22px; height: 22px;
-  border: 0.5px solid var(--c-border2);
-  border-radius: 4px;
+  border: 1.5px solid var(--c-border2);
+  border-radius: 5px;
   background: var(--c-surface2);
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -761,25 +775,54 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: inherit;
 }
 .stash-search::placeholder { color: var(--c-text3); }
+
+/* Category header band — full-bleed tinted row separating material groups */
+.stash-category-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px -12px 0;
+  padding: 5px 12px;
+  background: var(--c-surface2);
+  border-top: 0.5px solid var(--c-border);
+  border-bottom: 0.5px solid var(--c-border);
+}
+.stash-category-header:first-child { margin-top: 0; }
+.stash-category-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text2);
+  font-family: var(--font-ui);
+}
+.stash-category-count {
+  font-size: 10px;
+  color: var(--c-text3);
+  font-family: var(--font-ui);
+  margin-left: auto;
+}
+
 .stash-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 7px 0;
   border-bottom: 0.5px solid var(--c-border);
   gap: 8px;
 }
 .stash-row:last-child { border-bottom: none; }
 .stash-row-name { font-size: 13px; color: var(--c-text); flex: 1; }
-.stash-row-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.stash-row-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+/* Smaller stash +/− buttons — controls are secondary to the count */
 .stash-row-btn {
-  width: 36px; height: 36px;
+  width: 28px; height: 28px;
   border: 0.5px solid var(--c-border2);
   border-radius: var(--radius-sm);
   background: var(--c-surface2);
-  font-size: 18px;
+  font-size: 16px;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--c-text);
+  cursor: pointer; color: var(--c-text2);
   touch-action: manipulation;
   user-select: none; -webkit-user-select: none;
   flex-shrink: 0;
@@ -787,7 +830,14 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 .stash-row-btn:active { opacity: 0.6; }
-.stash-row-val { font-size: 14px; font-weight: 500; color: var(--c-text); min-width: 24px; text-align: center; }
+/* Quantity count is the data — make it prominent */
+.stash-row-val {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-accent);
+  min-width: 26px;
+  text-align: center;
+}
 
 .stash-add-btn {
   padding: 5px 12px;
@@ -976,13 +1026,22 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .toggle.on .toggle-thumb { transform: translateX(18px); }
 
 /* ─── STEP SELECTOR & COUNTER ────────────────────────────────────────────── */
-.step-selector { display: flex; gap: 3px; margin-bottom: 5px; }
+/* Segmented control — no gaps, shared border, pill group feel */
+.step-selector {
+  display: flex;
+  gap: 0;
+  margin-bottom: 8px;
+  border: 0.5px solid var(--c-border2);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
 .step-btn {
   flex: 1;
-  padding: 4px 0;
-  font-size: 11px;
-  border: 0.5px solid var(--c-border2);
-  border-radius: 4px;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-right: 0.5px solid var(--c-border2);
   background: var(--c-surface);
   color: var(--c-text3);
   cursor: pointer;
@@ -991,21 +1050,22 @@ button, input, select, textarea { font-family: var(--font-ui); }
   user-select: none; -webkit-user-select: none;
   font-family: inherit;
   line-height: 1;
+  transition: background 0.1s, color 0.1s;
 }
+.step-btn:last-child { border-right: none; }
 .step-btn.active {
   background: var(--c-accent-bg);
-  border-color: var(--c-accent);
   color: var(--c-accent-text);
-  font-weight: 500;
+  font-weight: 600;
 }
-.counter-actions { display: flex; gap: 4px; }
+.counter-actions { display: flex; gap: 6px; }
 .counter-btn {
   flex: 1;
-  height: 34px;
+  height: 44px;
   border: 0.5px solid var(--c-border2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--c-surface2);
-  font-size: 20px;
+  font-size: 22px;
   color: var(--c-text);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -1016,6 +1076,16 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .counter-btn:active { opacity: 0.6; }
 .resource-counter-btn { height: 48px; font-size: 24px; }
+
+/* ─── TAB CARD TITLES ────────────────────────────────────────────────────── */
+/* Major section titles in stash/stonebound/party cards */
+.card-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text);
+  letter-spacing: 0.02em;
+}
 
 /* ─── GUARDS GRID ────────────────────────────────────────────────────────── */
 .guards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }

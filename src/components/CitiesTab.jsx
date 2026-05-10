@@ -1,3 +1,13 @@
+// Each city gets a distinct accent color — same CSS variable pattern as guard cards
+const CITY_COLORS = {
+  Mir:    'var(--c-guard-cerulean-border)',  // blue
+  Razdor: 'var(--c-guard-vermilion-border)', // red-coral
+  Ryba:   'var(--c-guard-teal-border)',      // teal
+  Silny:  'var(--c-guard-amber-border)',     // amber
+  Strofa: 'var(--c-guard-indigo-border)',    // indigo
+  Vouno:  'var(--c-guard-forest-border)',    // forest green
+};
+
 function Checkmark() {
   return (
     <svg className="quest-check" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.5">
@@ -17,21 +27,31 @@ export function CitiesTab({ cities, toggleCityQuest }) {
     <div className="cities-grid">
       {cities.map((city, idx) => {
         const prestige = [city.puzzleQuestDone, city.bounty1Done, city.bounty2Done].filter(Boolean).length;
+        const cityColor = CITY_COLORS[city.name] ?? 'var(--c-accent)';
+
         return (
-          <div key={city.id} className="city-card">
-            {/* Header: name + read-only prestige pips */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="city-name">{city.name}</div>
-              <div className="prestige-pips">
-                {Array(3).fill(0).map((_, pi) => (
-                  <div key={pi} className={`prestige-pip${pi < prestige ? ' filled' : ''}`} />
-                ))}
-              </div>
+          <div
+            key={city.id}
+            className="city-card"
+            style={{ '--city-color': cityColor }}
+          >
+            {/* City name — colored via --city-color */}
+            <div className="city-name">{city.name}</div>
+
+            {/* Prestige pips — below name, colored, larger */}
+            <div className="prestige-pips">
+              {Array(3).fill(0).map((_, pi) => (
+                <div key={pi} className={`prestige-pip${pi < prestige ? ' filled' : ''}`} />
+              ))}
             </div>
 
-            {/* Quest rows */}
+            {/* Quest rows — entire row tinted green when done */}
             {QUESTS.map(({ field, label }) => (
-              <div key={field} className="quest-row" onClick={() => toggleCityQuest(idx, field)}>
+              <div
+                key={field}
+                className={`quest-row${city[field] ? ' done' : ''}`}
+                onClick={() => toggleCityQuest(idx, field)}
+              >
                 <div className={`quest-box${city[field] ? ' done' : ''}`}>
                   {city[field] && <Checkmark />}
                 </div>
