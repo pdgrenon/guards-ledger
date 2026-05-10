@@ -1,4 +1,4 @@
-export function SettingsPanel({ state, actions, onClose }) {
+export function SettingsPanel({ state, actions, guardColorMap, onClose }) {
   const { guards } = state;
   const { adjustGuardMaxHp, setStartingBlack, exportState, importState, resetState } = actions;
 
@@ -11,7 +11,7 @@ export function SettingsPanel({ state, actions, onClose }) {
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="settings-panel">
 
-        {/* Sticky header — stays visible while the list scrolls beneath it */}
+        {/* Sticky header */}
         <div className="settings-panel-header">
           <div className="settings-panel-title">Settings</div>
           <button className="icon-btn" onClick={onClose} aria-label="Close settings">
@@ -26,35 +26,49 @@ export function SettingsPanel({ state, actions, onClose }) {
 
         {/* Scrollable body */}
         <div className="settings-panel-body">
-          {guards.map((guard, gi) => (
-            <div key={gi}>
-              <div className="sec-label" style={{ marginTop: 12 }}>{guard.name}</div>
-
-              <div className="settings-row">
-                <div>
-                  <div className="settings-label">Max HP</div>
-                  <div className="settings-sub">Adjust if an effect permanently changes max health</div>
+          {guards.map((guard, gi) => {
+            const c = guardColorMap?.[guard.name];
+            return (
+              <div key={gi}>
+                {/* Guard name header in their identity color */}
+                <div
+                  className="settings-guard-header"
+                  style={c ? { '--guard-color': c.border } : {}}
+                >
+                  <span
+                    className="settings-guard-dot"
+                    style={c ? { background: c.border } : {}}
+                    aria-hidden="true"
+                  />
+                  {guard.name}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, -1)}>−</button>
-                  <span className="adj-val">{guard.maxHp}</span>
-                  <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, 1)}>+</button>
+
+                <div className="settings-row">
+                  <div>
+                    <div className="settings-label">Max HP</div>
+                    <div className="settings-sub">Adjust if an effect permanently changes max health</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, -1)}>−</button>
+                    <span className="adj-val">{guard.maxHp}</span>
+                    <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, 1)}>+</button>
+                  </div>
+                </div>
+
+                <div className="settings-row">
+                  <div>
+                    <div className="settings-label">Starting black chips</div>
+                    <div className="settings-sub">Value black resets to when "Reset chips" is tapped</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack - 1)}>−</button>
+                    <span className="adj-val">{guard.startingBlack}</span>
+                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack + 1)}>+</button>
+                  </div>
                 </div>
               </div>
-
-              <div className="settings-row">
-                <div>
-                  <div className="settings-label">Starting black chips</div>
-                  <div className="settings-sub">Value black resets to when "Reset chips" is tapped</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack - 1)}>−</button>
-                  <span className="adj-val">{guard.startingBlack}</span>
-                  <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack + 1)}>+</button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div className="sec-label" style={{ marginTop: 16 }}>Save data</div>
 

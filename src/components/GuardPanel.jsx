@@ -102,7 +102,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       </div>
 
       {/* Health */}
-      <div className="sec-label">Health</div>
+      <div className="sec-label-primary">Health</div>
       <div className="stat-row">
         <div className="stat-name">HP</div>
         <div className="pip-track">
@@ -120,7 +120,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       <div className="divider" />
 
       {/* Combat Stats */}
-      <div className="sec-label">Combat stats</div>
+      <div className="sec-label-primary">Combat stats</div>
       <div className="combat-stats-grid">
         <div className="combat-stat-box">
           <div className="combat-stat-label">Attack</div>
@@ -149,7 +149,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       <div className="divider" />
 
       {/* Equipment */}
-      <div className="sec-label">Equipment</div>
+      <div className="sec-label-primary">Equipment</div>
       <div className="equip-grid mb-2">
         {EQUIPMENT_SLOTS.map(({ key, label, options }) => (
           <div key={key} className="equip-slot">
@@ -168,7 +168,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       {/* Satchel */}
       <div className="flex items-center justify-between mb-2">
-        <div className="sec-label" style={{ marginBottom: 0 }}>Satchel</div>
+        <div className="sec-label-primary" style={{ marginBottom: 0 }}>Satchel</div>
         <div
           className="flex items-center gap-1"
           style={{ cursor: 'pointer', touchAction: 'manipulation' }}
@@ -207,7 +207,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       <div className="divider" />
 
       {/* Chip Bag — all rows use the same neutral style; the chip name carries the colour identity */}
-      <div className="sec-label">Chip bag</div>
+      <div className="sec-label-primary">Chip bag</div>
       <div className="chips-grid">
         {CHIP_TYPES.map(({ id, label }) => (
           <div key={id} className="chip-row">

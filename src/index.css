@@ -371,7 +371,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 8px 0;
   font-size: 13px;
   font-weight: 500;
-  border: 0.5px solid var(--c-border2);
+  border: 1.5px solid var(--c-border2);
   border-radius: var(--radius-md);
   background: var(--c-surface);
   color: var(--c-text2);
@@ -382,16 +382,19 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
   transition: all 0.12s;
 }
-/* Active guard: accent border + heavier text — clear, unambiguous selection */
+/* Active state: guard's own color for border + text, tinted bg */
 .guard-switch-btn.active {
-  background: var(--c-accent-bg);
-  border-color: var(--c-accent);
-  color: var(--c-accent-text);
+  background: var(--guard-btn-bg);
+  border-color: var(--guard-btn-border);
+  color: var(--guard-btn-text);
   font-weight: 600;
+  border-width: 2px;
 }
 .guard-switch-btn:active { opacity: 0.7; }
 
 /* ─── GUARD CARD HEADER ──────────────────────────────────────────────────── */
+/* 3px colored top border accent set inline per-guard via --guard-color */
+.guard-card { border-top: 3px solid var(--guard-color, var(--c-accent)) !important; }
 .guard-header {
   display: flex;
   flex-direction: row;
@@ -401,17 +404,41 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-bottom: 0.5px solid var(--c-border);
   margin-bottom: 8px;
 }
+/* Name rendered in the guard's identity color */
 .guard-name {
   font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 500;
-  color: var(--c-text);
+  font-weight: 600;
+  color: var(--guard-color, var(--c-text));
 }
-/* Guard role line replaces the redundant "Guard · active" */
 .guard-role {
   font-size: 11px;
   color: var(--c-text3);
   font-style: italic;
+}
+
+/* ─── PRIMARY SECTION LABEL — colored pip accent ─────────────────────────── */
+/* Used for Health, Combat stats, Equipment, Satchel, Chip bag inside guard card */
+.sec-label-primary {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--guard-color, var(--c-accent));
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sec-label-primary::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--guard-color, var(--c-accent));
+  flex-shrink: 0;
 }
 
 /* ─── GUARD AVATARS — 8 unique identity colours ──────────────────────────── */
@@ -825,6 +852,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .log-time { font-size: 11px; color: var(--c-text3); flex-shrink: 0; font-family: var(--font-ui); }
 .log-text { font-size: 12px; color: var(--c-text2); font-family: var(--font-ui); }
 .log-text strong { color: var(--c-text); font-weight: 500; }
+/* Per-guard colored name spans injected by the log renderer */
+.log-text .log-name-gold      { color: var(--c-guard-gold-border);      font-weight: 600; }
+.log-text .log-name-amber     { color: var(--c-guard-amber-border);     font-weight: 600; }
+.log-text .log-name-forest    { color: var(--c-guard-forest-border);    font-weight: 600; }
+.log-text .log-name-vermilion { color: var(--c-guard-vermilion-border); font-weight: 600; }
+.log-text .log-name-indigo    { color: var(--c-guard-indigo-border);    font-weight: 600; }
+.log-text .log-name-teal      { color: var(--c-guard-teal-border);      font-weight: 600; }
+.log-text .log-name-rose      { color: var(--c-guard-rose-border);      font-weight: 600; }
+.log-text .log-name-cerulean  { color: var(--c-guard-cerulean-border);  font-weight: 600; }
 
 /* ─── SETTINGS PANEL ─────────────────────────────────────────────────────── */
 .settings-overlay {
@@ -859,6 +895,25 @@ button, input, select, textarea { font-family: var(--font-ui); }
   overflow-y: auto;
   padding: 4px 16px 24px;
   flex: 1;
+}
+/* Per-guard section header in settings — colored dot + name */
+.settings-guard-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--guard-color, var(--c-text));
+  font-family: var(--font-display);
+  letter-spacing: 0.03em;
+}
+.settings-guard-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 .settings-row {
   display: flex; align-items: center; justify-content: space-between;

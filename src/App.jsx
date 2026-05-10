@@ -9,22 +9,35 @@ import './index.css';
 
 const TABS = ['Guard', 'Cities', 'Stash & stonebound', 'Session log'];
 
-// Build highlight regex dynamically from all guard names
-const GUARD_NAME_REGEX = new RegExp(`\\b(${GUARDS.concat(['Party', 'Stash']).join('|')})\\b`, 'g');
-
-// Map each guard to their identity colour CSS variable prefix for the switcher dot
-const GUARD_COLOR_CLASS = {
-  Alek:    'gold',
-  Grigory: 'amber',
-  Dasha:   'forest',
-  Zoya:    'vermilion',
-  Borya:   'indigo',
-  Mila:    'teal',
-  Seva:    'rose',
-  Kira:    'cerulean',
+// ─── Guard identity color map ────────────────────────────────────────────────
+// Maps each guard name to their CSS variable key prefix and exact border color.
+// Used across: switcher active state, card top border, header name, session log.
+const GUARD_COLOR_MAP = {
+  Alek:    { key: 'gold',      border: 'var(--c-guard-gold-border)',      bg: 'var(--c-guard-gold-bg)',      text: 'var(--c-guard-gold-text)'      },
+  Grigory: { key: 'amber',     border: 'var(--c-guard-amber-border)',     bg: 'var(--c-guard-amber-bg)',     text: 'var(--c-guard-amber-text)'     },
+  Dasha:   { key: 'forest',    border: 'var(--c-guard-forest-border)',    bg: 'var(--c-guard-forest-bg)',    text: 'var(--c-guard-forest-text)'    },
+  Zoya:    { key: 'vermilion', border: 'var(--c-guard-vermilion-border)', bg: 'var(--c-guard-vermilion-bg)', text: 'var(--c-guard-vermilion-text)' },
+  Borya:   { key: 'indigo',    border: 'var(--c-guard-indigo-border)',    bg: 'var(--c-guard-indigo-bg)',    text: 'var(--c-guard-indigo-text)'    },
+  Mila:    { key: 'teal',      border: 'var(--c-guard-teal-border)',      bg: 'var(--c-guard-teal-bg)',      text: 'var(--c-guard-teal-text)'      },
+  Seva:    { key: 'rose',      border: 'var(--c-guard-rose-border)',      bg: 'var(--c-guard-rose-bg)',      text: 'var(--c-guard-rose-text)'      },
+  Kira:    { key: 'cerulean',  border: 'var(--c-guard-cerulean-border)',  bg: 'var(--c-guard-cerulean-bg)',  text: 'var(--c-guard-cerulean-text)'  },
 };
+const FALLBACK_COLOR = { key: 'gold', border: 'var(--c-guard-gold-border)', bg: 'var(--c-guard-gold-bg)', text: 'var(--c-guard-gold-text)' };
 
-// Inline SVG settings icon — consistent cross-platform rendering vs ⚙ Unicode
+// Build a regex that matches any guard name as a whole word
+const ALL_GUARD_NAMES = Object.keys(GUARD_COLOR_MAP);
+const GUARD_NAME_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
+
+// Replaces guard name occurrences in log messages with colored spans
+function colorizeLogMessage(message) {
+  return message.replace(GUARD_NAME_REGEX, (match) => {
+    const color = GUARD_COLOR_MAP[match];
+    if (!color) return `<strong>${match}</strong>`;
+    return `<span class="log-name-${color.key}">${match}</span>`;
+  });
+}
+
+// Inline SVG settings icon
 function SettingsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -45,21 +58,22 @@ export default function App() {
 
   const activeIdx = state.activeGuardIdx ?? 0;
   const activeGuard = state.guards[activeIdx];
+  const activeColor = GUARD_COLOR_MAP[activeGuard?.name] ?? FALLBACK_COLOR;
 
   const actions = {
-    adjustGuardHp:        game.adjustGuardHp,
-    adjustGuardMaxHp:     game.adjustGuardMaxHp,
-    setGuardEquipment:    game.setGuardEquipment,
-    setGuardSatchelItem:  game.setGuardSatchelItem,
+    adjustGuardHp:         game.adjustGuardHp,
+    adjustGuardMaxHp:      game.adjustGuardMaxHp,
+    setGuardEquipment:     game.setGuardEquipment,
+    setGuardSatchelItem:   game.setGuardSatchelItem,
     toggleExpandedSatchel: game.toggleExpandedSatchel,
-    adjustChip:           game.adjustChip,
-    resetChips:           game.resetChips,
-    setStartingBlack:     game.setStartingBlack,
-    adjustBaseStat:       game.adjustBaseStat,
-    updateGuard:          game.updateGuard,
-    exportState:          game.exportState,
-    importState:          game.importState,
-    resetState:           game.resetState,
+    adjustChip:            game.adjustChip,
+    resetChips:            game.resetChips,
+    setStartingBlack:      game.setStartingBlack,
+    adjustBaseStat:        game.adjustBaseStat,
+    updateGuard:           game.updateGuard,
+    exportState:           game.exportState,
+    importState:           game.importState,
+    resetState:            game.resetState,
   };
 
   return (
@@ -73,11 +87,7 @@ export default function App() {
           </div>
           <div className="top-bar-tagline">Campaign Tracker · The Isofarian Guard</div>
         </div>
-        <button
-          className="icon-btn"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
-        >
+        <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
           <SettingsIcon />
         </button>
       </div>
@@ -97,27 +107,31 @@ export default function App() {
         ))}
       </div>
 
-      {/* Tab content */}
+      {/* ── Guard tab ── */}
       {tab === 'Guard' && (
         <>
-          {/* Guard switcher — colour dot ties button to card avatar */}
+          {/* Switcher — each active button uses its own guard color */}
           <div className="guard-switcher">
             {state.guards.map((g, i) => {
-              const colorKey = GUARD_COLOR_CLASS[g.name] ?? 'gold';
+              const c = GUARD_COLOR_MAP[g.name] ?? FALLBACK_COLOR;
+              const isActive = activeIdx === i;
               return (
                 <button
                   key={i}
-                  className={`guard-switch-btn${activeIdx === i ? ' active' : ''}`}
+                  className={`guard-switch-btn${isActive ? ' active' : ''}`}
                   onClick={() => game.setActiveGuard(i)}
-                  style={activeIdx !== i ? {} : undefined}
+                  style={isActive ? {
+                    '--guard-btn-bg':     c.bg,
+                    '--guard-btn-border': c.border,
+                    '--guard-btn-text':   c.text,
+                  } : {}}
                 >
                   <span
                     style={{
                       display: 'inline-block',
-                      width: 7,
-                      height: 7,
+                      width: 7, height: 7,
                       borderRadius: '50%',
-                      background: `var(--c-guard-${colorKey}-border)`,
+                      background: c.border,
                       marginRight: 5,
                       verticalAlign: 'middle',
                       flexShrink: 0,
@@ -129,25 +143,23 @@ export default function App() {
               );
             })}
           </div>
-          <GuardPanel guard={activeGuard} guardIdx={activeIdx} actions={actions} />
+
+          {/* Guard card — inject --guard-color so header, name, pips, section labels all match */}
+          <div style={{ '--guard-color': activeColor.border }}>
+            <GuardPanel guard={activeGuard} guardIdx={activeIdx} actions={actions} />
+          </div>
         </>
       )}
 
       {tab === 'Cities' && (
-        <CitiesTab
-          cities={state.cities}
-          toggleCityQuest={game.toggleCityQuest}
-        />
+        <CitiesTab cities={state.cities} toggleCityQuest={game.toggleCityQuest} />
       )}
 
       {tab === 'Stash & stonebound' && (
         <StashTab
-          sil={state.sil}
-          lux={state.lux}
-          setSil={game.setSil}
-          setLux={game.setLux}
-          stash={state.stash}
-          adjustStash={game.adjustStash}
+          sil={state.sil} lux={state.lux}
+          setSil={game.setSil} setLux={game.setLux}
+          stash={state.stash} adjustStash={game.adjustStash}
           stonebound={state.stonebound}
           setStoneboundMax={game.setStoneboundMax}
           addStoneboundLocation={game.addStoneboundLocation}
@@ -170,9 +182,7 @@ export default function App() {
               <span className="log-time">{entry.time}</span>
               <span
                 className="log-text"
-                dangerouslySetInnerHTML={{
-                  __html: entry.message.replace(GUARD_NAME_REGEX, '<strong>$1</strong>'),
-                }}
+                dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
               />
             </div>
           ))}
@@ -183,6 +193,7 @@ export default function App() {
         <SettingsPanel
           state={state}
           actions={actions}
+          guardColorMap={GUARD_COLOR_MAP}
           onClose={() => setSettingsOpen(false)}
         />
       )}
