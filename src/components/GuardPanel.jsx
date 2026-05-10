@@ -9,8 +9,6 @@ const EQUIPMENT_SLOTS = [
   { key: 'item',      label: 'Item',      options: ITEMS      },
 ];
 
-// 8 unique identity colours — no guard shares a colour with another or with
-// the UI accent (gold), keeping avatars visually distinct from active states.
 const GUARD_COLORS = {
   Alek:    'gold',
   Grigory: 'amber',
@@ -23,7 +21,6 @@ const GUARD_COLORS = {
 };
 const FALLBACK_COLORS = ['gold', 'amber', 'forest', 'vermilion', 'indigo', 'teal', 'rose', 'cerulean'];
 
-// Short role descriptors replace the redundant "Guard · active" sub-line
 const GUARD_ROLES = {
   Alek:    'The Vanguard',
   Grigory: 'The Warden',
@@ -35,8 +32,43 @@ const GUARD_ROLES = {
   Kira:    'The Arcanist',
 };
 
-function initials(name) {
-  return name.slice(0, 2).toUpperCase();
+// ─── Hero images ────────────────────────────────────────────────────────────
+// Place portrait files in public/guards/ named exactly as below.
+// Recommended: square crop, 80×80px or larger, JPG or PNG.
+// The component falls back to initials automatically if the file is missing.
+const BASE = '/isofarian-companion/guards/';
+const GUARD_IMAGES = {
+  Alek:    `${BASE}alek.jpg`,
+  Grigory: `${BASE}grigory.jpg`,
+  Dasha:   `${BASE}dasha.jpg`,
+  Zoya:    `${BASE}zoya.jpg`,
+  Borya:   `${BASE}borya.jpg`,
+  Mila:    `${BASE}mila.jpg`,
+  Seva:    `${BASE}seva.jpg`,
+  Kira:    `${BASE}kira.jpg`,
+};
+
+function initials(name) { return name.slice(0, 2).toUpperCase(); }
+
+function GuardAvatar({ name, colorClass }) {
+  const src = GUARD_IMAGES[name];
+  return (
+    <div className={`guard-avatar ${colorClass}`} style={{ padding: 0, overflow: 'hidden' }}>
+      <img
+        src={src}
+        alt={name}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 'inherit' }}
+        onError={e => {
+          // Swap to initials if the image file doesn't exist yet
+          const el = e.currentTarget.parentElement;
+          e.currentTarget.remove();
+          el.textContent = initials(name);
+          el.style.padding = '';
+          el.style.overflow = '';
+        }}
+      />
+    </div>
+  );
 }
 
 export function GuardPanel({ guard, guardIdx, actions }) {
@@ -62,7 +94,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
     <div className="card guard-card">
       {/* Header */}
       <div className="guard-header">
-        <div className={`guard-avatar ${color}`}>{initials(guard.name)}</div>
+        <GuardAvatar name={guard.name} colorClass={color} />
         <div>
           <div className="guard-name">{guard.name}</div>
           <div className="guard-role">{role}</div>
@@ -174,37 +206,11 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       <div className="divider" />
 
-      {/* Speaking Stones */}
-      {guard.stones && guard.stones.length > 0 && (
-        <>
-          <div className="sec-label">Speaking stones</div>
-          <div className="stones-row">
-            {guard.stones.map((stone, si) => (
-              <div
-                key={si}
-                className={`stone-pill ${stone.state ?? 'ready'}`}
-                onClick={() => actions.updateGuard && actions.updateGuard(guardIdx, 'stones',
-                  guard.stones.map((s, i) => i === si
-                    ? { ...s, state: s.state === 'ready' ? 'cooling' : 'ready' }
-                    : s
-                  )
-                )}
-              >
-                <div className="stone-dot" />
-                Stone {si + 1}
-              </div>
-            ))}
-          </div>
-          <div className="stone-hint">Tap to toggle ready / cooling</div>
-          <div className="divider" />
-        </>
-      )}
-
-      {/* Chip Bag */}
+      {/* Chip Bag — all rows use the same neutral style; the chip name carries the colour identity */}
       <div className="sec-label">Chip bag</div>
       <div className="chips-grid">
-        {CHIP_TYPES.map(({ id, label, color: chipColor }) => (
-          <div key={id} className={`chip-row ${chipColor}`}>
+        {CHIP_TYPES.map(({ id, label }) => (
+          <div key={id} className="chip-row">
             <span className="chip-name">{label}</span>
             <div className="chip-controls">
               <button className="chip-btn" onClick={() => adjustChip(guardIdx, id, -1)}>−</button>
