@@ -1,14 +1,13 @@
 import { useState, useCallback } from 'react';
-import { createInitialState, SATCHEL_EXPANDED_SIZE, MAX_STONES, MAX_HP } from '../data/constants';
+import { createInitialState } from '../data/constants';
 
 const STORAGE_KEY = 'guards_ledger_v1';
 const LEGACY_KEY = 'isofarian_companion_v1';
 
-// Default values for every guard field. Any field missing from a saved guard
-// gets filled in from here, making all migrations forward-compatible.
+// Default values for every guard field — inlined to avoid any import issues.
 const GUARD_FIELD_DEFAULTS = {
-  hp: MAX_HP,
-  maxHp: MAX_HP,
+  hp: 20,
+  maxHp: 20,
   apGray: 3,
   apTemp: 0,
   baseAtk: 2,
@@ -17,7 +16,7 @@ const GUARD_FIELD_DEFAULTS = {
   expandedSatchel: false,
   satchel: Array(8).fill(null).map(() => ({ item: '', qty: 1 })),
   equipment: { weapon: '', armor: '', accessory: '', item: '' },
-  stones: Array(MAX_STONES).fill(null).map(() => ({ state: 'ready', cooldownRound: null })),
+  stones: Array(4).fill(null).map(() => ({ state: 'ready', cooldownRound: null })),
   chips: { black: 8, green: 0, red: 0, weaken: 0, break: 0, freeze: 0, poison: 0, corrupt: 0 },
   startingBlack: 8,
 };
