@@ -196,7 +196,7 @@ export function useGameState() {
   })), [setState]);
 
   const addStoneboundLocation = useCallback(() => setState(s => {
-    const locations = [...s.stonebound.locations, { type: 'City', name: '', cubes: 1 }];
+    const locations = [...s.stonebound.locations, { type: '', selection: '', count: 1 }];
     return { ...s, stonebound: { ...s.stonebound, locations } };
   }), [setState]);
 
