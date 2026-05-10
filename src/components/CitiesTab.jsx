@@ -1,6 +1,8 @@
-// All cities share the app accent color — consistent, restrained, professional.
-// Color identifies guards (characters); cities are locations and don't need personalities.
-const CITY_COLOR = 'var(--c-accent)';
+// Cities use a dedicated stone-ochre accent — distinct from all 8 guard colors.
+// Warmer and earthier than Grigory's bright amber (#ba7517), cooler and more
+// muted than the steel blue accent (#3d4a6b) used for UI chrome.
+// This color has no guard association and reads as "place" rather than "character".
+const CITY_COLOR = 'var(--c-city)';
 const CITY_COLORS = {
   Mir: CITY_COLOR, Razdor: CITY_COLOR, Ryba: CITY_COLOR,
   Silny: CITY_COLOR, Strofa: CITY_COLOR, Vouno: CITY_COLOR,

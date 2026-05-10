@@ -25,7 +25,6 @@ export function StashTab({
   const [search, setSearch] = useState('');
   const [silStep, setSilStep] = useState(1);
   const [luxStep, setLuxStep] = useState(1);
-  const [addingItem, setAddingItem] = useState(false);
   const [addSearch, setAddSearch] = useState('');
 
   const locations = stonebound.locations ?? [];
@@ -45,7 +44,6 @@ export function StashTab({
   function handleAddItem(item) {
     adjustStash(item, 1);
     setAddSearch('');
-    setAddingItem(false);
   }
 
   const activeByCategory = MATERIAL_CATEGORIES
@@ -171,46 +169,10 @@ export function StashTab({
 
       {/* ── Fort Istra Stash ── */}
       <div className="card">
-        <div className="flex items-center justify-between mb-2">
-          <div className="card-title">Fort Istra stash</div>
-          {!addingItem && (
-            <button className="stash-add-btn" onClick={() => setAddingItem(true)}>+ Add item</button>
-          )}
-        </div>
+        <div className="card-title mb-2">Fort Istra stash</div>
 
-        {/* Add item search */}
-        {addingItem && (
-          <div className="stash-add-wrap">
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                className="stash-search"
-                style={{ marginBottom: 0, flex: 1 }}
-                type="text"
-                placeholder="Search to add…"
-                value={addSearch}
-                onChange={e => setAddSearch(e.target.value)}
-                autoFocus
-              />
-              <button className="stash-cancel-btn" onClick={() => { setAddingItem(false); setAddSearch(''); }}>Cancel</button>
-            </div>
-            {addResults.length > 0 && (
-              <div className="stash-add-results">
-                {addResults.map(({ item, category }) => (
-                  <button key={item} className="stash-add-result" onClick={() => handleAddItem(item)}>
-                    <span>{item}</span>
-                    <span className="stash-add-cat">{category}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {addSearch.length > 0 && addResults.length === 0 && (
-              <div className="text-hint text-sm" style={{ padding: '8px 0' }}>No items found.</div>
-            )}
-          </div>
-        )}
-
-        {/* Filter search */}
-        {!addingItem && activeItems.length > 0 && (
+        {/* Filter — always visible when there are items */}
+        {activeItems.length > 0 && (
           <input
             className="stash-search"
             type="text"
@@ -221,21 +183,19 @@ export function StashTab({
         )}
 
         {/* Empty state */}
-        {activeItems.length === 0 && !addingItem && (
+        {activeItems.length === 0 && (
           <div className="text-hint text-sm" style={{ padding: '8px 0' }}>
-            No items in stash. Tap "+ Add item" to get started.
+            No items in stash yet.
           </div>
         )}
 
         {/* Category bands + item rows */}
         {filteredCategories.map(cat => (
           <div key={cat.label}>
-            {/* Full-bleed tinted category header */}
             <div className="stash-category-header">
               <span className="stash-category-label">{cat.label}</span>
               <span className="stash-category-count">{cat.items.length} item{cat.items.length !== 1 ? 's' : ''}</span>
             </div>
-
             {cat.items.map(item => (
               <div key={item} className="stash-row">
                 <span className="stash-row-name">{item}</span>
@@ -248,6 +208,32 @@ export function StashTab({
             ))}
           </div>
         ))}
+
+        {/* Add item — always at the bottom, clearly a separate action from filtering */}
+        <div className="stash-add-panel">
+          <div className="stash-add-panel-label">Add item</div>
+          <input
+            className="stash-search"
+            style={{ marginBottom: 0 }}
+            type="text"
+            placeholder="Search materials to add…"
+            value={addSearch}
+            onChange={e => setAddSearch(e.target.value)}
+          />
+          {addResults.length > 0 && (
+            <div className="stash-add-results" style={{ marginTop: 6 }}>
+              {addResults.map(({ item, category }) => (
+                <button key={item} className="stash-add-result" onClick={() => handleAddItem(item)}>
+                  <span>{item}</span>
+                  <span className="stash-add-cat">{category}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {addSearch.length > 0 && addResults.length === 0 && (
+            <div className="text-hint text-sm" style={{ paddingTop: 8 }}>No items found.</div>
+          )}
+        </div>
       </div>
     </>
   );

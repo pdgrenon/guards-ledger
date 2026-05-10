@@ -21,6 +21,10 @@
   --c-accent-bg:   #eef0f5;
   --c-accent-text: #2d3549;
 
+  /* City accent — stone ochre: warmer than accent, earthier than amber,
+     no association with any guard color; reads as "place" not "character" */
+  --c-city: #8a6f3e;
+
   /* Backward-compat aliases */
   --c-purple:      var(--c-accent);
   --c-purple-bg:   var(--c-accent-bg);
@@ -103,6 +107,8 @@
     --c-purple:      var(--c-accent);
     --c-purple-bg:   var(--c-accent-bg);
     --c-purple-text: var(--c-accent-text);
+
+    --c-city: #b8945a;
 
     --c-red:      #f0997b;
     --c-red-bg:   #4a1b0c;
@@ -867,6 +873,24 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 .stash-add-wrap { margin-bottom: 10px; }
+
+/* Add item panel — always visible at bottom of stash card, clearly distinct from filter */
+.stash-add-panel {
+  margin: 12px -12px -12px;
+  padding: 10px 12px 12px;
+  border-top: 1px dashed var(--c-border2);
+  background: var(--c-surface2);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.stash-add-panel-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--c-text2);
+  margin-bottom: 8px;
+  font-family: var(--font-ui);
+}
 .stash-add-results {
   border: 0.5px solid var(--c-border2);
   border-radius: var(--radius-md);
