@@ -2,23 +2,24 @@
 
 /* ─── SCHEME B: PARCHMENT & INK ─────────────────────────────────────────── */
 :root {
-  /* Backgrounds */
-  --c-bg:      #fdf8f2;
-  --c-surface: #faf4ea;
-  --c-surface2: #f0e6d0;
+  /* Backgrounds — page is near-white with a faint warm tint;
+     surface2 is only a shade darker, not tan/brown */
+  --c-bg:       #fdf8f2;
+  --c-surface:  #ffffff;
+  --c-surface2: #f8f3ea;
 
-  /* Borders — warm brown-tinted */
-  --c-border:  rgba(125, 90, 46, 0.18);
-  --c-border2: rgba(125, 90, 46, 0.34);
+  /* Borders — very subtle warm tint, not visibly brown */
+  --c-border:  rgba(125, 90, 46, 0.12);
+  --c-border2: rgba(125, 90, 46, 0.24);
 
-  /* Text */
+  /* Text — primary is deep ink; secondary is readable warm gray, not brown */
   --c-text:  #2b1f0e;
-  --c-text2: #6b4e2a;
+  --c-text2: #5c4a30;
   --c-text3: #9a7d5a;
 
-  /* Accent — antique gold (replaces purple as the primary UI accent) */
+  /* Accent — antique gold: used sparingly so it stands out clearly */
   --c-accent:      #7d5a2e;
-  --c-accent-bg:   #f4ede0;
+  --c-accent-bg:   #faf3e6;
   --c-accent-text: #4a3110;
 
   /* Backward-compat aliases so any rule still referencing --c-purple works */
@@ -42,7 +43,7 @@
   --c-amber-text: #633806;
 
   /* Semantic — gray chips */
-  --c-gray-bg:   #f0e6d0;
+  --c-gray-bg:   #f8f3ea;
   --c-gray-text: #4a3110;
 
   /* Pip colours */
@@ -101,16 +102,16 @@
 /* ─── DARK MODE (auto via prefers-color-scheme) ─────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg:      #201710;
-    --c-surface: #2a1e12;
-    --c-surface2: #352617;
+    --c-bg:      #1c1710;
+    --c-surface: #232018;
+    --c-surface2: #2c2820;
 
-    --c-border:  rgba(200, 160, 90, 0.14);
-    --c-border2: rgba(200, 160, 90, 0.28);
+    --c-border:  rgba(200, 160, 90, 0.12);
+    --c-border2: rgba(200, 160, 90, 0.24);
 
     --c-text:  #f0e8d8;
-    --c-text2: #c8a87a;
-    --c-text3: #8a6b48;
+    --c-text2: #b89a72;
+    --c-text3: #7a6040;
 
     --c-accent:      #c4952a;
     --c-accent-bg:   #2e2010;
