@@ -1,89 +1,72 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ─── SCHEME B: PARCHMENT & INK ─────────────────────────────────────────── */
+/* ─── SCHEME A: SLATE & IRON ─────────────────────────────────────────────── */
 :root {
-  /* Backgrounds — page is near-white with a faint warm tint;
-     surface2 is only a shade darker, not tan/brown */
-  --c-bg:       #fdf8f2;
+  /* Backgrounds — warm off-white page, white cards, light gray fills */
+  --c-bg:       #f5f4f0;
   --c-surface:  #ffffff;
-  --c-surface2: #f8f3ea;
+  --c-surface2: #edecea;
 
-  /* Borders — very subtle warm tint, not visibly brown */
-  --c-border:  rgba(125, 90, 46, 0.12);
-  --c-border2: rgba(125, 90, 46, 0.24);
+  /* Borders — neutral, clearly visible without being heavy */
+  --c-border:  rgba(0, 0, 0, 0.10);
+  --c-border2: rgba(0, 0, 0, 0.20);
 
-  /* Text — primary is deep ink; secondary is readable warm gray, not brown */
-  --c-text:  #2b1f0e;
-  --c-text2: #5c4a30;
-  --c-text3: #9a7d5a;
+  /* Text — near-black primary; dark gray secondary (7:1); medium gray hints (4.6:1) */
+  --c-text:  #1e1e1c;
+  --c-text2: #5a5856;
+  --c-text3: #8a8880;
 
-  /* Accent — antique gold: used sparingly so it stands out clearly */
-  --c-accent:      #7d5a2e;
-  --c-accent-bg:   #faf3e6;
-  --c-accent-text: #4a3110;
+  /* Accent — steel blue: distinct from all guard colours and semantic colours */
+  --c-accent:      #3d4a6b;
+  --c-accent-bg:   #eef0f5;
+  --c-accent-text: #2d3549;
 
-  /* Backward-compat aliases so any rule still referencing --c-purple works */
+  /* Backward-compat aliases */
   --c-purple:      var(--c-accent);
   --c-purple-bg:   var(--c-accent-bg);
   --c-purple-text: var(--c-accent-text);
 
-  /* Semantic — HP / danger (vermilion) */
-  --c-red:      #b83a1c;
+  /* Semantic — HP / danger */
+  --c-red:      #c94b28;
   --c-red-bg:   #faece7;
-  --c-red-text: #6b1f0c;
+  --c-red-text: #712b13;
 
-  /* Semantic — AP / success (forest) */
+  /* Semantic — AP / success */
   --c-green:      #3b6d11;
   --c-green-bg:   #eaf3de;
   --c-green-text: #27500a;
 
-  /* Semantic — stones cooling (amber) */
+  /* Semantic — stones cooling */
   --c-amber:      #ba7517;
   --c-amber-bg:   #faeeda;
   --c-amber-text: #633806;
 
   /* Semantic — gray chips */
-  --c-gray-bg:   #f8f3ea;
-  --c-gray-text: #4a3110;
+  --c-gray-bg:   #edecea;
+  --c-gray-text: #444441;
 
   /* Pip colours */
-  --c-hp:       #b83a1c;
-  --c-ap-gray:  #9a8068;
+  --c-hp:       #c94b28;
+  --c-ap-gray:  #888780;
   --c-ap-green: #4a7c3f;
 
-  /* ── Guard identity colours (8 unique, no repeats) ── */
-  /* Alek    — gold (matches accent) */
-  --c-guard-gold-bg:    var(--c-accent-bg);
-  --c-guard-gold-border: var(--c-accent);
-  --c-guard-gold-text:  var(--c-accent-text);
+  /* ── Guard identity colours — 8 unique, none matching the steel-blue accent ── */
+  /* Alek    — steel (matches accent) */
+  --c-guard-gold-bg:         #eef0f5; --c-guard-gold-border:      #3d4a6b; --c-guard-gold-text:        #2d3549;
   /* Grigory — amber */
-  --c-guard-amber-bg:    #faeeda;
-  --c-guard-amber-border: #ba7517;
-  --c-guard-amber-text:  #633806;
+  --c-guard-amber-bg:        #faeeda; --c-guard-amber-border:     #ba7517; --c-guard-amber-text:       #633806;
   /* Dasha   — forest */
-  --c-guard-forest-bg:    #eaf3de;
-  --c-guard-forest-border: #3b6d11;
-  --c-guard-forest-text:  #27500a;
-  /* Zoya    — vermilion */
-  --c-guard-vermilion-bg:    #faece7;
-  --c-guard-vermilion-border: #b83a1c;
-  --c-guard-vermilion-text:  #6b1f0c;
-  /* Borya   — indigo */
-  --c-guard-indigo-bg:    #eeedfe;
-  --c-guard-indigo-border: #534ab7;
-  --c-guard-indigo-text:  #3c3489;
+  --c-guard-forest-bg:       #eaf3de; --c-guard-forest-border:    #3b6d11; --c-guard-forest-text:      #27500a;
+  /* Zoya    — coral */
+  --c-guard-vermilion-bg:    #faece7; --c-guard-vermilion-border: #c94b28; --c-guard-vermilion-text:   #712b13;
+  /* Borya   — violet */
+  --c-guard-indigo-bg:       #f0edf8; --c-guard-indigo-border:    #6a5acd; --c-guard-indigo-text:      #3c2a7e;
   /* Mila    — teal */
-  --c-guard-teal-bg:    #e1f5ee;
-  --c-guard-teal-border: #1d9e75;
-  --c-guard-teal-text:  #085041;
+  --c-guard-teal-bg:         #e1f5ee; --c-guard-teal-border:      #1d9e75; --c-guard-teal-text:        #085041;
   /* Seva    — rose */
-  --c-guard-rose-bg:    #fbeaf0;
-  --c-guard-rose-border: #d4537e;
-  --c-guard-rose-text:  #72243e;
-  /* Kira    — cerulean */
-  --c-guard-cerulean-bg:    #e6f1fb;
-  --c-guard-cerulean-border: #378add;
-  --c-guard-cerulean-text:  #0c447c;
+  --c-guard-rose-bg:         #fbeaf0; --c-guard-rose-border:      #d4537e; --c-guard-rose-text:        #72243e;
+  /* Kira    — sky */
+  --c-guard-cerulean-bg:     #e6f1fb; --c-guard-cerulean-border:  #378add; --c-guard-cerulean-text:    #0c447c;
 
   /* Radii */
   --radius-sm: 6px;
@@ -94,15 +77,68 @@
   --font-display: 'Cinzel', Georgia, serif;
   --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 
-  /* Shadows — warm-tinted */
-  --shadow-card:     0 1px 4px rgba(100, 60, 10, 0.09), 0 0 0 1px rgba(100, 60, 10, 0.06);
-  --shadow-elevated: 0 4px 16px rgba(100, 60, 10, 0.13), 0 1px 4px rgba(100, 60, 10, 0.08);
+  /* Shadows */
+  --shadow-card:     0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── DARK MODE ──────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg:       #1a1a18;
+    --c-surface:  #242422;
+    --c-surface2: #2e2e2b;
+
+    --c-border:  rgba(255, 255, 255, 0.09);
+    --c-border2: rgba(255, 255, 255, 0.18);
+
+    --c-text:  #f0ede6;
+    --c-text2: #a8a6a0;
+    --c-text3: #6a6866;
+
+    --c-accent:      #7b8fc4;
+    --c-accent-bg:   #1e2438;
+    --c-accent-text: #c8d4f0;
+
+    --c-purple:      var(--c-accent);
+    --c-purple-bg:   var(--c-accent-bg);
+    --c-purple-text: var(--c-accent-text);
+
+    --c-red:      #f0997b;
+    --c-red-bg:   #4a1b0c;
+    --c-red-text: #f5c4b3;
+
+    --c-green:      #97c459;
+    --c-green-bg:   #173404;
+    --c-green-text: #c0dd97;
+
+    --c-amber:      #ef9f27;
+    --c-amber-bg:   #412402;
+    --c-amber-text: #fac775;
+
+    --c-gray-bg:   #2e2e2b;
+    --c-gray-text: #d3d1c7;
+
+    --c-hp:       #f0997b;
+    --c-ap-gray:  #b4b2a9;
+    --c-ap-green: #97c459;
+
+    --c-guard-gold-bg:         #1e2438; --c-guard-gold-border:      #7b8fc4; --c-guard-gold-text:        #c8d4f0;
+    --c-guard-amber-bg:        #412402; --c-guard-amber-border:     #ef9f27; --c-guard-amber-text:       #fac775;
+    --c-guard-forest-bg:       #173404; --c-guard-forest-border:    #97c459; --c-guard-forest-text:      #c0dd97;
+    --c-guard-vermilion-bg:    #4a1b0c; --c-guard-vermilion-border: #f0997b; --c-guard-vermilion-text:   #f5c4b3;
+    --c-guard-indigo-bg:       #26215c; --c-guard-indigo-border:    #7f77dd; --c-guard-indigo-text:      #cecbf6;
+    --c-guard-teal-bg:         #04342c; --c-guard-teal-border:      #1d9e75; --c-guard-teal-text:        #9fe1cb;
+    --c-guard-rose-bg:         #4b1528; --c-guard-rose-border:      #d4537e; --c-guard-rose-text:        #f4c0d1;
+    --c-guard-cerulean-bg:     #042c53; --c-guard-cerulean-border:  #378add; --c-guard-cerulean-text:    #b5d4f4;
+
+    --shadow-card:     0 1px 4px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.04);
+    --shadow-elevated: 0 4px 16px rgba(0,0,0,0.40), 0 1px 4px rgba(0,0,0,0.20);
+  }
 }
 
 /* ─── BASE ───────────────────────────────────────────────────────────────── */
-/* Parchment & Ink is light-only — pin color-scheme so dark-mode OS
-   settings do not invert browser chrome or form controls */
-html { font-size: 16px; color-scheme: light; }
+html { font-size: 16px; }
 
 body {
   font-family: var(--font-ui);
@@ -205,7 +241,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: var(--font-display);
   font-size: 13px;
   font-weight: 400;
-  font-style: italic;
   color: var(--c-text2);
 }
 
