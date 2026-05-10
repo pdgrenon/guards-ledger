@@ -1,8 +1,6 @@
-import { CHIP_TYPES } from '../data/constants';
-
 export function SettingsPanel({ state, actions, onClose }) {
   const { guards } = state;
-  const { adjustGuardMaxHp, setStartingBlack, updateGuard, exportState, importState, resetState, adjustBaseStat } = actions;
+  const { adjustGuardMaxHp, setStartingBlack, exportState, importState, resetState, adjustBaseStat } = actions;
 
   function handleImport(e) {
     const file = e.target.files[0];
@@ -60,30 +58,12 @@ export function SettingsPanel({ state, actions, onClose }) {
             <div className="settings-row">
               <div>
                 <div className="settings-label">Starting black chips</div>
-                <div className="settings-sub">Used when "End battle" resets the bag</div>
+                <div className="settings-sub">Value black resets to when "Reset chips" is tapped</div>
               </div>
               <div className="flex items-center gap-2">
                 <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack - 1)}>−</button>
                 <span className="adj-val">{guard.startingBlack}</span>
                 <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack + 1)}>+</button>
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <div>
-                <div className="settings-label">Speaking stone slots</div>
-                <div className="settings-sub">Number of stone slots on ability board</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="adj-btn" onClick={() => {
-                  const stones = guard.stones.slice(0, Math.max(1, guard.stones.length - 1));
-                  updateGuard(gi, 'stones', stones);
-                }}>−</button>
-                <span className="adj-val">{guard.stones.length}</span>
-                <button className="adj-btn" onClick={() => {
-                  const stones = [...guard.stones, { state: 'ready', cooldownRound: null }];
-                  updateGuard(gi, 'stones', stones);
-                }}>+</button>
               </div>
             </div>
           </div>

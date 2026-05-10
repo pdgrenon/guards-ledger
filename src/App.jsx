@@ -6,9 +6,8 @@ import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
 import './index.css';
 
-const TABS = ['Guards', 'Cities', 'Stash & stonebound', 'Session log'];
+const TABS = ['Guard', 'Cities', 'Stash & stonebound', 'Session log'];
 
-// Bottom sheet for editing Sil or Lux
 function ResourceSheet({ label, value, step, setStep, onAdjust, onClose }) {
   return (
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -35,7 +34,7 @@ function ResourceSheet({ label, value, step, setStep, onAdjust, onClose }) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('Guards');
+  const [tab, setTab] = useState('Guard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [silSheetOpen, setSilSheetOpen] = useState(false);
   const [luxSheetOpen, setLuxSheetOpen] = useState(false);
@@ -44,18 +43,18 @@ export default function App() {
   const game = useGameState();
   const { state } = game;
 
+  const activeIdx = state.activeGuardIdx ?? 0;
+  const activeGuard = state.guards[activeIdx];
+
   const actions = {
     adjustGuardHp: game.adjustGuardHp,
     adjustGuardMaxHp: game.adjustGuardMaxHp,
-    adjustGuardAp: game.adjustGuardAp,
     setGuardEquipment: game.setGuardEquipment,
     setGuardSatchelItem: game.setGuardSatchelItem,
     toggleExpandedSatchel: game.toggleExpandedSatchel,
-    useStone: game.useStone,
     adjustChip: game.adjustChip,
-    endBattle: game.endBattle,
+    resetChips: game.resetChips,
     setStartingBlack: game.setStartingBlack,
-    adjustTempDef: game.adjustTempDef,
     adjustBaseStat: game.adjustBaseStat,
     updateGuard: game.updateGuard,
     exportState: game.exportState,
@@ -65,7 +64,7 @@ export default function App() {
 
   return (
     <div>
-      {/* Combined top bar */}
+      {/* Top bar */}
       <div className="top-bar">
         <span className="font-medium" style={{ fontSize: 14, marginRight: 'auto' }}>Isofarian Guard</span>
 
@@ -79,11 +78,20 @@ export default function App() {
           <span className="resource-pill-value">{state.lux}</span>
         </button>
 
-        <button className="end-round-btn" onClick={game.endRound} title="End round and advance">
-          Rnd {state.round} ›
-        </button>
-
         <button className="icon-btn" onClick={() => setSettingsOpen(true)} title="Settings">⚙</button>
+      </div>
+
+      {/* Guard switcher */}
+      <div className="guard-switcher">
+        {state.guards.map((g, i) => (
+          <button
+            key={i}
+            className={`guard-switch-btn${activeIdx === i ? ' active' : ''}`}
+            onClick={() => game.setActiveGuard(i)}
+          >
+            {g.name}
+          </button>
+        ))}
       </div>
 
       {/* Scrollable single-row tabs */}
@@ -96,12 +104,8 @@ export default function App() {
       </div>
 
       {/* Tab content */}
-      {tab === 'Guards' && (
-        <div className="guards-grid">
-          {state.guards.map((guard, gi) => (
-            <GuardPanel key={gi} guard={guard} guardIdx={gi} actions={actions} />
-          ))}
-        </div>
+      {tab === 'Guard' && (
+        <GuardPanel guard={activeGuard} guardIdx={activeIdx} actions={actions} />
       )}
 
       {tab === 'Cities' && (
@@ -141,7 +145,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Sil sheet */}
       {silSheetOpen && (
         <ResourceSheet
           label="Sil"
@@ -153,7 +156,6 @@ export default function App() {
         />
       )}
 
-      {/* Lux sheet */}
       {luxSheetOpen && (
         <ResourceSheet
           label="Lux Essence"
@@ -165,7 +167,6 @@ export default function App() {
         />
       )}
 
-      {/* Settings panel */}
       {settingsOpen && (
         <SettingsPanel
           state={state}

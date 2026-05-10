@@ -7,50 +7,37 @@ export const CITIES = [
   { id: 'vouno', name: 'Vouno' },
 ];
 
-export const GUARDS = [
-  'Alek', 'Grigory', 'Dasha', 'Zoya', 'Borya', 'Mila', 'Seva', 'Kira',
-];
+export const GUARDS = ['Alek', 'Grigory'];
 
 export const CHIP_TYPES = [
-  { id: 'black', label: 'Black', color: 'chip-black' },
-  { id: 'green', label: 'Green', color: 'chip-green' },
-  { id: 'red', label: 'Red', color: 'chip-red' },
-  { id: 'weaken', label: 'Weaken', color: 'chip-purple' },
-  { id: 'break', label: 'Break', color: 'chip-purple' },
-  { id: 'freeze', label: 'Freeze', color: 'chip-purple' },
-  { id: 'poison', label: 'Poison', color: 'chip-purple' },
-  { id: 'corrupt', label: 'Corrupt', color: 'chip-purple' },
+  { id: 'black',  label: 'Black',  color: 'chip-black'  },
+  { id: 'green',  label: 'Green',  color: 'chip-green'  },
+  { id: 'red',    label: 'Red',    color: 'chip-red'    },
+  { id: 'purple', label: 'Purple', color: 'chip-purple' },
 ];
 
 export const SATCHEL_SIZE = 4;
 export const SATCHEL_EXPANDED_SIZE = 8;
 export const MAX_HP = 20;
-export const MAX_AP = 5;
-export const MAX_STONES = 4;
 export const MAX_PRESTIGE = 3;
 
 const GUARD_DEFAULTS = {
   'Alek':    { baseAtk: 2, baseDef: 1 },
   'Grigory': { baseAtk: 3, baseDef: 2 },
 };
-const FALLBACK_DEFAULTS = { baseAtk: 2, baseDef: 1 };
 
 function makeGuard(name) {
-  const defaults = GUARD_DEFAULTS[name] || FALLBACK_DEFAULTS;
+  const defaults = GUARD_DEFAULTS[name];
   return {
     name,
     hp: MAX_HP,
     maxHp: MAX_HP,
-    apGray: 3,
-    apTemp: 0,
     baseAtk: defaults.baseAtk,
     baseDef: defaults.baseDef,
-    tempDef: 0,
     expandedSatchel: false,
     satchel: Array(SATCHEL_EXPANDED_SIZE).fill(null).map(() => ({ item: '', qty: 1 })),
     equipment: { weapon: '', armor: '', accessory: '', item: '' },
-    stones: Array(MAX_STONES).fill(null).map(() => ({ state: 'ready', cooldownRound: null })),
-    chips: { black: 8, green: 0, red: 0, weaken: 0, break: 0, freeze: 0, poison: 0, corrupt: 0 },
+    chips: { black: 8, green: 0, red: 0, purple: 0 },
     startingBlack: 8,
   };
 }
@@ -69,9 +56,8 @@ export function createInitialState() {
   return {
     sil: 0,
     lux: 0,
-    round: 1,
-    campaign: 1,
-    guards: [makeGuard('Alek'), makeGuard('Grigory')],
+    activeGuardIdx: 0,
+    guards: GUARDS.map(makeGuard),
     cities: CITIES.map(c => makeCity(c.id, c.name)),
     stash: {},
     stonebound: { max: 4, locations: [] },

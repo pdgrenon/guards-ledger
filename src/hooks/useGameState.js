@@ -8,21 +8,43 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw);
-    // Migrate old stonebound slots format to per-location format
+
+    // Migrate stonebound slots format
     if (parsed.stonebound?.slots && !parsed.stonebound.locations) {
       parsed.stonebound = { max: parsed.stonebound.max, locations: [] };
     }
-    // Migrate blueCubes → tempDef on guards
+
+    // Migrate guards: strip removed fields, collapse purple chips
     if (parsed.guards) {
       parsed.guards = parsed.guards.map(g => {
-        if ('blueCubes' in g && !('tempDef' in g)) {
-          const { blueCubes, ...rest } = g;
-          return { ...rest, tempDef: blueCubes };
-        }
-        return g;
+        const { blueCubes, apGray, apTemp, tempDef, stones, ...rest } = g;
+        const oldChips = rest.chips ?? {};
+        const purpleCount =
+          (oldChips.weaken ?? 0) +
+          (oldChips.break  ?? 0) +
+          (oldChips.freeze ?? 0) +
+          (oldChips.poison ?? 0) +
+          (oldChips.corrupt ?? 0);
+        rest.chips = {
+          black:  oldChips.black  ?? 8,
+          green:  oldChips.green  ?? 0,
+          red:    oldChips.red    ?? 0,
+          purple: oldChips.purple ?? purpleCount,
+        };
+        return rest;
       });
     }
-    return parsed;
+
+    // Migrate round / campaign fields out (keep them harmlessly if present,
+    // but strip so state stays clean)
+    const { round, campaign, ...cleanParsed } = parsed;
+
+    // Ensure activeGuardIdx exists
+    if (typeof cleanParsed.activeGuardIdx !== 'number') {
+      cleanParsed.activeGuardIdx = 0;
+    }
+
+    return cleanParsed;
   } catch {
     return createInitialState();
   }
@@ -54,25 +76,21 @@ export function useGameState() {
     });
   }, []);
 
-  // Party resources
-  const setSil = useCallback((delta) => setState(s => addLog({ ...s, sil: Math.max(0, s.sil + delta) }, `Party Sil ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.sil + delta)}`)), [setState]);
-  const setLux = useCallback((delta) => setState(s => addLog({ ...s, lux: Math.max(0, s.lux + delta) }, `Party Lux ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.lux + delta)}`)), [setState]);
+  // Active guard
+  const setActiveGuard = useCallback((idx) => setState(s => ({ ...s, activeGuardIdx: idx })), [setState]);
 
-  // Round management
-  const endRound = useCallback(() => setState(s => {
-    const nextRound = s.round + 1;
-    const guards = s.guards.map(g => ({
-      ...g,
-      tempDef: 0,
-      stones: g.stones.map(stone => {
-        if (stone.state === 'cooling' && stone.cooldownRound !== null && nextRound > stone.cooldownRound) {
-          return { state: 'ready', cooldownRound: null };
-        }
-        return stone;
-      }),
-    }));
-    return addLog({ ...s, round: nextRound, guards }, `Round advanced to ${nextRound}`);
-  }), [setState]);
+  // Party resources
+  const setSil = useCallback((delta) => setState(s =>
+    addLog({ ...s, sil: Math.max(0, s.sil + delta) },
+      `Party Sil ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.sil + delta)}`
+    )
+  ), [setState]);
+
+  const setLux = useCallback((delta) => setState(s =>
+    addLog({ ...s, lux: Math.max(0, s.lux + delta) },
+      `Party Lux ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.lux + delta)}`
+    )
+  ), [setState]);
 
   // Guard mutations
   const updateGuard = useCallback((guardIdx, field, value) => setState(s => {
@@ -95,14 +113,6 @@ export function useGameState() {
     return { ...s, guards };
   }), [setState]);
 
-  const adjustGuardAp = useCallback((guardIdx, apType, delta) => setState(s => {
-    const g = s.guards[guardIdx];
-    const key = apType === 'gray' ? 'apGray' : 'apTemp';
-    const newVal = Math.min(5, Math.max(0, g[key] + delta));
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, [key]: newVal } : g2);
-    return { ...s, guards };
-  }), [setState]);
-
   const setGuardEquipment = useCallback((guardIdx, slot, value) => setState(s => {
     const guards = s.guards.map((g, i) => i === guardIdx
       ? { ...g, equipment: { ...g.equipment, [slot]: value } } : g);
@@ -121,36 +131,8 @@ export function useGameState() {
   const toggleExpandedSatchel = useCallback((guardIdx) => setState(s => {
     const g = s.guards[guardIdx];
     const expanded = !g.expandedSatchel;
-    const guards = s.guards.map((g2, i) => i === guardIdx
-      ? { ...g2, expandedSatchel: expanded } : g2);
-    return addLog({ ...s, guards }, `${g.name} expanded satchel ${expanded ? 'equipped' : 'removed'}`);
-  }), [setState]);
-
-  const useStone = useCallback((guardIdx, stoneIdx) => setState(s => {
-    const g = s.guards[guardIdx];
-    const stone = g.stones[stoneIdx];
-    // If cooling, toggle back to ready (undo accidental tap)
-    if (stone.state === 'cooling') {
-      const guards = s.guards.map((g2, i) => {
-        if (i !== guardIdx) return g2;
-        const stones = g2.stones.map((st, si) =>
-          si === stoneIdx ? { state: 'ready', cooldownRound: null } : st
-        );
-        return { ...g2, stones };
-      });
-      return addLog({ ...s, guards }, `${g.name} stone ${stoneIdx + 1} reset to ready`);
-    }
-    // If ready, mark as cooling
-    if (stone.state !== 'ready') return s;
-    const cooldownRound = s.round + 1;
-    const guards = s.guards.map((g2, i) => {
-      if (i !== guardIdx) return g2;
-      const stones = g2.stones.map((st, si) =>
-        si === stoneIdx ? { state: 'cooling', cooldownRound } : st
-      );
-      return { ...g2, stones };
-    });
-    return addLog({ ...s, guards }, `${g.name} used stone ${stoneIdx + 1} · cooling until round ${cooldownRound + 1}`);
+    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, expandedSatchel: expanded } : g2);
+    return addLog({ ...s, guards }, `${g.name} satchel ${expanded ? 'expanded' : 'standard'}`);
   }), [setState]);
 
   const adjustChip = useCallback((guardIdx, chipType, delta) => setState(s => {
@@ -164,16 +146,24 @@ export function useGameState() {
     return addLog({ ...s, guards }, msg);
   }), [setState]);
 
-  const endBattle = useCallback((guardIdx) => setState(s => {
+  const resetChips = useCallback((guardIdx) => setState(s => {
     const g = s.guards[guardIdx];
     const guards = s.guards.map((g2, i) => i === guardIdx
       ? { ...g2, chips: { ...g2.chips, black: g2.startingBlack } } : g2);
-    return addLog({ ...s, guards }, `${g.name} battle ended · black chips reset to ${g.startingBlack}`);
+    return addLog({ ...s, guards }, `${g.name} chips reset · black → ${g.startingBlack}`);
   }), [setState]);
 
   const setStartingBlack = useCallback((guardIdx, value) => setState(s => {
     const guards = s.guards.map((g, i) => i === guardIdx
       ? { ...g, startingBlack: Math.max(0, value) } : g);
+    return { ...s, guards };
+  }), [setState]);
+
+  const adjustBaseStat = useCallback((guardIdx, stat, delta) => setState(s => {
+    const g = s.guards[guardIdx];
+    const key = stat === 'atk' ? 'baseAtk' : 'baseDef';
+    const newVal = Math.max(0, (g[key] ?? 0) + delta);
+    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, [key]: newVal } : g2);
     return { ...s, guards };
   }), [setState]);
 
@@ -188,63 +178,41 @@ export function useGameState() {
     const city = s.cities[cityIdx];
     const newVal = !city[field];
     const cities = s.cities.map((c, i) => i === cityIdx ? { ...c, [field]: newVal } : c);
-    const newPrestige = [
-      field === 'puzzleQuestDone' ? newVal : city.puzzleQuestDone,
-      field === 'bounty1Done' ? newVal : city.bounty1Done,
-      field === 'bounty2Done' ? newVal : city.bounty2Done,
-    ].filter(Boolean).length;
-    const label = field === 'puzzleQuestDone' ? 'puzzle quest' : field === 'bounty1Done' ? 'bounty 1' : 'bounty 2';
-    return addLog({ ...s, cities }, `${city.name} ${label} ${newVal ? 'completed' : 'uncompleted'} · prestige ${newPrestige}/3`);
+    return addLog({ ...s, cities }, `${city.name} ${field} → ${newVal ? 'done' : 'undone'}`);
   }), [setState]);
 
   // Stash
-  const adjustStash = useCallback((material, delta) => setState(s => {
-    const current = s.stash[material] ?? 0;
-    const next = Math.max(0, current + delta);
-    const stash = { ...s.stash, [material]: next };
-    return addLog({ ...s, stash }, `Stash ${material} ${delta >= 0 ? '+' : ''}${delta} → ${next}`);
+  const adjustStash = useCallback((itemName, delta) => setState(s => {
+    const current = s.stash[itemName] ?? 0;
+    const newVal = Math.max(0, current + delta);
+    const stash = { ...s.stash, [itemName]: newVal };
+    if (newVal === 0) delete stash[itemName];
+    return addLog({ ...s, stash }, `Stash ${itemName} ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`);
   }), [setState]);
 
   // Stonebound
-  const setStoneboundMax = useCallback((delta) => setState(s => {
-    const newMax = Math.max(1, s.stonebound.max + delta);
-    return { ...s, stonebound: { ...s.stonebound, max: newMax } };
-  }), [setState]);
+  const setStoneboundMax = useCallback((value) => setState(s => ({
+    ...s, stonebound: { ...s.stonebound, max: Math.max(0, value) },
+  })), [setState]);
 
   const addStoneboundLocation = useCallback(() => setState(s => {
-    const locations = [...(s.stonebound.locations ?? []), { type: '', selection: '', count: 1 }];
+    const locations = [...s.stonebound.locations, { type: 'City', name: '', cubes: 1 }];
     return { ...s, stonebound: { ...s.stonebound, locations } };
   }), [setState]);
 
   const removeStoneboundLocation = useCallback((idx) => setState(s => {
-    const locations = (s.stonebound.locations ?? []).filter((_, i) => i !== idx);
+    const locations = s.stonebound.locations.filter((_, i) => i !== idx);
     return { ...s, stonebound: { ...s.stonebound, locations } };
   }), [setState]);
 
   const updateStoneboundLocation = useCallback((idx, field, value) => setState(s => {
-    const locations = (s.stonebound.locations ?? []).map((loc, i) => {
-      if (i !== idx) return loc;
-      const updated = { ...loc, [field]: value };
-      if (field === 'type') updated.selection = '';
-      return updated;
-    });
+    const locations = s.stonebound.locations.map((loc, i) =>
+      i === idx ? { ...loc, [field]: value } : loc
+    );
     return { ...s, stonebound: { ...s.stonebound, locations } };
   }), [setState]);
 
-  const adjustTempDef = useCallback((guardIdx, delta) => setState(s => {
-    const g = s.guards[guardIdx];
-    const newVal = Math.max(0, (g.tempDef ?? 0) + delta);
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, tempDef: newVal } : g2);
-    return { ...s, guards };
-  }), [setState]);
-
-  const adjustBaseStat = useCallback((guardIdx, stat, delta) => setState(s => {
-    const g = s.guards[guardIdx];
-    const key = stat === 'atk' ? 'baseAtk' : 'baseDef';
-    const newVal = Math.max(0, (g[key] ?? 0) + delta);
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, [key]: newVal } : g2);
-    return { ...s, guards };
-  }), [setState]);
+  // Save data
   const exportState = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -276,12 +244,12 @@ export function useGameState() {
 
   return {
     state,
-    setSil, setLux, endRound,
-    adjustGuardHp, adjustGuardMaxHp, adjustGuardAp,
+    setActiveGuard,
+    setSil, setLux,
+    adjustGuardHp, adjustGuardMaxHp,
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,
-    useStone, adjustChip, endBattle, setStartingBlack,
-    adjustTempDef, adjustBaseStat,
-    updateGuard,
+    adjustChip, resetChips, setStartingBlack,
+    adjustBaseStat, updateGuard,
     setCityPrestige, toggleCityQuest,
     adjustStash,
     setStoneboundMax, addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
