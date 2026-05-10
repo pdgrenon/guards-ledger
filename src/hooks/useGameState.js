@@ -1,8 +1,68 @@
 import { useState, useCallback } from 'react';
-import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { createInitialState, SATCHEL_EXPANDED_SIZE, MAX_STONES, MAX_HP } from '../data/constants';
 
 const STORAGE_KEY = 'guards_ledger_v1';
 const LEGACY_KEY = 'isofarian_companion_v1';
+
+// Default values for every guard field. Any field missing from a saved guard
+// gets filled in from here, making all migrations forward-compatible.
+const GUARD_FIELD_DEFAULTS = {
+  hp: MAX_HP,
+  maxHp: MAX_HP,
+  apGray: 3,
+  apTemp: 0,
+  baseAtk: 2,
+  baseDef: 1,
+  tempDef: 0,
+  expandedSatchel: false,
+  satchel: Array(8).fill(null).map(() => ({ item: '', qty: 1 })),
+  equipment: { weapon: '', armor: '', accessory: '', item: '' },
+  stones: Array(MAX_STONES).fill(null).map(() => ({ state: 'ready', cooldownRound: null })),
+  chips: { black: 8, green: 0, red: 0, weaken: 0, break: 0, freeze: 0, poison: 0, corrupt: 0 },
+  startingBlack: 8,
+};
+
+function migrateGuard(g) {
+  // blueCubes → tempDef
+  if ('blueCubes' in g && !('tempDef' in g)) {
+    const { blueCubes, ...rest } = g;
+    g = { ...rest, tempDef: blueCubes };
+  }
+
+  // Fill in any missing fields with safe defaults so the UI never crashes
+  // on undefined.map() or undefined.filter()
+  const migrated = { ...g };
+  for (const [key, defaultVal] of Object.entries(GUARD_FIELD_DEFAULTS)) {
+    if (migrated[key] === undefined || migrated[key] === null) {
+      migrated[key] = defaultVal;
+    }
+  }
+
+  // Ensure nested equipment object has all four slots
+  migrated.equipment = {
+    weapon: '', armor: '', accessory: '', item: '',
+    ...migrated.equipment,
+  };
+
+  // Ensure chips object has all expected keys
+  migrated.chips = {
+    black: 8, green: 0, red: 0,
+    weaken: 0, break: 0, freeze: 0, poison: 0, corrupt: 0,
+    ...migrated.chips,
+  };
+
+  // Ensure stones is a valid array (not null/undefined/non-array)
+  if (!Array.isArray(migrated.stones) || migrated.stones.length === 0) {
+    migrated.stones = Array(MAX_STONES).fill(null).map(() => ({ state: 'ready', cooldownRound: null }));
+  }
+
+  // Ensure satchel is a valid array
+  if (!Array.isArray(migrated.satchel) || migrated.satchel.length === 0) {
+    migrated.satchel = Array(8).fill(null).map(() => ({ item: '', qty: 1 }));
+  }
+
+  return migrated;
+}
 
 function loadState() {
   try {
@@ -13,20 +73,28 @@ function loadState() {
     if (!raw) return createInitialState();
 
     const parsed = JSON.parse(raw);
+
     // Migrate old stonebound slots format to per-location format
     if (parsed.stonebound?.slots && !parsed.stonebound.locations) {
       parsed.stonebound = { max: parsed.stonebound.max, locations: [] };
     }
-    // Migrate blueCubes → tempDef on guards
-    if (parsed.guards) {
-      parsed.guards = parsed.guards.map(g => {
-        if ('blueCubes' in g && !('tempDef' in g)) {
-          const { blueCubes, ...rest } = g;
-          return { ...rest, tempDef: blueCubes };
-        }
-        return g;
-      });
+    if (!parsed.stonebound) {
+      parsed.stonebound = { max: 4, locations: [] };
     }
+
+    // Migrate all guards, filling in any missing fields
+    if (Array.isArray(parsed.guards)) {
+      parsed.guards = parsed.guards.map(migrateGuard);
+    }
+
+    // Ensure top-level fields exist
+    if (!Array.isArray(parsed.cities)) parsed.cities = createInitialState().cities;
+    if (!parsed.stash || typeof parsed.stash !== 'object') parsed.stash = {};
+    if (!Array.isArray(parsed.log)) parsed.log = [];
+    if (typeof parsed.sil !== 'number') parsed.sil = 0;
+    if (typeof parsed.lux !== 'number') parsed.lux = 0;
+    if (typeof parsed.round !== 'number') parsed.round = 1;
+
     return parsed;
   } catch {
     return createInitialState();
