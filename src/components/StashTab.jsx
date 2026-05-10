@@ -3,7 +3,6 @@ import { MATERIAL_CATEGORIES, RESOURCE_NODE_ITEMS, ENEMIES } from '../data/mater
 import { CITIES } from '../data/constants';
 
 const LOCATION_TYPES = ['City', 'Resource node', 'Enemy node'];
-
 const CITY_NAMES = CITIES.map(c => c.name);
 
 function getSelectionOptions(type) {
@@ -14,11 +13,14 @@ function getSelectionOptions(type) {
 }
 
 export function StashTab({
+  sil, lux, setSil, setLux,
   stash, adjustStash,
   stonebound, setStoneboundMax,
   addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
 }) {
   const [search, setSearch] = useState('');
+  const [silStep, setSilStep] = useState(1);
+  const [luxStep, setLuxStep] = useState(1);
 
   const locations = stonebound.locations ?? [];
   const cubesUsed = locations.reduce((sum, loc) => sum + (loc.count || 1), 0);
@@ -27,6 +29,47 @@ export function StashTab({
 
   return (
     <>
+      {/* Party resources */}
+      <div className="card mb-3">
+        <div className="font-medium mb-3" style={{ fontSize: 13 }}>Party resources</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {/* Sil */}
+          <div>
+            <div className="sec-label">Sil</div>
+            <div style={{ fontSize: 32, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1, marginBottom: 8 }}>
+              {sil}
+            </div>
+            <div className="step-selector" style={{ marginBottom: 6 }}>
+              {[1, 5, 10].map(s => (
+                <button key={s} className={`step-btn${silStep === s ? ' active' : ''}`} onClick={() => setSilStep(s)}>{s}</button>
+              ))}
+            </div>
+            <div className="counter-actions">
+              <button className="counter-btn" onClick={() => setSil(-silStep)}>−</button>
+              <button className="counter-btn" onClick={() => setSil(silStep)}>+</button>
+            </div>
+          </div>
+
+          {/* Lux */}
+          <div>
+            <div className="sec-label">Lux Essence</div>
+            <div style={{ fontSize: 32, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1, marginBottom: 8 }}>
+              {lux}
+            </div>
+            <div className="step-selector" style={{ marginBottom: 6 }}>
+              {[1, 5, 10].map(s => (
+                <button key={s} className={`step-btn${luxStep === s ? ' active' : ''}`} onClick={() => setLuxStep(s)}>{s}</button>
+              ))}
+            </div>
+            <div className="counter-actions">
+              <button className="counter-btn" onClick={() => setLux(-luxStep)}>−</button>
+              <button className="counter-btn" onClick={() => setLux(luxStep)}>+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stonebound */}
       <div className="card mb-3">
         <div className="flex items-center justify-between mb-2">

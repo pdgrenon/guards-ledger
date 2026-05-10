@@ -8,38 +8,9 @@ import './index.css';
 
 const TABS = ['Guard', 'Cities', 'Stash & stonebound', 'Session log'];
 
-function ResourceSheet({ label, value, step, setStep, onAdjust, onClose }) {
-  return (
-    <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="settings-panel">
-        <div className="flex items-center justify-between mb-3">
-          <div className="font-medium" style={{ fontSize: 16 }}>{label}</div>
-          <button className="icon-btn" onClick={onClose}>✕</button>
-        </div>
-        <div style={{ textAlign: 'center', fontSize: 48, fontWeight: 500, color: 'var(--c-text)', margin: '12px 0' }}>
-          {value}
-        </div>
-        <div className="step-selector" style={{ marginBottom: 12 }}>
-          {[1, 5, 10].map(s => (
-            <button key={s} className={`step-btn${step === s ? ' active' : ''}`} onClick={() => setStep(s)}>{s}</button>
-          ))}
-        </div>
-        <div className="counter-actions">
-          <button className="counter-btn" style={{ height: 52, fontSize: 28 }} onClick={() => onAdjust(-step)}>−</button>
-          <button className="counter-btn" style={{ height: 52, fontSize: 28 }} onClick={() => onAdjust(step)}>+</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [tab, setTab] = useState('Guard');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [silSheetOpen, setSilSheetOpen] = useState(false);
-  const [luxSheetOpen, setLuxSheetOpen] = useState(false);
-  const [silStep, setSilStep] = useState(1);
-  const [luxStep, setLuxStep] = useState(1);
   const game = useGameState();
   const { state } = game;
 
@@ -67,34 +38,10 @@ export default function App() {
       {/* Top bar */}
       <div className="top-bar">
         <span className="font-medium" style={{ fontSize: 14, marginRight: 'auto' }}>Isofarian Guard</span>
-
-        <button className="resource-pill" onClick={() => setSilSheetOpen(true)} title="Edit Sil">
-          <span className="resource-pill-label">Sil</span>
-          <span className="resource-pill-value">{state.sil}</span>
-        </button>
-
-        <button className="resource-pill" onClick={() => setLuxSheetOpen(true)} title="Edit Lux">
-          <span className="resource-pill-label">Lux</span>
-          <span className="resource-pill-value">{state.lux}</span>
-        </button>
-
         <button className="icon-btn" onClick={() => setSettingsOpen(true)} title="Settings">⚙</button>
       </div>
 
-      {/* Guard switcher */}
-      <div className="guard-switcher">
-        {state.guards.map((g, i) => (
-          <button
-            key={i}
-            className={`guard-switch-btn${activeIdx === i ? ' active' : ''}`}
-            onClick={() => game.setActiveGuard(i)}
-          >
-            {g.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Scrollable single-row tabs */}
+      {/* Tabs — global, always visible */}
       <div className="tabs-scroll">
         <div className="tabs">
           {TABS.map(t => (
@@ -105,7 +52,21 @@ export default function App() {
 
       {/* Tab content */}
       {tab === 'Guard' && (
-        <GuardPanel guard={activeGuard} guardIdx={activeIdx} actions={actions} />
+        <>
+          {/* Guard switcher — only visible in Guard tab */}
+          <div className="guard-switcher">
+            {state.guards.map((g, i) => (
+              <button
+                key={i}
+                className={`guard-switch-btn${activeIdx === i ? ' active' : ''}`}
+                onClick={() => game.setActiveGuard(i)}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+          <GuardPanel guard={activeGuard} guardIdx={activeIdx} actions={actions} />
+        </>
       )}
 
       {tab === 'Cities' && (
@@ -117,6 +78,10 @@ export default function App() {
 
       {tab === 'Stash & stonebound' && (
         <StashTab
+          sil={state.sil}
+          lux={state.lux}
+          setSil={game.setSil}
+          setLux={game.setLux}
           stash={state.stash}
           adjustStash={game.adjustStash}
           stonebound={state.stonebound}
@@ -143,28 +108,6 @@ export default function App() {
             </div>
           ))}
         </div>
-      )}
-
-      {silSheetOpen && (
-        <ResourceSheet
-          label="Sil"
-          value={state.sil}
-          step={silStep}
-          setStep={setSilStep}
-          onAdjust={delta => game.setSil(delta)}
-          onClose={() => setSilSheetOpen(false)}
-        />
-      )}
-
-      {luxSheetOpen && (
-        <ResourceSheet
-          label="Lux Essence"
-          value={state.lux}
-          step={luxStep}
-          setStep={setLuxStep}
-          onAdjust={delta => game.setLux(delta)}
-          onClose={() => setLuxSheetOpen(false)}
-        />
       )}
 
       {settingsOpen && (
