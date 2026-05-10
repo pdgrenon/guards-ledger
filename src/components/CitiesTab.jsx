@@ -6,6 +6,12 @@ function Checkmark() {
   );
 }
 
+const QUESTS = [
+  { field: 'puzzleQuestDone', label: 'Puzzle quest' },
+  { field: 'bounty1Done',     label: 'Bounty 1'     },
+  { field: 'bounty2Done',     label: 'Bounty 2'     },
+];
+
 export function CitiesTab({ cities, toggleCityQuest }) {
   return (
     <div className="cities-grid">
@@ -13,28 +19,23 @@ export function CitiesTab({ cities, toggleCityQuest }) {
         const prestige = [city.puzzleQuestDone, city.bounty1Done, city.bounty2Done].filter(Boolean).length;
         return (
           <div key={city.id} className="city-card">
+            {/* Header: name + read-only prestige pips */}
             <div className="flex items-center justify-between mb-2">
-              <div className="city-name" style={{ marginBottom: 0 }}>{city.name}</div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted" style={{ marginRight: 2 }}>Prestige</span>
-                <div className="prestige-pips">
-                  {Array(3).fill(0).map((_, pi) => (
-                    <div key={pi} className={`prestige-pip ${pi < prestige ? 'filled' : ''}`} />
-                  ))}
-                </div>
+              <div className="city-name">{city.name}</div>
+              <div className="prestige-pips">
+                {Array(3).fill(0).map((_, pi) => (
+                  <div key={pi} className={`prestige-pip${pi < prestige ? ' filled' : ''}`} />
+                ))}
               </div>
             </div>
 
-            {[
-              { field: 'puzzleQuestDone', label: 'Puzzle quest' },
-              { field: 'bounty1Done', label: 'Bounty 1' },
-              { field: 'bounty2Done', label: 'Bounty 2' },
-            ].map(({ field, label }) => (
+            {/* Quest rows */}
+            {QUESTS.map(({ field, label }) => (
               <div key={field} className="quest-row" onClick={() => toggleCityQuest(idx, field)}>
-                <div className={`quest-box ${city[field] ? 'done' : ''}`}>
+                <div className={`quest-box${city[field] ? ' done' : ''}`}>
                   {city[field] && <Checkmark />}
                 </div>
-                <span className={`quest-lbl ${city[field] ? 'done' : ''}`}>{label}</span>
+                <span className={`quest-lbl${city[field] ? ' done' : ''}`}>{label}</span>
               </div>
             ))}
           </div>

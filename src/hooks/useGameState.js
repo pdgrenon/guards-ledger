@@ -168,12 +168,6 @@ export function useGameState() {
   }), [setState]);
 
   // Cities
-  const setCityPrestige = useCallback((cityIdx, delta) => setState(s => {
-    const cities = s.cities.map((c, i) => i === cityIdx
-      ? { ...c, prestige: Math.min(3, Math.max(0, c.prestige + delta)) } : c);
-    return addLog({ ...s, cities }, `${s.cities[cityIdx].name} prestige → ${Math.min(3, Math.max(0, s.cities[cityIdx].prestige + delta))}`);
-  }), [setState]);
-
   const toggleCityQuest = useCallback((cityIdx, field) => setState(s => {
     const city = s.cities[cityIdx];
     const newVal = !city[field];
@@ -250,7 +244,7 @@ export function useGameState() {
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,
     adjustChip, resetChips, setStartingBlack,
     adjustBaseStat, updateGuard,
-    setCityPrestige, toggleCityQuest,
+    toggleCityQuest,
     adjustStash,
     setStoneboundMax, addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
     exportState, importState, resetState,
