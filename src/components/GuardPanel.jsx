@@ -41,8 +41,9 @@ export function GuardPanel({ guard, guardIdx, actions }) {
         </div>
       </div>
 
-      {/* HP */}
+      {/* HP & AP */}
       <div className="sec-label">Health &amp; AP</div>
+
       <div className="stat-row">
         <div className="stat-name">HP</div>
         <div className="pip-track">
@@ -51,35 +52,33 @@ export function GuardPanel({ guard, guardIdx, actions }) {
           ))}
         </div>
         <div className="adj-val" style={{ fontSize: 12 }}>{guard.hp}/{guard.maxHp}</div>
-        <div style={{ display: 'flex', gap: 3 }}>
-          <button className="adj-btn" style={{ width: 24, height: 24, fontSize: 14 }} onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
-          <button className="adj-btn" style={{ width: 24, height: 24, fontSize: 14 }} onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="stat-adj-btn" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
+          <button className="stat-adj-btn" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
         </div>
       </div>
 
-      {/* Gray AP */}
       <div className="stat-row">
         <div className="stat-name">AP</div>
         <div className="pip-track">
           {Array(5).fill(0).map((_, i) => <div key={i} className={`pip${i < guard.apGray ? ' ap-gray' : ''}`} />)}
         </div>
         <div className="stat-type">gray</div>
-        <div style={{ display: 'flex', gap: 3 }}>
-          <button className="adj-btn" style={{ width: 24, height: 24, fontSize: 14 }} onClick={() => adjustGuardAp(guardIdx, 'gray', -1)}>−</button>
-          <button className="adj-btn" style={{ width: 24, height: 24, fontSize: 14 }} onClick={() => adjustGuardAp(guardIdx, 'gray', 1)}>+</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="stat-adj-btn" onClick={() => adjustGuardAp(guardIdx, 'gray', -1)}>−</button>
+          <button className="stat-adj-btn" onClick={() => adjustGuardAp(guardIdx, 'gray', 1)}>+</button>
         </div>
       </div>
 
-      {/* Temp AP */}
       <div className="stat-row">
         <div className="stat-name"></div>
         <div className="pip-track">
           {Array(5).fill(0).map((_, i) => <div key={i} className={`pip${i < guard.apTemp ? ' ap-green' : ''}`} />)}
         </div>
         <div className="stat-type">temp</div>
-        <div style={{ display: 'flex', gap: 3 }}>
-          <button className="adj-btn" style={{ width: 24, height: 24, fontSize: 14 }} onClick={() => adjustGuardAp(guardIdx, 'temp', -1)}>−</button>
-          <button className="adj-btn" style={{ width: 24, height: 24, fontSize: 14 }} onClick={() => adjustGuardAp(guardIdx, 'temp', 1)}>+</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="stat-adj-btn" onClick={() => adjustGuardAp(guardIdx, 'temp', -1)}>−</button>
+          <button className="stat-adj-btn" onClick={() => adjustGuardAp(guardIdx, 'temp', 1)}>+</button>
         </div>
       </div>
 
@@ -189,7 +188,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
             onClick={() => useStone(guardIdx, si)}
           >
             <div className="stone-dot" />
-            {stone.state === 'ready' ? 'Ready' : `Cooling`}
+            {stone.state === 'ready' ? 'Ready' : 'Cooling'}
           </div>
         ))}
       </div>
