@@ -191,8 +191,8 @@ export function useGameState() {
   }), [setState]);
 
   // Stonebound
-  const setStoneboundMax = useCallback((value) => setState(s => ({
-    ...s, stonebound: { ...s.stonebound, max: Math.max(0, value) },
+  const setStoneboundMax = useCallback((delta) => setState(s => ({
+    ...s, stonebound: { ...s.stonebound, max: Math.max(0, s.stonebound.max + delta) },
   })), [setState]);
 
   const addStoneboundLocation = useCallback(() => setState(s => {
