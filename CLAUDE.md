@@ -16,13 +16,12 @@ No test suite is configured.
 
 ## Architecture
 
-Single-page React 19 app (Vite) for tracking game state in *The Isofarian Guard* board game. Deployed to GitHub Pages at `/isofarian-companion/`. The app is branded as **The Guard's Ledger**.
+Single-page React 19 app (Vite) for tracking game state in *The Isofarian Guard* board game. Deployed to GitHub Pages at `/isofarian-companion/`.
 
 ### State management
 
 All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
-- loading from / saving to `localStorage` key `guards_ledger_v1` after every action
-  - Falls back to legacy key `isofarian_companion_v1` for migration of existing saves
+- loading from / saving to `localStorage` key `isofarian_companion_v1` after every action
 - 30+ action functions (validate → mutate → log → return new state)
 - export/import of full state as a dated JSON file
 
@@ -30,7 +29,7 @@ All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
 
 ### Component structure
 
-- **`App.jsx`** — shell: tab nav, top bar (wordmark), party strip (Sil/Lux/round trackers), settings overlay trigger
+- **`App.jsx`** — shell: tab nav, top bar, party strip (Sil/Lux/round trackers), settings overlay trigger
 - **`GuardPanel.jsx`** — HP, AP, equipment, satchel, speaking stones, chip bag per guard
 - **`CitiesTab.jsx`** — prestige pips (0–3), puzzle quest checkbox, two bounties per city
 - **`StashTab.jsx`** — Fort Istra crafting material inventory + stonebound cube tracker
@@ -46,10 +45,6 @@ All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
 
 Single `src/index.css` with CSS custom properties (`--c-bg`, `--c-text`, etc.) for light/dark theming. Dark mode is automatic via `prefers-color-scheme`. No UI library; all components are custom CSS.
 
-Typography: `Cinzel` (display font, loaded from Google Fonts) for the wordmark, guard names, and city names. `Source Serif 4` for body text. System UI sans-serif for controls and labels.
-
-Guard avatars use per-name colors (defined in `GUARD_COLORS` in `GuardPanel.jsx`) for persistent visual identity across sessions.
-
 ## Deployment
 
-Push to `main` triggers `.github/workflows/deploy.yml`: `npm ci` → `npm run build` → GitHub Pages. The Vite base path is set in `vite.config.js` and must stay in sync with the repo name.
+Push to `main` triggers `.github/workflows/deploy.yml`: `npm ci` → `npm run build` → GitHub Pages. The Vite base path `/isofarian-companion/` is set in `vite.config.js` and must stay in sync with the repo name.

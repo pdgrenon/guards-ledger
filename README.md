@@ -1,25 +1,13 @@
-# The Guard's Ledger
+# Isofarian Companion
 
-A digital campaign tracker for the board game *The Isofarian Guard*. Built to eliminate the table clutter of tracking per-guard stats, city prestige, crafting materials, and stonebound cubes — so players can focus on the game.
-
-[**Live demo →**](https://pdgrenon.github.io/isofarian-companion/)
-
----
-
-## Why I built this
-
-*The Isofarian Guard* is a mechanically rich co-op game, but maintaining 8 character sheets, 6 city boards, and a sprawling crafting inventory mid-session is genuinely painful. I built this companion app as a personal project to practice React state management and to ship something I'd actually use.
-
-The result is a single-page app that persists all game state to `localStorage`, supports export/import of dated JSON snapshots, and runs entirely offline — no server, no login.
-
----
+A digital companion app for the board game *The Isofarian Guard*. Tracks all the fiddly per-guard and per-city state so you can focus on playing the game.
 
 ## What it tracks
 
 **Guards** (up to 8 playable: Alek, Grigory, Dasha, Zoya, Borya, Mila, Seva, Kira)
 - HP and AP (gray permanent + temporary)
 - Attack and defense stat blocks, including temporary defense
-- Equipment slots (weapon, armor, accessory, item) with autocomplete from a full item database
+- Equipment slots (weapon, armor, accessory, item)
 - Satchel (4 or 8 slots with item names and quantities)
 - Speaking stones with cooldown toggling (ready/cooling)
 - Chip bag counts (black, green, red, and status effect chips: weaken, break, freeze, poison, corrupt)
@@ -29,31 +17,22 @@ The result is a single-page app that persists all game state to `localStorage`, 
 - Puzzle quest and two bounties per city
 
 **Fort Istra Stash**
-- Crafting material inventory across 7 categories
+- Crafting material inventory across 7 categories (ores, timber, animal drops, tenebris drops, fish & food, market & misc, special ingredients)
 - Searchable by name
 
 **Stonebound**
 - Manage cubes per location rather than per cube
-- Each location has a type (City, Resource node, or Enemy node) with context-aware selection
+- Each location has a type (City, Resource node, or Enemy node) followed by a context-aware selection:
+  - *City* → pick from the 6 cities
+  - *Resource node* → pick any ore or timber
+  - *Enemy node* → pick from the full enemy bestiary
+- Cube count per location (1–4), capped against your total cube maximum
+- Add and remove locations freely; total cubes used shown against the cap
 
 **Campaign globals**
 - Sil and Lux Essence totals with step-selectable increments (1 / 5 / 10)
 - Round tracker with "End round" (advances round, refreshes cooled-down stones)
 - Session log of all state changes (last 100 events)
-
----
-
-## Tech decisions
-
-**No state library.** All game state lives in a single `useGameState` hook that owns loading, saving, and every action. With ~8 guards and no async data, React's built-in `useState` plus prop drilling is sufficient — adding Redux or Zustand would be complexity without benefit.
-
-**No UI library.** The entire interface is hand-rolled CSS with custom properties for light/dark theming. This kept the bundle small and gave full control over the design language.
-
-**Plain CSS over CSS-in-JS.** A single `index.css` file with CSS custom properties (`--c-bg`, `--c-text`, etc.) handles both light and dark mode automatically via `prefers-color-scheme`. No runtime overhead, no tooling dependency.
-
-**localStorage for persistence.** The app runs offline and requires no backend. State is serialized to JSON after every action and can be exported as a dated snapshot or imported from a previous session.
-
----
 
 ## Getting started
 
@@ -63,6 +42,13 @@ npm run dev       # http://localhost:5173/isofarian-companion/
 ```
 
 All state saves to `localStorage` automatically. Use **Settings** (⚙) to export a dated JSON snapshot or import a previously saved one.
+
+## Settings
+
+- Adjust max HP and starting chip counts per guard
+- Set stone slot count per guard
+- Configure base attack and defense values per guard
+- Export / import / reset all game data
 
 ## Commands
 
@@ -83,4 +69,4 @@ npm run deploy    # Build + publish to GitHub Pages
 
 ## Deployment
 
-Push to `main` triggers the GitHub Actions workflow (`.github/workflows/deploy.yml`), which builds and publishes to GitHub Pages.
+Push to `main` triggers the GitHub Actions workflow (`.github/workflows/deploy.yml`), which builds and publishes to GitHub Pages. Update the `homepage` field in `package.json` with your actual GitHub username before deploying.

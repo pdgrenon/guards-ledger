@@ -3,23 +3,13 @@ import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_
 import { Autocomplete } from './Autocomplete';
 
 const EQUIPMENT_SLOTS = [
-  { key: 'weapon', label: 'Weapon', options: WEAPONS },
-  { key: 'armor', label: 'Armor', options: ARMOR },
+  { key: 'weapon',    label: 'Weapon',    options: WEAPONS    },
+  { key: 'armor',     label: 'Armor',     options: ARMOR      },
   { key: 'accessory', label: 'Accessory', options: ACCESSORIES },
-  { key: 'item', label: 'Item', options: ITEMS },
+  { key: 'item',      label: 'Item',      options: ITEMS      },
 ];
 
-// Fixed per-guard color assignment by name — persistent identity across sessions
-const GUARD_COLORS = {
-  'Alek':    'purple',
-  'Grigory': 'amber',
-  'Dasha':   'green',
-  'Zoya':    'red',
-  'Borya':   'amber',
-  'Mila':    'purple',
-  'Seva':    'green',
-  'Kira':    'red',
-};
+const AVATAR_COLORS = ['purple', 'amber'];
 
 function initials(name) {
   return name.slice(0, 2).toUpperCase();
@@ -27,34 +17,35 @@ function initials(name) {
 
 export function GuardPanel({ guard, guardIdx, actions }) {
   const {
-    adjustGuardHp, adjustGuardAp, setGuardEquipment,
-    setGuardSatchelItem, toggleExpandedSatchel,
-    useStone, adjustChip, endBattle, adjustTempDef,
+    adjustGuardHp,
+    setGuardEquipment,
+    setGuardSatchelItem,
+    toggleExpandedSatchel,
+    adjustChip,
+    resetChips,
   } = actions;
 
   const satchelSize = guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE;
-  // Use name-based color for a persistent visual identity; fall back to index-based
-  const color = GUARD_COLORS[guard.name] || (guardIdx % 2 === 0 ? 'purple' : 'amber');
+  const color = AVATAR_COLORS[guardIdx % AVATAR_COLORS.length];
 
   const weaponBonus = WEAPON_STATS[guard.equipment.weapon] ?? 0;
-  const armorBonus = ARMOR_STATS[guard.equipment.armor] ?? 0;
+  const armorBonus  = ARMOR_STATS[guard.equipment.armor]  ?? 0;
   const totalAtk = (guard.baseAtk ?? 0) + weaponBonus;
   const totalDef = (guard.baseDef ?? 0) + armorBonus;
-  const tempDef = guard.tempDef ?? 0;
 
   return (
-    <div className="card guard-card">
+    <div className="card">
       {/* Header */}
-      <div className="guard-header">
+      <div className="flex items-center gap-2 mb-2" style={{ paddingBottom: 10, borderBottom: '0.5px solid var(--c-border)' }}>
         <div className={`guard-avatar ${color}`}>{initials(guard.name)}</div>
         <div>
-          <div className="guard-name">{guard.name}</div>
-          <div className="text-hint text-xs">Guard · active</div>
+          <div className="font-medium" style={{ fontSize: 14 }}>{guard.name}</div>
+          <div className="text-hint" style={{ fontSize: 11 }}>Guard · active</div>
         </div>
       </div>
 
-      {/* HP & AP */}
-      <div className="sec-label">Health &amp; AP</div>
+      {/* Health */}
+      <div className="sec-label">Health</div>
       <div className="stat-row">
         <div className="stat-name">HP</div>
         <div className="pip-track">
@@ -62,78 +53,41 @@ export function GuardPanel({ guard, guardIdx, actions }) {
             <div key={i} className={`pip${i < guard.hp ? ' hp' : ''}`} />
           ))}
         </div>
-        <div className="stat-fraction">{guard.hp}/{guard.maxHp}</div>
-        <div className="adj-pair">
-          <button className="adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
-          <button className="adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
-        </div>
-      </div>
-
-      {/* Gray AP */}
-      <div className="stat-row">
-        <div className="stat-name">AP</div>
-        <div className="pip-track">
-          {Array(5).fill(0).map((_, i) => <div key={i} className={`pip${i < guard.apGray ? ' ap-gray' : ''}`} />)}
-        </div>
-        <div className="stat-type">gray</div>
-        <div className="adj-pair">
-          <button className="adj-btn adj-btn-sm" onClick={() => adjustGuardAp(guardIdx, 'gray', -1)}>−</button>
-          <button className="adj-btn adj-btn-sm" onClick={() => adjustGuardAp(guardIdx, 'gray', 1)}>+</button>
-        </div>
-      </div>
-
-      {/* Temp AP */}
-      <div className="stat-row">
-        <div className="stat-name"></div>
-        <div className="pip-track">
-          {Array(5).fill(0).map((_, i) => <div key={i} className={`pip${i < guard.apTemp ? ' ap-green' : ''}`} />)}
-        </div>
-        <div className="stat-type">temp</div>
-        <div className="adj-pair">
-          <button className="adj-btn adj-btn-sm" onClick={() => adjustGuardAp(guardIdx, 'temp', -1)}>−</button>
-          <button className="adj-btn adj-btn-sm" onClick={() => adjustGuardAp(guardIdx, 'temp', 1)}>+</button>
+        <div className="adj-val" style={{ fontSize: 12 }}>{guard.hp}/{guard.maxHp}</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="stat-adj-btn" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
+          <button className="stat-adj-btn" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
         </div>
       </div>
 
       <div className="divider" />
 
       {/* Combat Stats */}
-      <div className="sec-label">Combat Stats</div>
-      <div className="combat-stats-grid">
-        <div className="combat-stat-box">
-          <div className="combat-stat-label">Attack</div>
-          <div className="combat-stat-value">{totalAtk}</div>
+      <div className="sec-label">Combat stats</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+        <div style={{ background: 'var(--c-surface2)', border: '0.5px solid var(--c-border)', borderRadius: 'var(--radius-md)', padding: '7px 10px' }}>
+          <div style={{ fontSize: 10, color: 'var(--c-text3)', marginBottom: 3 }}>Attack</div>
+          <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1 }}>{totalAtk}</div>
           {weaponBonus > 0 && (
-            <div className="combat-stat-breakdown">
+            <div style={{ fontSize: 10, color: 'var(--c-text3)', marginTop: 2 }}>
               {guard.baseAtk} base + {weaponBonus} weapon
             </div>
           )}
         </div>
-        <div className="combat-stat-box">
-          <div className="combat-stat-label">Defense</div>
-          <div className="combat-stat-value-row">
-            <span className="combat-stat-value">{totalDef}</span>
-            {tempDef > 0 && (
-              <span className="combat-stat-temp">+{tempDef}</span>
-            )}
-          </div>
+        <div style={{ background: 'var(--c-surface2)', border: '0.5px solid var(--c-border)', borderRadius: 'var(--radius-md)', padding: '7px 10px' }}>
+          <div style={{ fontSize: 10, color: 'var(--c-text3)', marginBottom: 3 }}>Defense</div>
+          <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--c-text)', lineHeight: 1 }}>{totalDef}</div>
           {armorBonus > 0 && (
-            <div className="combat-stat-breakdown">
+            <div style={{ fontSize: 10, color: 'var(--c-text3)', marginTop: 2 }}>
               {guard.baseDef} base + {armorBonus} armor
             </div>
           )}
-          <div className="temp-def-row">
-            <span className="temp-def-label">Temp. defense</span>
-            <div className="adj-pair">
-              <button className="chip-btn temp-def-btn" onClick={() => adjustTempDef(guardIdx, -1)}>−</button>
-              <span className="temp-def-val">{tempDef}</span>
-              <button className="chip-btn temp-def-btn" onClick={() => adjustTempDef(guardIdx, 1)}>+</button>
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="divider" />
+
+      {/* Equipment */}
       <div className="sec-label">Equipment</div>
       <div className="equip-grid mb-2">
         {EQUIPMENT_SLOTS.map(({ key, label, options }) => (
@@ -155,7 +109,8 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       <div className="flex items-center justify-between mb-2">
         <div className="sec-label" style={{ marginBottom: 0 }}>Satchel</div>
         <div
-          className="flex items-center gap-1 satchel-toggle"
+          className="flex items-center gap-1"
+          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
           onClick={() => toggleExpandedSatchel(guardIdx)}
         >
           <div className={`toggle ${guard.expandedSatchel ? 'on' : ''}`} style={{ width: 34, height: 20 }}>
@@ -165,8 +120,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
         </div>
       </div>
 
-      {/* Fixed: satchel grid now correctly uses 4 cols for standard, 4 cols for expanded (8 items in 4-col = 2 rows) */}
-      <div className={`satchel-grid${guard.expandedSatchel ? ' satchel-expanded' : ''}`}>
+      <div className="satchel-grid" style={{ gridTemplateColumns: `repeat(${satchelSize > 4 ? 4 : 4}, 1fr)` }}>
         {Array(satchelSize).fill(0).map((_, si) => {
           const slot = guard.satchel[si] || { item: '', qty: 1 };
           return (
@@ -191,24 +145,6 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       <div className="divider" />
 
-      {/* Speaking Stones */}
-      <div className="sec-label">Speaking Stones</div>
-      <div className="stones-row">
-        {guard.stones.map((stone, si) => (
-          <div
-            key={si}
-            className={`stone-pill ${stone.state}`}
-            onClick={() => useStone(guardIdx, si)}
-          >
-            <div className="stone-dot" />
-            {stone.state === 'ready' ? 'Ready' : 'Cooling'}
-          </div>
-        ))}
-      </div>
-      <div className="stone-hint">Tap ready to use · tap cooling to undo · cooling becomes ready after 1 full round</div>
-
-      <div className="divider" />
-
       {/* Chip Bag */}
       <div className="sec-label">Chip Bag</div>
       <div className="chips-grid">
@@ -223,8 +159,8 @@ export function GuardPanel({ guard, guardIdx, actions }) {
           </div>
         ))}
       </div>
-      <button className="end-battle-btn" onClick={() => endBattle(guardIdx)}>
-        End battle · reset black chips to {guard.startingBlack}
+      <button className="end-battle-btn" onClick={() => resetChips(guardIdx)}>
+        Reset chips · black → {guard.startingBlack}
       </button>
     </div>
   );
