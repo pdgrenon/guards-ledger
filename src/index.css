@@ -99,63 +99,10 @@
   --shadow-elevated: 0 4px 16px rgba(100, 60, 10, 0.13), 0 1px 4px rgba(100, 60, 10, 0.08);
 }
 
-/* ─── DARK MODE (auto via prefers-color-scheme) ─────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --c-bg:      #1c1710;
-    --c-surface: #232018;
-    --c-surface2: #2c2820;
-
-    --c-border:  rgba(200, 160, 90, 0.12);
-    --c-border2: rgba(200, 160, 90, 0.24);
-
-    --c-text:  #f0e8d8;
-    --c-text2: #b89a72;
-    --c-text3: #7a6040;
-
-    --c-accent:      #c4952a;
-    --c-accent-bg:   #2e2010;
-    --c-accent-text: #f0c060;
-
-    --c-purple:      var(--c-accent);
-    --c-purple-bg:   var(--c-accent-bg);
-    --c-purple-text: var(--c-accent-text);
-
-    --c-red:      #e06040;
-    --c-red-bg:   #3a1508;
-    --c-red-text: #f5b8a0;
-
-    --c-green:      #6aac30;
-    --c-green-bg:   #162808;
-    --c-green-text: #b0d880;
-
-    --c-amber:      #e09020;
-    --c-amber-bg:   #301a04;
-    --c-amber-text: #f0c070;
-
-    --c-gray-bg:   #352617;
-    --c-gray-text: #d8c0a0;
-
-    --c-hp:       #e06040;
-    --c-ap-gray:  #a09080;
-    --c-ap-green: #6aac30;
-
-    --c-guard-gold-bg:    #2e2010; --c-guard-gold-border: #c4952a; --c-guard-gold-text:  #f0c060;
-    --c-guard-amber-bg:   #301a04; --c-guard-amber-border: #e09020; --c-guard-amber-text: #f0c070;
-    --c-guard-forest-bg:  #162808; --c-guard-forest-border: #6aac30; --c-guard-forest-text: #b0d880;
-    --c-guard-vermilion-bg: #3a1508; --c-guard-vermilion-border: #e06040; --c-guard-vermilion-text: #f5b8a0;
-    --c-guard-indigo-bg:  #1a1840; --c-guard-indigo-border: #7f77dd; --c-guard-indigo-text: #cecbf6;
-    --c-guard-teal-bg:    #042820; --c-guard-teal-border: #1d9e75; --c-guard-teal-text: #9fe1cb;
-    --c-guard-rose-bg:    #2a0e1a; --c-guard-rose-border: #d4537e; --c-guard-rose-text: #f4c0d1;
-    --c-guard-cerulean-bg: #041830; --c-guard-cerulean-border: #378add; --c-guard-cerulean-text: #b5d4f4;
-
-    --shadow-card:     0 1px 4px rgba(0,0,0,0.25), 0 0 0 1px rgba(200,160,90,0.08);
-    --shadow-elevated: 0 4px 16px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.20);
-  }
-}
-
 /* ─── BASE ───────────────────────────────────────────────────────────────── */
-html { font-size: 16px; }
+/* Parchment & Ink is light-only — pin color-scheme so dark-mode OS
+   settings do not invert browser chrome or form controls */
+html { font-size: 16px; color-scheme: light; }
 
 body {
   font-family: var(--font-ui);
