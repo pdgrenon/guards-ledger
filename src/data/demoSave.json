@@ -1,0 +1,267 @@
+{
+  "sil": 340,
+  "lux": 12,
+  "activeGuardIdx": 0,
+  "activeParty": ["Alek", "Grigory"],
+  "guards": [
+    {
+      "name": "Grigory",
+      "hp": 16,
+      "maxHp": 20,
+      "baseAtk": 3,
+      "baseDef": 2,
+      "expandedSatchel": true,
+      "equipment": {
+        "weapon": "Ryban Glaive",
+        "armor": "Horned Cuirass",
+        "accessory": "Power Belt",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "Health Potion",   "qty": 2 },
+        { "item": "Iron",            "qty": 3 },
+        { "item": "Wolf Pelt",       "qty": 1 },
+        { "item": "Tenebris Shards", "qty": 2 },
+        { "item": "",                "qty": 1 },
+        { "item": "",                "qty": 1 },
+        { "item": "",                "qty": 1 },
+        { "item": "",                "qty": 1 }
+      ],
+      "chips": { "black": 6, "green": 3, "red": 2, "purple": 1 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Alek",
+      "hp": 14,
+      "maxHp": 20,
+      "baseAtk": 2,
+      "baseDef": 1,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Rosewind Staff",
+        "armor": "Scholar's Tunic",
+        "accessory": "Pendant of Wisdom",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "Health Potion", "qty": 1 },
+        { "item": "Pine",          "qty": 2 },
+        { "item": "Bone Frag.",    "qty": 3 },
+        { "item": "",              "qty": 1 }
+      ],
+      "chips": { "black": 5, "green": 4, "red": 1, "purple": 0 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Catherine",
+      "hp": 20,
+      "maxHp": 20,
+      "baseAtk": 2,
+      "baseDef": 1,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Cerulean Pike",
+        "armor": "Tunic of the Wild",
+        "accessory": "Feathered Mantle",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 }
+      ],
+      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Yury",
+      "hp": 20,
+      "maxHp": 20,
+      "baseAtk": 3,
+      "baseDef": 1,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Ornate Cleavers",
+        "armor": "Raiding Armor",
+        "accessory": "Leather Gauntlets",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 }
+      ],
+      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Kharzin",
+      "hp": 20,
+      "maxHp": 20,
+      "baseAtk": 2,
+      "baseDef": 2,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Guardian Lance",
+        "armor": "Guild Cuirass",
+        "accessory": "Aegis Shield",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 }
+      ],
+      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Vera",
+      "hp": 20,
+      "maxHp": 20,
+      "baseAtk": 2,
+      "baseDef": 1,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Silver Bow",
+        "armor": "Wanderer of the Fields",
+        "accessory": "Traveling Boots",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 }
+      ],
+      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Pavel",
+      "hp": 20,
+      "maxHp": 20,
+      "baseAtk": 3,
+      "baseDef": 2,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Sky Splitter",
+        "armor": "Brigandine",
+        "accessory": "Carapace Helmet",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 }
+      ],
+      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
+      "startingBlack": 8
+    },
+    {
+      "name": "Yana",
+      "hp": 20,
+      "maxHp": 20,
+      "baseAtk": 2,
+      "baseDef": 1,
+      "expandedSatchel": false,
+      "equipment": {
+        "weapon": "Contorted Staff",
+        "armor": "Prophet's Jacket",
+        "accessory": "Chrono Locket",
+        "item": ""
+      },
+      "satchel": [
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 },
+        { "item": "", "qty": 1 }
+      ],
+      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
+      "startingBlack": 8
+    }
+  ],
+  "cities": [
+    {
+      "id": "mir",
+      "name": "Mir",
+      "prestige": 3,
+      "puzzleQuestDone": true,
+      "bounty1Done": true,
+      "bounty2Done": true
+    },
+    {
+      "id": "razdor",
+      "name": "Razdor",
+      "prestige": 2,
+      "puzzleQuestDone": true,
+      "bounty1Done": true,
+      "bounty2Done": false
+    },
+    {
+      "id": "ryba",
+      "name": "Ryba",
+      "prestige": 2,
+      "puzzleQuestDone": false,
+      "bounty1Done": true,
+      "bounty2Done": true
+    },
+    {
+      "id": "silny",
+      "name": "Silny",
+      "prestige": 1,
+      "puzzleQuestDone": true,
+      "bounty1Done": false,
+      "bounty2Done": false
+    },
+    {
+      "id": "strofa",
+      "name": "Strofa",
+      "prestige": 1,
+      "puzzleQuestDone": false,
+      "bounty1Done": true,
+      "bounty2Done": false
+    },
+    {
+      "id": "vouno",
+      "name": "Vouno",
+      "prestige": 0,
+      "puzzleQuestDone": false,
+      "bounty1Done": false,
+      "bounty2Done": false
+    }
+  ],
+  "stash": {
+    "Iron": 4,
+    "Silver": 2,
+    "Agate": 1,
+    "Pine": 3,
+    "Rosewood": 2,
+    "Wolf Pelt": 2,
+    "Rough Leather": 3,
+    "Scales": 1,
+    "Tenebris Shards": 3,
+    "Tenebris Essence": 1,
+    "Dusk Tuna": 2,
+    "Mir Bread": 4,
+    "Health Potion": 3,
+    "Tent": 1,
+    "Jade": 1,
+    "Midnight Hydrangea": 2
+  },
+  "stonebound": {
+    "max": 6,
+    "locations": [
+      { "id": "loc-1", "type": "City",          "detail": "Mir",             "count": 1 },
+      { "id": "loc-2", "type": "City",          "detail": "Razdor",          "count": 1 },
+      { "id": "loc-3", "type": "Resource node", "detail": "Iron",            "count": 2 },
+      { "id": "loc-4", "type": "Enemy node",    "detail": "Corrupted Guard", "count": 1 }
+    ]
+  },
+  "log": [],
+  "settings": { "initialized": true }
+}

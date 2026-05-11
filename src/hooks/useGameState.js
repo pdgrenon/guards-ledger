@@ -1,3 +1,4 @@
+import demoSave from '../data/demoSave.json';
 import { useState, useCallback } from 'react';
 import { createInitialState } from '../data/constants';
 import {
@@ -26,7 +27,7 @@ const LEGACY_KEY  = 'isofarian_companion_v1';
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
-    if (!raw) return createInitialState();
+    if (!raw) return demoSave;
     const parsed = JSON.parse(raw);
 
     if (parsed.stonebound?.slots && !parsed.stonebound.locations) {
