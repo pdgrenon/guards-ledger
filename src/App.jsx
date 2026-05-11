@@ -81,11 +81,9 @@ export default function App() {
       {/* Top bar */}
       <div className="top-bar">
         <div className="top-bar-brand">
-          <div className="top-bar-wordmark">
-            <span className="wordmark-the">The</span>
-            <span className="wordmark-title">Guard's Ledger</span>
-          </div>
-          <div className="top-bar-tagline">Campaign Tracker · The Isofarian Guard</div>
+          <div className="wordmark-the">The</div>
+          <div className="wordmark-title">Guard's Ledger</div>
+          <div className="wordmark-rule" aria-hidden="true" />
         </div>
         <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
           <SettingsIcon />
