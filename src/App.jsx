@@ -24,7 +24,21 @@ const GUARD_COLOR_MAP = {
 };
 const FALLBACK_COLOR = { key: 'gold', border: 'var(--c-guard-gold-border)', bg: 'var(--c-guard-gold-bg)', text: 'var(--c-guard-gold-text)' };
 
-// Build a regex that matches any guard name as a whole word
+// ─── Log entry category classifier ──────────────────────────────────────────
+// Returns the CSS class suffix for the left border color of a log entry.
+// guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
+// party   → brand ochre (Sil, Lux, Stash, Stonebound, city quests)
+// system  → neutral gray (import, reset)
+const CITY_NAMES_SET = new Set(['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno']);
+
+function classifyEntry(message) {
+  const first = message.split(' ')[0];
+  if (GUARD_COLOR_MAP[first]) return { type: 'guard', guardKey: GUARD_COLOR_MAP[first].key };
+  if (first === 'Party' || first === 'Stash' || first === 'Stonebound' || CITY_NAMES_SET.has(first)) return { type: 'party' };
+  return { type: 'system' };
+}
+
+// Regex for colorizing guard names inline in log messages
 const ALL_GUARD_NAMES = Object.keys(GUARD_COLOR_MAP);
 const GUARD_NAME_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
 
@@ -167,23 +181,42 @@ export default function App() {
       )}
 
       {tab === 'Session log' && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-2">
+        <div className="card log-card">
+          <div className="flex items-center justify-between mb-3">
             <div className="sec-label" style={{ marginBottom: 0 }}>Session log</div>
-            <span className="text-hint" style={{ fontSize: 11 }}>Last {state.log.length} events</span>
+            <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
           </div>
-          {state.log.length === 0 && (
-            <div className="text-hint text-sm" style={{ padding: '8px 0' }}>No events yet.</div>
-          )}
-          {state.log.map(entry => (
-            <div key={entry.id} className="log-entry">
-              <span className="log-time">{entry.time}</span>
-              <span
-                className="log-text"
-                dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
-              />
+
+          {state.log.length === 0 ? (
+            <div className="log-empty">
+              <div className="log-empty-title">No events recorded</div>
+              <div className="log-empty-sub">Actions taken during your session will appear here</div>
             </div>
-          ))}
+          ) : (
+            <div className="log-list">
+              {state.log.map(entry => {
+                const cat = classifyEntry(entry.message);
+                const borderColor = cat.type === 'guard'
+                  ? `var(--c-guard-${cat.guardKey}-border)`
+                  : cat.type === 'party'
+                    ? 'var(--c-brand)'
+                    : 'var(--c-border2)';
+                return (
+                  <div
+                    key={entry.id}
+                    className="log-entry"
+                    style={{ '--log-border': borderColor }}
+                  >
+                    <span className="log-time">{entry.time}</span>
+                    <span
+                      className="log-text"
+                      dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

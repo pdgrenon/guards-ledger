@@ -958,15 +958,72 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .stash-add-cat { font-size: 11px; color: var(--c-text3); }
 
 /* ─── SESSION LOG ────────────────────────────────────────────────────────── */
+.log-card { padding-bottom: 4px; }
+
+/* Event count badge in header */
+.log-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--c-text3);
+  background: var(--c-surface2);
+  border: 0.5px solid var(--c-border2);
+  border-radius: 99px;
+  padding: 2px 8px;
+  font-family: var(--font-ui);
+}
+
+/* Empty state */
+.log-empty {
+  padding: 32px 0 24px;
+  text-align: center;
+}
+.log-empty-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--c-text2);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.log-empty-sub {
+  font-size: 12px;
+  color: var(--c-text3);
+  font-family: var(--font-ui);
+}
+
+/* Scrollable list wrapper — keeps card padding consistent */
+.log-list { margin: 0 -12px; }
+
+/* Each entry — left border color set via --log-border inline CSS var */
 .log-entry {
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 5px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 14px 8px 12px;
+  border-left: 3px solid var(--log-border, var(--c-border2));
   border-bottom: 0.5px solid var(--c-border);
+  margin-left: 0;
 }
 .log-entry:last-child { border-bottom: none; }
-.log-time { font-size: 11px; color: var(--c-text3); flex-shrink: 0; font-family: var(--font-ui); }
-.log-text { font-size: 12px; color: var(--c-text2); font-family: var(--font-ui); }
+
+/* Timestamp — pill style, clearly metadata not content */
+.log-time {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--c-text3);
+  background: var(--c-surface2);
+  border-radius: 4px;
+  padding: 2px 5px;
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 1px;
+}
+
+.log-text { font-size: 12px; color: var(--c-text2); font-family: var(--font-ui); line-height: 1.5; }
 .log-text strong { color: var(--c-text); font-weight: 500; }
+
 /* Per-guard colored name spans injected by the log renderer */
 .log-text .log-name-gold      { color: var(--c-guard-gold-border);      font-weight: 600; }
 .log-text .log-name-amber     { color: var(--c-guard-amber-border);     font-weight: 600; }
