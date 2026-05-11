@@ -347,8 +347,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
   flex-shrink: 0;
   font-family: inherit;
   line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.icon-btn:hover {
+  background: var(--c-brand-bg);
+  border-color: var(--c-brand);
+  color: var(--c-brand-text);
 }
 .icon-btn:active { opacity: 0.7; }
+
 
 /* ─── TABS ───────────────────────────────────────────────────────────────── */
 .tabs {
