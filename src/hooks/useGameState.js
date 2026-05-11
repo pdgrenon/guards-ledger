@@ -172,6 +172,10 @@ export function useGameState() {
       const prev = g.satchel[slotIdx]?.item;
       if (prev) return addLog(newState, `${g.name} satchel slot ${slotIdx + 1} cleared`);
     }
+    if (field === 'qty') {
+      const item = g.satchel[slotIdx]?.item;
+      if (item) return addLog(newState, `${g.name} ${item} ×${value}`);
+    }
     return newState;
   }), [setState]);
 
