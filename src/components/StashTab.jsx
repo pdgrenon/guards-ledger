@@ -202,8 +202,9 @@ export function StashTab({
 
         {/* Empty state */}
         {activeItems.length === 0 && (
-          <div className="text-hint text-sm" style={{ padding: '8px 0' }}>
-            No items in stash yet.
+          <div className="stash-empty">
+            <div className="stash-empty-title">Stash is empty</div>
+            <div className="stash-empty-sub">Search below to add crafting materials</div>
           </div>
         )}
 

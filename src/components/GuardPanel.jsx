@@ -32,20 +32,26 @@ const GUARD_ROLES = {
   Yana:      'The Prophet',
 };
 
-// ─── Hero images ────────────────────────────────────────────────────────────
-// Place portrait files in public/guards/ named exactly as below.
-// Recommended: square crop, 80×80px or larger, JPG or PNG.
+// Chip identity colors — dot beside each chip label so color is communicated visually
+const CHIP_COLORS = {
+  black:  '#444441',
+  green:  'var(--c-green)',
+  red:    'var(--c-red)',
+  purple: 'var(--c-guard-indigo-border)',
+};
+
+// Place portrait files in public/guards/ named exactly as below (e.g. grigory.webp).
 // The component falls back to initials automatically if the file is missing.
-const BASE = '/isofarian-companion/guards/';
+const BASE = '/guards-ledger/guards/';
 const GUARD_IMAGES = {
-  Grigory:   `${BASE}grigory.jpg`,
-  Alek:      `${BASE}alek.jpg`,
-  Catherine: `${BASE}catherine.jpg`,
-  Yury:      `${BASE}yury.jpg`,
-  Kharzin:   `${BASE}kharzin.jpg`,
-  Vera:      `${BASE}vera.jpg`,
-  Pavel:     `${BASE}pavel.jpg`,
-  Yana:      `${BASE}yana.jpg`,
+  Grigory:   `${BASE}grigory.webp`,
+  Alek:      `${BASE}alek.webp`,
+  Catherine: `${BASE}catherine.webp`,
+  Yury:      `${BASE}yury.webp`,
+  Kharzin:   `${BASE}kharzin.webp`,
+  Vera:      `${BASE}vera.webp`,
+  Pavel:     `${BASE}pavel.webp`,
+  Yana:      `${BASE}yana.webp`,
 };
 
 function initials(name) { return name.slice(0, 2).toUpperCase(); }
@@ -59,7 +65,6 @@ function GuardAvatar({ name, colorClass }) {
         alt={name}
         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 'inherit' }}
         onError={e => {
-          // Swap to initials if the image file doesn't exist yet
           const el = e.currentTarget.parentElement;
           e.currentTarget.remove();
           el.textContent = initials(name);
@@ -105,12 +110,11 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       <div className="sec-label-primary">Health</div>
       <div className="stat-row">
         <div className="stat-name">HP</div>
-        <div className="pip-track">
-          {Array(guard.maxHp).fill(0).map((_, i) => (
-            <div key={i} className={`pip${i < guard.hp ? ' hp' : ''}`} />
-          ))}
+        <div className="hp-display">
+          <span className="hp-current">{guard.hp}</span>
+          <span className="hp-sep">/</span>
+          <span className="hp-max">{guard.maxHp}</span>
         </div>
-        <div className="adj-val stat-fraction">{guard.hp}/{guard.maxHp}</div>
         <div className="adj-pair">
           <button className="stat-adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
           <button className="stat-adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
@@ -206,12 +210,19 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       <div className="divider" />
 
-      {/* Chip Bag — all rows use the same neutral style; the chip name carries the colour identity */}
+      {/* Chip Bag */}
       <div className="sec-label-primary">Chip bag</div>
       <div className="chips-grid">
         {CHIP_TYPES.map(({ id, label }) => (
           <div key={id} className="chip-row">
-            <span className="chip-name">{label}</span>
+            <span className="chip-name">
+              <span
+                className="chip-dot"
+                style={{ background: CHIP_COLORS[id] }}
+                aria-hidden="true"
+              />
+              {label}
+            </span>
             <div className="chip-controls">
               <button className="chip-btn" onClick={() => adjustChip(guardIdx, id, -1)}>−</button>
               <span className="chip-count">{guard.chips[id] ?? 0}</span>

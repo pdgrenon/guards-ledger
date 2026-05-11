@@ -7,7 +7,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { GUARDS } from './data/constants';
 import './index.css';
 
-const TABS = ['Guard', 'Cities', 'Stash & stonebound', 'Session log'];
+const TABS = ['Guard', 'Cities', 'Stash', 'Session log'];
 
 // ─── Guard identity color map ────────────────────────────────────────────────
 // Maps each guard name to their CSS variable key prefix and exact border color.
@@ -170,7 +170,7 @@ export default function App() {
         <CitiesTab cities={state.cities} toggleCityQuest={game.toggleCityQuest} />
       )}
 
-      {tab === 'Stash & stonebound' && (
+      {tab === 'Stash' && (
         <StashTab
           sil={state.sil} lux={state.lux}
           setSil={game.setSil} setLux={game.setLux}
