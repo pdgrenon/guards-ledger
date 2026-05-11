@@ -20,7 +20,6 @@ I built this app to solve that problem for my own playgroup. The design goal was
 
 **Guards** — up to 8 playable (Grigory, Alek, Catherine, Yury, Kharzin, Vera, Pavel, Yana)
 - HP with large number display and +/− controls
-- AP tracking
 - Attack and defense stats
 - Equipment slots: weapon, armor, accessory, item
 - Satchel (4 or 8 slots) with item names and quantities
