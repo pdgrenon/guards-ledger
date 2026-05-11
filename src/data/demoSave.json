@@ -256,10 +256,10 @@
   "stonebound": {
     "max": 6,
     "locations": [
-      { "id": "loc-1", "type": "City",          "detail": "Mir",             "count": 1 },
-      { "id": "loc-2", "type": "City",          "detail": "Razdor",          "count": 1 },
-      { "id": "loc-3", "type": "Resource node", "detail": "Iron",            "count": 2 },
-      { "id": "loc-4", "type": "Enemy node",    "detail": "Corrupted Guard", "count": 1 }
+      { "id": "loc-1", "type": "City",          "selection": "Mir",             "count": 1 },
+      { "id": "loc-2", "type": "City",          "selection": "Razdor",          "count": 1 },
+      { "id": "loc-3", "type": "Resource node", "selection": "Iron",            "count": 2 },
+      { "id": "loc-4", "type": "Enemy node",    "selection": "Corrupted Guard", "count": 1 }
     ]
   },
   "log": [],
