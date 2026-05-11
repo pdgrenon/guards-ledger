@@ -128,8 +128,23 @@ export function StashTab({
 
             return (
               <div key={i} className="sb-location">
-                {/* Single row: grouped select + cube controls + remove */}
+                {/* Trash on the far left — spatial separation from cube +/− on the right */}
                 <div className="sb-loc-row">
+                  <button
+                    className="sb-remove-btn"
+                    onClick={() => removeStoneboundLocation(i)}
+                    aria-label="Remove location"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+                      aria-hidden="true">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  </button>
+
                   <select
                     className="sb-select"
                     value={loc.selection || ''}
@@ -158,7 +173,6 @@ export function StashTab({
                       disabled={loc.count >= maxCount}
                       onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
                     >+</button>
-                    <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(i)}>×</button>
                   </div>
                 </div>
               </div>
