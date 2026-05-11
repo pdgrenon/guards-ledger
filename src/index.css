@@ -1110,6 +1110,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text);
   letter-spacing: 0.02em;
 }
+/* Stash tab cards share the city accent as a top border — ties the tab together */
+.stash-card {
+  border-top: 3px solid var(--c-city);
+  box-shadow: var(--shadow-card);
+}
 
 /* ─── GUARDS GRID ────────────────────────────────────────────────────────── */
 .guards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }

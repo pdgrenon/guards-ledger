@@ -65,7 +65,7 @@ export function StashTab({
   return (
     <>
       {/* ── Party resources ── */}
-      <div className="card mb-3">
+      <div className="card mb-3 stash-card">
         <div className="card-title mb-3">Party resources</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           {/* Sil */}
@@ -105,7 +105,7 @@ export function StashTab({
       </div>
 
       {/* ── Stonebound ── */}
-      <div className="card mb-3">
+      <div className="card mb-3 stash-card">
         <div className="flex items-center justify-between mb-2">
           <div className="card-title">Stonebound</div>
           <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export function StashTab({
       </div>
 
       {/* ── Fort Istra Stash ── */}
-      <div className="card">
+      <div className="card stash-card">
         <div className="card-title mb-2">Fort Istra stash</div>
 
         {/* Filter — always visible when there are items */}
