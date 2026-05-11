@@ -32,9 +32,10 @@ const GUARD_ROLES = {
   Yana:      'The Prophet',
 };
 
-// Chip identity colors — dot beside each chip label so color is communicated visually
+// Chip identity colors — dot beside each chip label so color is communicated visually.
+// Black uses a contrasting ring instead of a filled dot so it reads on dark backgrounds.
 const CHIP_COLORS = {
-  black:  '#444441',
+  black:  null, // handled separately with ring treatment
   green:  'var(--c-green)',
   red:    'var(--c-red)',
   purple: 'var(--c-guard-indigo-border)',
@@ -116,8 +117,8 @@ export function GuardPanel({ guard, guardIdx, actions }) {
           <span className="hp-max">{guard.maxHp}</span>
         </div>
         <div className="adj-pair">
-          <button className="stat-adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
-          <button className="stat-adj-btn adj-btn-sm" onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
+          <button className="stat-adj-btn adj-btn-sm minus" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
+          <button className="stat-adj-btn adj-btn-sm plus"  onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
         </div>
       </div>
 
@@ -198,9 +199,9 @@ export function GuardPanel({ guard, guardIdx, actions }) {
               />
               {slot.item && (
                 <div className="satchel-qty-row">
-                  <button className="satchel-qty-btn" onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.max(1, slot.qty - 1))}>−</button>
+                  <button className="satchel-qty-btn minus" onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.max(1, slot.qty - 1))}>−</button>
                   <span className="satchel-qty-val">×{slot.qty}</span>
-                  <button className="satchel-qty-btn" onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(4, slot.qty + 1))}>+</button>
+                  <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(4, slot.qty + 1))}>+</button>
                 </div>
               )}
             </div>
@@ -210,28 +211,32 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       <div className="divider" />
 
-      {/* Chip Bag */}
+      {/* Chip Bag — single column so black (most-used) leads, count has room to breathe */}
       <div className="sec-label-primary">Chip bag</div>
-      <div className="chips-grid">
+      <div className="chips-list">
         {CHIP_TYPES.map(({ id, label }) => (
           <div key={id} className="chip-row">
             <span className="chip-name">
-              <span
-                className="chip-dot"
-                style={{ background: CHIP_COLORS[id] }}
-                aria-hidden="true"
-              />
+              {id === 'black' ? (
+                <span className="chip-dot chip-dot--black" aria-hidden="true" />
+              ) : (
+                <span
+                  className="chip-dot"
+                  style={{ background: CHIP_COLORS[id] }}
+                  aria-hidden="true"
+                />
+              )}
               {label}
             </span>
             <div className="chip-controls">
-              <button className="chip-btn" onClick={() => adjustChip(guardIdx, id, -1)}>−</button>
+              <button className="chip-btn minus" onClick={() => adjustChip(guardIdx, id, -1)}>−</button>
               <span className="chip-count">{guard.chips[id] ?? 0}</span>
-              <button className="chip-btn" onClick={() => adjustChip(guardIdx, id, 1)}>+</button>
+              <button className="chip-btn plus"  onClick={() => adjustChip(guardIdx, id, 1)}>+</button>
             </div>
           </div>
         ))}
       </div>
-      <button className="end-battle-btn" onClick={() => resetChips(guardIdx)}>
+      <button className="reset-chips-btn" onClick={() => resetChips(guardIdx)}>
         Reset chips · black → {guard.startingBlack}
       </button>
     </div>
