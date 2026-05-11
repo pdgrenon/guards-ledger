@@ -1,47 +1,27 @@
 import { useState, useCallback } from 'react';
-import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
-import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
-
-// Combined set of all valid equipment options — used to gate logging to finalised selections
-const ALL_EQUIPMENT = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
-// Set for O(1) satchel item lookup
-const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
+import { createInitialState } from '../data/constants';
+import {
+  migrateGuard,
+  addLog,
+  reduceSetPartySlot,
+  reduceSetSil,
+  reduceSetLux,
+  reduceAdjustGuardHp,
+  reduceAdjustGuardMaxHp,
+  reduceSetGuardEquipment,
+  reduceSetGuardSatchelItem,
+  reduceAdjustChip,
+  reduceResetChips,
+  reduceToggleCityQuest,
+  reduceAdjustStash,
+  reduceSetStoneboundMax,
+  reduceAddStoneboundLocation,
+  reduceRemoveStoneboundLocation,
+  reduceUpdateStoneboundLocation,
+} from './gameReducers';
 
 const STORAGE_KEY = 'guards_ledger_v1';
 const LEGACY_KEY  = 'isofarian_companion_v1';
-
-function migrateGuard(g) {
-  return {
-    ...g,
-    hp:              g.hp              ?? 20,
-    maxHp:           g.maxHp           ?? 20,
-    apGray:          g.apGray          ?? 0,
-    apTemp:          g.apTemp          ?? 0,
-    baseAtk:         g.baseAtk         ?? 0,
-    baseDef:         g.baseDef         ?? 0,
-    tempDef:         g.tempDef         ?? 0,
-    expandedSatchel: g.expandedSatchel ?? false,
-    satchel:         Array(8).fill(null).map((_, i) =>
-                       g.satchel?.[i] ?? { item: '', qty: 1 }
-                     ),
-    equipment: {
-      weapon:    g.equipment?.weapon    ?? '',
-      armor:     g.equipment?.armor     ?? '',
-      accessory: g.equipment?.accessory ?? '',
-      item:      g.equipment?.item      ?? '',
-    },
-    stones: Array(4).fill(null).map((_, i) =>
-               g.stones?.[i] ?? { state: 'ready', cooldownRound: null }
-             ),
-    chips: {
-      black:  g.chips?.black  ?? 8,
-      green:  g.chips?.green  ?? 0,
-      red:    g.chips?.red    ?? 0,
-      purple: g.chips?.purple ?? 0,
-    },
-    startingBlack: g.startingBlack ?? 8,
-  };
-}
 
 function loadState() {
   try {
@@ -72,7 +52,7 @@ function loadState() {
     const { round, campaign, ...cleanParsed } = parsed;
 
     if (typeof cleanParsed.activeGuardIdx !== 'number') cleanParsed.activeGuardIdx = 0;
-    if (!Array.isArray(cleanParsed.cities))             cleanParsed.cities = createInitialState().cities;
+    if (!Array.isArray(cleanParsed.cities))             cleanParsed.cities = fresh.cities;
     if (typeof cleanParsed.stash !== 'object' || Array.isArray(cleanParsed.stash)) cleanParsed.stash = {};
     if (!Array.isArray(cleanParsed.log))                cleanParsed.log = [];
     if (typeof cleanParsed.sil !== 'number')            cleanParsed.sil = 0;
@@ -97,13 +77,6 @@ function saveState(state) {
   }
 }
 
-function addLog(state, message) {
-  const now = new Date();
-  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const entry = { time, message, id: Date.now() + Math.random() };
-  return { ...state, log: [entry, ...state.log].slice(0, 100) };
-}
-
 export function useGameState() {
   const [state, setRaw] = useState(loadState);
 
@@ -116,37 +89,18 @@ export function useGameState() {
   }, []);
 
   // Active guard — no log (UI navigation, not a game state change)
-  const setActiveGuard = useCallback((idx) => setState(s => ({ ...s, activeGuardIdx: idx })), [setState]);
+  const setActiveGuard = useCallback((idx) =>
+    setState(s => ({ ...s, activeGuardIdx: idx })), [setState]);
 
-  // Swap one slot of the active party (slotIdx: 0 or 1, name: guard name).
-  // Preserves the swapped-out guard's full state in the guards array.
-  // If the currently-viewed guard is in the slot being changed, resets view to slot 0.
-  const setPartySlot = useCallback((slotIdx, name) => setState(s => {
-    const currentParty = s.activeParty ?? ['Alek', 'Grigory'];
-    const newParty = [...currentParty];
-    newParty[slotIdx] = name;
-
-    const activeGuardName = s.guards[s.activeGuardIdx]?.name;
-    const activeGuardSlot = currentParty.indexOf(activeGuardName);
-    const newActiveGuardIdx = activeGuardSlot === slotIdx
-      ? s.guards.findIndex(g => g.name === newParty[0])
-      : s.activeGuardIdx;
-
-    return { ...s, activeParty: newParty, activeGuardIdx: newActiveGuardIdx };
-  }), [setState]);
+  const setPartySlot = useCallback((slotIdx, name) =>
+    setState(s => reduceSetPartySlot(s, slotIdx, name)), [setState]);
 
   // ── Party resources ──────────────────────────────────────────────────────
-  const setSil = useCallback((delta) => setState(s =>
-    addLog({ ...s, sil: Math.max(0, s.sil + delta) },
-      `Party Sil ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.sil + delta)}`
-    )
-  ), [setState]);
+  const setSil = useCallback((delta) =>
+    setState(s => reduceSetSil(s, delta)), [setState]);
 
-  const setLux = useCallback((delta) => setState(s =>
-    addLog({ ...s, lux: Math.max(0, s.lux + delta) },
-      `Party Lux ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.lux + delta)}`
-    )
-  ), [setState]);
+  const setLux = useCallback((delta) =>
+    setState(s => reduceSetLux(s, delta)), [setState]);
 
   // ── Guard mutations ──────────────────────────────────────────────────────
 
@@ -156,87 +110,30 @@ export function useGameState() {
     return { ...s, guards };
   }), [setState]);
 
-  const adjustGuardHp = useCallback((guardIdx, delta) => setState(s => {
-    const g = s.guards[guardIdx];
-    const newHp = Math.min(g.maxHp, Math.max(0, g.hp + delta));
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, hp: newHp } : g2);
-    return addLog({ ...s, guards }, `${g.name} HP ${delta >= 0 ? '+' : ''}${delta} → ${newHp}`);
-  }), [setState]);
+  const adjustGuardHp = useCallback((guardIdx, delta) =>
+    setState(s => reduceAdjustGuardHp(s, guardIdx, delta)), [setState]);
 
-  // Max HP change from settings — meaningful campaign event
-  const adjustGuardMaxHp = useCallback((guardIdx, delta) => setState(s => {
-    const g = s.guards[guardIdx];
-    const newMax = Math.max(1, g.maxHp + delta);
-    const newHp = Math.min(g.hp, newMax);
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, maxHp: newMax, hp: newHp } : g2);
-    return addLog({ ...s, guards }, `${g.name} max HP → ${newMax}`);
-  }), [setState]);
+  const adjustGuardMaxHp = useCallback((guardIdx, delta) =>
+    setState(s => reduceAdjustGuardMaxHp(s, guardIdx, delta)), [setState]);
 
-  // Equipment — log when a known item is equipped or a slot is cleared.
-  // Autocomplete fires onChange on every keystroke; ALL_EQUIPMENT guards against partial strings.
-  const setGuardEquipment = useCallback((guardIdx, slot, value) => setState(s => {
-    const g = s.guards[guardIdx];
-    const guards = s.guards.map((g2, i) => i === guardIdx
-      ? { ...g2, equipment: { ...g2.equipment, [slot]: value } } : g2);
-    const newState = { ...s, guards };
-    if (value && ALL_EQUIPMENT.has(value)) {
-      return addLog(newState, `${g.name} equipped ${value} (${slot})`);
-    }
-    if (!value) {
-      const prev = g.equipment[slot];
-      if (prev) return addLog(newState, `${g.name} unequipped ${slot}`);
-    }
-    return newState;
-  }), [setState]);
+  const setGuardEquipment = useCallback((guardIdx, slot, value) =>
+    setState(s => reduceSetGuardEquipment(s, guardIdx, slot, value)), [setState]);
 
-  // Satchel — only log when an item name exactly matches a known material.
-  // Autocomplete fires onChange on every keystroke; ALL_MATERIALS_SET guards against partial strings.
-  const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) => setState(s => {
-    const g = s.guards[guardIdx];
-    const guards = s.guards.map((gi, i) => {
-      if (i !== guardIdx) return gi;
-      const satchel = gi.satchel.map((slot, si) => si === slotIdx ? { ...slot, [field]: value } : slot);
-      return { ...gi, satchel };
-    });
-    const newState = { ...s, guards };
-    if (field === 'item' && value && ALL_MATERIALS_SET.has(value)) {
-      return addLog(newState, `${g.name} satchel slot ${slotIdx + 1} → ${value}`);
-    }
-    if (field === 'item' && !value) {
-      const prev = g.satchel[slotIdx]?.item;
-      if (prev) return addLog(newState, `${g.name} satchel slot ${slotIdx + 1} cleared`);
-    }
-    if (field === 'qty') {
-      const item = g.satchel[slotIdx]?.item;
-      if (item) return addLog(newState, `${g.name} ${item} ×${value}`);
-    }
-    return newState;
-  }), [setState]);
+  const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) =>
+    setState(s => reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value)), [setState]);
 
   // Satchel expand/collapse — UI preference, not a game event; removed from log
   const toggleExpandedSatchel = useCallback((guardIdx) => setState(s => {
     const expanded = !s.guards[guardIdx].expandedSatchel;
-    const guards = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
+    const guards   = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
     return { ...s, guards };
   }), [setState]);
 
-  const adjustChip = useCallback((guardIdx, chipType, delta) => setState(s => {
-    const g = s.guards[guardIdx];
-    const newVal = Math.max(0, (g.chips[chipType] ?? 0) + delta);
-    const guards = s.guards.map((g2, i) => i === guardIdx
-      ? { ...g2, chips: { ...g2.chips, [chipType]: newVal } } : g2);
-    const msg = delta > 0
-      ? `${g.name} +${delta} ${chipType} chip (×${newVal})`
-      : `${g.name} −${Math.abs(delta)} ${chipType} chip (×${newVal})`;
-    return addLog({ ...s, guards }, msg);
-  }), [setState]);
+  const adjustChip = useCallback((guardIdx, chipType, delta) =>
+    setState(s => reduceAdjustChip(s, guardIdx, chipType, delta)), [setState]);
 
-  const resetChips = useCallback((guardIdx) => setState(s => {
-    const g = s.guards[guardIdx];
-    const guards = s.guards.map((g2, i) => i === guardIdx
-      ? { ...g2, chips: { ...g2.chips, black: g2.startingBlack } } : g2);
-    return addLog({ ...s, guards }, `${g.name} chips reset · black → ${g.startingBlack}`);
-  }), [setState]);
+  const resetChips = useCallback((guardIdx) =>
+    setState(s => reduceResetChips(s, guardIdx)), [setState]);
 
   // Starting black chip count — settings change, no log needed
   const setStartingBlack = useCallback((guardIdx, value) => setState(s => {
@@ -247,7 +144,7 @@ export function useGameState() {
 
   // Base stats — kept for data model but no longer exposed in settings UI
   const adjustBaseStat = useCallback((guardIdx, stat, delta) => setState(s => {
-    const g = s.guards[guardIdx];
+    const g   = s.guards[guardIdx];
     const key = stat === 'atk' ? 'baseAtk' : 'baseDef';
     const newVal = Math.max(0, (g[key] ?? 0) + delta);
     const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, [key]: newVal } : g2);
@@ -255,83 +152,32 @@ export function useGameState() {
   }), [setState]);
 
   // ── Cities ───────────────────────────────────────────────────────────────
-  const toggleCityQuest = useCallback((cityIdx, field) => setState(s => {
-    const city = s.cities[cityIdx];
-    const newVal = !city[field];
-    const cities = s.cities.map((c, i) => i === cityIdx ? { ...c, [field]: newVal } : c);
-    const questLabel = field === 'puzzleQuestDone' ? 'puzzle quest'
-      : field === 'bounty1Done' ? 'bounty 1'
-      : 'bounty 2';
-    return addLog({ ...s, cities },
-      `${city.name} ${questLabel} ${newVal ? 'completed' : 'reopened'}`
-    );
-  }), [setState]);
+  const toggleCityQuest = useCallback((cityIdx, field) =>
+    setState(s => reduceToggleCityQuest(s, cityIdx, field)), [setState]);
 
   // ── Stash ────────────────────────────────────────────────────────────────
-  const adjustStash = useCallback((itemName, delta) => setState(s => {
-    const current = s.stash[itemName] ?? 0;
-    const newVal = Math.max(0, current + delta);
-    const stash = { ...s.stash, [itemName]: newVal };
-    if (newVal === 0) delete stash[itemName];
-    return addLog({ ...s, stash }, `Stash ${itemName} ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`);
-  }), [setState]);
+  const adjustStash = useCallback((itemName, delta) =>
+    setState(s => reduceAdjustStash(s, itemName, delta)), [setState]);
 
   // ── Stonebound ───────────────────────────────────────────────────────────
+  const setStoneboundMax = useCallback((delta) =>
+    setState(s => reduceSetStoneboundMax(s, delta)), [setState]);
 
-  // Cube cap change — log it; affects strategic planning
-  const setStoneboundMax = useCallback((delta) => setState(s => {
-    const newMax = Math.max(0, s.stonebound.max + delta);
-    return addLog(
-      { ...s, stonebound: { ...s.stonebound, max: newMax } },
-      `Stonebound cube cap → ${newMax}`
-    );
-  }), [setState]);
+  const addStoneboundLocation = useCallback(() =>
+    setState(s => reduceAddStoneboundLocation(s)), [setState]);
 
-  // Adding a location — log once; selection logged separately by updateStoneboundLocation
-  const addStoneboundLocation = useCallback(() => setState(s => {
-    const locations = [...s.stonebound.locations, { type: '', selection: '', count: 1 }];
-    return addLog(
-      { ...s, stonebound: { ...s.stonebound, locations } },
-      'Stonebound location added'
-    );
-  }), [setState]);
+  const removeStoneboundLocation = useCallback((idx) =>
+    setState(s => reduceRemoveStoneboundLocation(s, idx)), [setState]);
 
-  // Removing a location — log with whatever was selected so it's recoverable
-  const removeStoneboundLocation = useCallback((idx) => setState(s => {
-    const loc = s.stonebound.locations[idx];
-    const locations = s.stonebound.locations.filter((_, i) => i !== idx);
-    const label = loc.selection || 'empty location';
-    return addLog(
-      { ...s, stonebound: { ...s.stonebound, locations } },
-      `Stonebound removed: ${label}`
-    );
-  }), [setState]);
-
-  // Updating a location — log selection changes and cube count changes; skip type-only changes
-  // (type is always set alongside selection in the new grouped-select UI)
-  const updateStoneboundLocation = useCallback((idx, field, value) => setState(s => {
-    const locations = s.stonebound.locations.map((loc, i) =>
-      i === idx ? { ...loc, [field]: value } : loc
-    );
-    const newState = { ...s, stonebound: { ...s.stonebound, locations } };
-
-    if (field === 'selection' && value) {
-      return addLog(newState, `Stonebound location ${idx + 1} → ${value}`);
-    }
-    if (field === 'count') {
-      const loc = s.stonebound.locations[idx];
-      const label = loc.selection || `location ${idx + 1}`;
-      return addLog(newState, `Stonebound ${label} cubes → ${value}`);
-    }
-    return newState;
-  }), [setState]);
+  const updateStoneboundLocation = useCallback((idx, field, value) =>
+    setState(s => reduceUpdateStoneboundLocation(s, idx, field, value)), [setState]);
 
   // ── Save data ────────────────────────────────────────────────────────────
   const exportState = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
     a.download = `guards-ledger-save-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
