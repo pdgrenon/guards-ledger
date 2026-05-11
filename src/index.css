@@ -992,7 +992,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 16px;
+  margin-top: 20px;
   margin-bottom: 2px;
   font-size: 13px;
   font-weight: 600;
@@ -1005,6 +1005,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
   width: 8px; height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+/* Full-width rule that visually separates major setting sections */
+.settings-section-divider {
+  border: none;
+  border-top: 1px solid var(--c-border2);
+  margin: 16px 0 0;
 }
 .settings-row {
   display: flex; align-items: center; justify-content: space-between;

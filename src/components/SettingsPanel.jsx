@@ -70,7 +70,11 @@ export function SettingsPanel({ state, actions, guardColorMap, onClose }) {
             );
           })}
 
-          <div className="sec-label" style={{ marginTop: 16 }}>Save data</div>
+          <div className="settings-section-divider" />
+          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-city)' }}>
+            <span className="settings-guard-dot" style={{ background: 'var(--c-city)' }} aria-hidden="true" />
+            Save data
+          </div>
 
           <div className="settings-row">
             <div className="settings-label">Export save file</div>

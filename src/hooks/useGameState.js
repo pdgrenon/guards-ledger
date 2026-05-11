@@ -1,5 +1,11 @@
 import { useState, useCallback } from 'react';
 import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
+
+// Combined set of all valid equipment options — used to gate logging to finalised selections
+const ALL_EQUIPMENT = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
+// Set for O(1) satchel item lookup
+const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
 
 const STORAGE_KEY = 'guards_ledger_v1';
 const LEGACY_KEY  = 'isofarian_companion_v1';
@@ -132,18 +138,25 @@ export function useGameState() {
     return addLog({ ...s, guards }, `${g.name} max HP → ${newMax}`);
   }), [setState]);
 
-  // Equipment — log when a slot is set or cleared
+  // Equipment — log when a known item is equipped or a slot is cleared.
+  // Autocomplete fires onChange on every keystroke; ALL_EQUIPMENT guards against partial strings.
   const setGuardEquipment = useCallback((guardIdx, slot, value) => setState(s => {
     const g = s.guards[guardIdx];
     const guards = s.guards.map((g2, i) => i === guardIdx
       ? { ...g2, equipment: { ...g2.equipment, [slot]: value } } : g2);
-    const msg = value
-      ? `${g.name} equipped ${value} (${slot})`
-      : `${g.name} unequipped ${slot}`;
-    return addLog({ ...s, guards }, msg);
+    const newState = { ...s, guards };
+    if (value && ALL_EQUIPMENT.has(value)) {
+      return addLog(newState, `${g.name} equipped ${value} (${slot})`);
+    }
+    if (!value) {
+      const prev = g.equipment[slot];
+      if (prev) return addLog(newState, `${g.name} unequipped ${slot}`);
+    }
+    return newState;
   }), [setState]);
 
-  // Satchel — only log when an item name is set (not qty changes, not clearing to empty string mid-type)
+  // Satchel — only log when an item name exactly matches a known material.
+  // Autocomplete fires onChange on every keystroke; ALL_MATERIALS_SET guards against partial strings.
   const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) => setState(s => {
     const g = s.guards[guardIdx];
     const guards = s.guards.map((gi, i) => {
@@ -152,8 +165,7 @@ export function useGameState() {
       return { ...gi, satchel };
     });
     const newState = { ...s, guards };
-    // Only log when an item name is finalised (non-empty string), not qty adjustments
-    if (field === 'item' && value) {
+    if (field === 'item' && value && ALL_MATERIALS_SET.has(value)) {
       return addLog(newState, `${g.name} satchel slot ${slotIdx + 1} → ${value}`);
     }
     if (field === 'item' && !value) {
