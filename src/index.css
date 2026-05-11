@@ -16,19 +16,32 @@
   --c-text2: #5a5856;
   --c-text3: #8a8880;
 
-  /* Accent — steel blue: distinct from all guard colours and semantic colours */
-  --c-accent:      #3d4a6b;
-  --c-accent-bg:   #eef0f5;
-  --c-accent-text: #2d3549;
+  /* ── Brand color — stone ochre ───────────────────────────────────────────
+     The app's identity color. Used for structural accents (card borders,
+     section pips, wordmark), action buttons, and data emphasis.
+     Warm, earthy, distinct from all guard colors and semantic signals. */
+  --c-brand:      #8a6f3e;
+  --c-brand-bg:   #f5edd8;
+  --c-brand-text: #4a3110;
 
-  /* City accent — stone ochre: warmer than accent, earthier than amber,
-     no association with any guard color; reads as "place" not "character" */
-  --c-city: #8a6f3e;
+  /* ── Interactive color — slate blue ─────────────────────────────────────
+     Purely functional. Used only for active/selected UI states:
+     active tab underline, toggle on-state, step selector active fill.
+     Never used as a brand color or for guard identity. */
+  --c-interact:      #4a5568;
+  --c-interact-bg:   #edf0f5;
+  --c-interact-text: #2d3444;
 
-  /* Backward-compat aliases */
-  --c-purple:      var(--c-accent);
-  --c-purple-bg:   var(--c-accent-bg);
-  --c-purple-text: var(--c-accent-text);
+  /* City/stash accent — same as brand; --c-city kept as a semantic alias */
+  --c-city: var(--c-brand);
+
+  /* Legacy aliases — resolved to brand for backward compat */
+  --c-accent:      var(--c-brand);
+  --c-accent-bg:   var(--c-brand-bg);
+  --c-accent-text: var(--c-brand-text);
+  --c-purple:      var(--c-brand);
+  --c-purple-bg:   var(--c-brand-bg);
+  --c-purple-text: var(--c-brand-text);
 
   /* Semantic — HP / danger */
   --c-red:      #c94b28;
@@ -55,8 +68,8 @@
   --c-ap-green: #4a7c3f;
 
   /* ── Guard identity colours — 8 unique, none matching the steel-blue accent ── */
-  /* Alek    — steel (matches accent) */
-  --c-guard-gold-bg:         #eef0f5; --c-guard-gold-border:      #3d4a6b; --c-guard-gold-text:        #2d3549;
+  /* Alek    — slate (distinct from both brand ochre and interact blue) */
+  --c-guard-gold-bg:         #edf0f5; --c-guard-gold-border:      #4a5568; --c-guard-gold-text:        #2d3444;
   /* Grigory — amber */
   --c-guard-amber-bg:        #faeeda; --c-guard-amber-border:     #ba7517; --c-guard-amber-text:       #633806;
   /* Dasha   — forest */
@@ -100,15 +113,22 @@
     --c-text2: #a8a6a0;
     --c-text3: #6a6866;
 
-    --c-accent:      #7b8fc4;
-    --c-accent-bg:   #1e2438;
-    --c-accent-text: #c8d4f0;
+    --c-brand:      #c4963c;
+    --c-brand-bg:   #2e2010;
+    --c-brand-text: #f0c070;
 
-    --c-purple:      var(--c-accent);
-    --c-purple-bg:   var(--c-accent-bg);
-    --c-purple-text: var(--c-accent-text);
+    --c-interact:      #7b8fc4;
+    --c-interact-bg:   #1e2438;
+    --c-interact-text: #c8d4f0;
 
-    --c-city: #b8945a;
+    --c-city: var(--c-brand);
+
+    --c-accent:      var(--c-brand);
+    --c-accent-bg:   var(--c-brand-bg);
+    --c-accent-text: var(--c-brand-text);
+    --c-purple:      var(--c-brand);
+    --c-purple-bg:   var(--c-brand-bg);
+    --c-purple-text: var(--c-brand-text);
 
     --c-red:      #f0997b;
     --c-red-bg:   #4a1b0c;
@@ -129,7 +149,7 @@
     --c-ap-gray:  #b4b2a9;
     --c-ap-green: #97c459;
 
-    --c-guard-gold-bg:         #1e2438; --c-guard-gold-border:      #7b8fc4; --c-guard-gold-text:        #c8d4f0;
+    --c-guard-gold-bg:         #1e2330; --c-guard-gold-border:      #8898b8; --c-guard-gold-text:        #c8d4f0;
     --c-guard-amber-bg:        #412402; --c-guard-amber-border:     #ef9f27; --c-guard-amber-text:       #fac775;
     --c-guard-forest-bg:       #173404; --c-guard-forest-border:    #97c459; --c-guard-forest-text:      #c0dd97;
     --c-guard-vermilion-bg:    #4a1b0c; --c-guard-vermilion-border: #f0997b; --c-guard-vermilion-text:   #f5c4b3;
@@ -361,8 +381,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 /* Active tab: accent colour + font-weight for clear distinction */
 .tab.active {
-  color: var(--c-accent);
-  border-bottom-color: var(--c-accent);
+  color: var(--c-interact);
+  border-bottom-color: var(--c-interact);
   font-weight: 600;
 }
 
@@ -1061,7 +1081,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   flex-shrink: 0;
   transition: background 0.2s;
 }
-.toggle.on { background: var(--c-accent); border-color: var(--c-accent); }
+.toggle.on { background: var(--c-interact); border-color: var(--c-interact); }
 .toggle-thumb {
   position: absolute;
   top: 3px; left: 3px;
@@ -1101,8 +1121,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .step-btn:last-child { border-right: none; }
 .step-btn.active {
-  background: var(--c-accent-bg);
-  color: var(--c-accent-text);
+  background: var(--c-interact-bg);
+  color: var(--c-interact-text);
   font-weight: 600;
 }
 .counter-actions { display: flex; gap: 6px; }
