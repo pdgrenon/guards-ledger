@@ -13,14 +13,14 @@ const TABS = ['Guard', 'Cities', 'Stash & stonebound', 'Session log'];
 // Maps each guard name to their CSS variable key prefix and exact border color.
 // Used across: switcher active state, card top border, header name, session log.
 const GUARD_COLOR_MAP = {
-  Alek:    { key: 'gold',      border: 'var(--c-guard-gold-border)',      bg: 'var(--c-guard-gold-bg)',      text: 'var(--c-guard-gold-text)'      },
-  Grigory: { key: 'amber',     border: 'var(--c-guard-amber-border)',     bg: 'var(--c-guard-amber-bg)',     text: 'var(--c-guard-amber-text)'     },
-  Dasha:   { key: 'forest',    border: 'var(--c-guard-forest-border)',    bg: 'var(--c-guard-forest-bg)',    text: 'var(--c-guard-forest-text)'    },
-  Zoya:    { key: 'vermilion', border: 'var(--c-guard-vermilion-border)', bg: 'var(--c-guard-vermilion-bg)', text: 'var(--c-guard-vermilion-text)' },
-  Borya:   { key: 'indigo',    border: 'var(--c-guard-indigo-border)',    bg: 'var(--c-guard-indigo-bg)',    text: 'var(--c-guard-indigo-text)'    },
-  Mila:    { key: 'teal',      border: 'var(--c-guard-teal-border)',      bg: 'var(--c-guard-teal-bg)',      text: 'var(--c-guard-teal-text)'      },
-  Seva:    { key: 'rose',      border: 'var(--c-guard-rose-border)',      bg: 'var(--c-guard-rose-bg)',      text: 'var(--c-guard-rose-text)'      },
-  Kira:    { key: 'cerulean',  border: 'var(--c-guard-cerulean-border)',  bg: 'var(--c-guard-cerulean-bg)',  text: 'var(--c-guard-cerulean-text)'  },
+  Grigory:   { key: 'amber',     border: 'var(--c-guard-amber-border)',     bg: 'var(--c-guard-amber-bg)',     text: 'var(--c-guard-amber-text)'     },
+  Alek:      { key: 'gold',      border: 'var(--c-guard-gold-border)',      bg: 'var(--c-guard-gold-bg)',      text: 'var(--c-guard-gold-text)'      },
+  Catherine: { key: 'forest',    border: 'var(--c-guard-forest-border)',    bg: 'var(--c-guard-forest-bg)',    text: 'var(--c-guard-forest-text)'    },
+  Yury:      { key: 'vermilion', border: 'var(--c-guard-vermilion-border)', bg: 'var(--c-guard-vermilion-bg)', text: 'var(--c-guard-vermilion-text)' },
+  Kharzin:   { key: 'indigo',    border: 'var(--c-guard-indigo-border)',    bg: 'var(--c-guard-indigo-bg)',    text: 'var(--c-guard-indigo-text)'    },
+  Vera:      { key: 'teal',      border: 'var(--c-guard-teal-border)',      bg: 'var(--c-guard-teal-bg)',      text: 'var(--c-guard-teal-text)'      },
+  Pavel:     { key: 'rose',      border: 'var(--c-guard-rose-border)',      bg: 'var(--c-guard-rose-bg)',      text: 'var(--c-guard-rose-text)'      },
+  Yana:      { key: 'cerulean',  border: 'var(--c-guard-cerulean-border)',  bg: 'var(--c-guard-cerulean-bg)',  text: 'var(--c-guard-cerulean-text)'  },
 };
 const FALLBACK_COLOR = { key: 'gold', border: 'var(--c-guard-gold-border)', bg: 'var(--c-guard-gold-bg)', text: 'var(--c-guard-gold-text)' };
 

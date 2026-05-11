@@ -10,26 +10,26 @@ const EQUIPMENT_SLOTS = [
 ];
 
 const GUARD_COLORS = {
-  Alek:    'gold',
-  Grigory: 'amber',
-  Dasha:   'forest',
-  Zoya:    'vermilion',
-  Borya:   'indigo',
-  Mila:    'teal',
-  Seva:    'rose',
-  Kira:    'cerulean',
+  Grigory:   'amber',
+  Alek:      'gold',
+  Catherine: 'forest',
+  Yury:      'vermilion',
+  Kharzin:   'indigo',
+  Vera:      'teal',
+  Pavel:     'rose',
+  Yana:      'cerulean',
 };
-const FALLBACK_COLORS = ['gold', 'amber', 'forest', 'vermilion', 'indigo', 'teal', 'rose', 'cerulean'];
+const FALLBACK_COLORS = ['amber', 'gold', 'forest', 'vermilion', 'indigo', 'teal', 'rose', 'cerulean'];
 
 const GUARD_ROLES = {
-  Alek:    'The Vanguard',
-  Grigory: 'The Warden',
-  Dasha:   'The Seeker',
-  Zoya:    'The Blade',
-  Borya:   'The Bulwark',
-  Mila:    'The Sage',
-  Seva:    'The Scout',
-  Kira:    'The Arcanist',
+  Grigory:   'The Tactician',
+  Alek:      'The Apothecary',
+  Catherine: 'The Remnant',
+  Yury:      'The Marauder',
+  Kharzin:   'The Sentinel',
+  Vera:      'The Vanguard',
+  Pavel:     'The Watchman',
+  Yana:      'The Prophet',
 };
 
 // ─── Hero images ────────────────────────────────────────────────────────────
@@ -38,14 +38,14 @@ const GUARD_ROLES = {
 // The component falls back to initials automatically if the file is missing.
 const BASE = '/isofarian-companion/guards/';
 const GUARD_IMAGES = {
-  Alek:    `${BASE}alek.jpg`,
-  Grigory: `${BASE}grigory.jpg`,
-  Dasha:   `${BASE}dasha.jpg`,
-  Zoya:    `${BASE}zoya.jpg`,
-  Borya:   `${BASE}borya.jpg`,
-  Mila:    `${BASE}mila.jpg`,
-  Seva:    `${BASE}seva.jpg`,
-  Kira:    `${BASE}kira.jpg`,
+  Grigory:   `${BASE}grigory.jpg`,
+  Alek:      `${BASE}alek.jpg`,
+  Catherine: `${BASE}catherine.jpg`,
+  Yury:      `${BASE}yury.jpg`,
+  Kharzin:   `${BASE}kharzin.jpg`,
+  Vera:      `${BASE}vera.jpg`,
+  Pavel:     `${BASE}pavel.jpg`,
+  Yana:      `${BASE}yana.jpg`,
 };
 
 function initials(name) { return name.slice(0, 2).toUpperCase(); }

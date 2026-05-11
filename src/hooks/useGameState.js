@@ -57,6 +57,18 @@ function loadState() {
       parsed.guards = parsed.guards.map(migrateGuard);
     }
 
+    // Migration: if a saved game has fewer guards than the current roster
+    // (e.g. an old 2-guard save being loaded with the 8-guard version),
+    // append any missing guards with their default starting state.
+    const fresh = createInitialState();
+    if (Array.isArray(parsed.guards)) {
+      const savedNames = new Set(parsed.guards.map(g => g.name));
+      const missing = fresh.guards.filter(g => !savedNames.has(g.name));
+      if (missing.length > 0) {
+        parsed.guards = [...parsed.guards, ...missing];
+      }
+    }
+
     const { round, campaign, ...cleanParsed } = parsed;
 
     if (typeof cleanParsed.activeGuardIdx !== 'number') cleanParsed.activeGuardIdx = 0;
