@@ -39,22 +39,18 @@ function migrateGuard(g) {
 
 function loadState() {
   try {
-    // Try new key first, fall back to legacy key
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw);
 
-    // Migrate stonebound slots format
     if (parsed.stonebound?.slots && !parsed.stonebound.locations) {
       parsed.stonebound = { max: parsed.stonebound.max, locations: [] };
     }
 
-    // Migrate and validate each guard
     if (parsed.guards) {
       parsed.guards = parsed.guards.map(migrateGuard);
     }
 
-    // Strip old top-level fields; ensure required ones exist
     const { round, campaign, ...cleanParsed } = parsed;
 
     if (typeof cleanParsed.activeGuardIdx !== 'number') cleanParsed.activeGuardIdx = 0;
@@ -96,10 +92,10 @@ export function useGameState() {
     });
   }, []);
 
-  // Active guard
+  // Active guard — no log (UI navigation, not a game state change)
   const setActiveGuard = useCallback((idx) => setState(s => ({ ...s, activeGuardIdx: idx })), [setState]);
 
-  // Party resources
+  // ── Party resources ──────────────────────────────────────────────────────
   const setSil = useCallback((delta) => setState(s =>
     addLog({ ...s, sil: Math.max(0, s.sil + delta) },
       `Party Sil ${delta >= 0 ? '+' : ''}${delta} → ${Math.max(0, s.sil + delta)}`
@@ -112,7 +108,9 @@ export function useGameState() {
     )
   ), [setState]);
 
-  // Guard mutations
+  // ── Guard mutations ──────────────────────────────────────────────────────
+
+  // Generic field update — no log (internal use only)
   const updateGuard = useCallback((guardIdx, field, value) => setState(s => {
     const guards = s.guards.map((g, i) => i === guardIdx ? { ...g, [field]: value } : g);
     return { ...s, guards };
@@ -125,34 +123,51 @@ export function useGameState() {
     return addLog({ ...s, guards }, `${g.name} HP ${delta >= 0 ? '+' : ''}${delta} → ${newHp}`);
   }), [setState]);
 
+  // Max HP change from settings — meaningful campaign event
   const adjustGuardMaxHp = useCallback((guardIdx, delta) => setState(s => {
     const g = s.guards[guardIdx];
     const newMax = Math.max(1, g.maxHp + delta);
     const newHp = Math.min(g.hp, newMax);
     const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, maxHp: newMax, hp: newHp } : g2);
-    return { ...s, guards };
+    return addLog({ ...s, guards }, `${g.name} max HP → ${newMax}`);
   }), [setState]);
 
+  // Equipment — log when a slot is set or cleared
   const setGuardEquipment = useCallback((guardIdx, slot, value) => setState(s => {
-    const guards = s.guards.map((g, i) => i === guardIdx
-      ? { ...g, equipment: { ...g.equipment, [slot]: value } } : g);
-    return { ...s, guards };
-  }), [setState]);
-
-  const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) => setState(s => {
-    const guards = s.guards.map((g, i) => {
-      if (i !== guardIdx) return g;
-      const satchel = g.satchel.map((slot, si) => si === slotIdx ? { ...slot, [field]: value } : slot);
-      return { ...g, satchel };
-    });
-    return { ...s, guards };
-  }), [setState]);
-
-  const toggleExpandedSatchel = useCallback((guardIdx) => setState(s => {
     const g = s.guards[guardIdx];
-    const expanded = !g.expandedSatchel;
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, expandedSatchel: expanded } : g2);
-    return addLog({ ...s, guards }, `${g.name} satchel ${expanded ? 'expanded' : 'standard'}`);
+    const guards = s.guards.map((g2, i) => i === guardIdx
+      ? { ...g2, equipment: { ...g2.equipment, [slot]: value } } : g2);
+    const msg = value
+      ? `${g.name} equipped ${value} (${slot})`
+      : `${g.name} unequipped ${slot}`;
+    return addLog({ ...s, guards }, msg);
+  }), [setState]);
+
+  // Satchel — only log when an item name is set (not qty changes, not clearing to empty string mid-type)
+  const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) => setState(s => {
+    const g = s.guards[guardIdx];
+    const guards = s.guards.map((gi, i) => {
+      if (i !== guardIdx) return gi;
+      const satchel = gi.satchel.map((slot, si) => si === slotIdx ? { ...slot, [field]: value } : slot);
+      return { ...gi, satchel };
+    });
+    const newState = { ...s, guards };
+    // Only log when an item name is finalised (non-empty string), not qty adjustments
+    if (field === 'item' && value) {
+      return addLog(newState, `${g.name} satchel slot ${slotIdx + 1} → ${value}`);
+    }
+    if (field === 'item' && !value) {
+      const prev = g.satchel[slotIdx]?.item;
+      if (prev) return addLog(newState, `${g.name} satchel slot ${slotIdx + 1} cleared`);
+    }
+    return newState;
+  }), [setState]);
+
+  // Satchel expand/collapse — UI preference, not a game event; removed from log
+  const toggleExpandedSatchel = useCallback((guardIdx) => setState(s => {
+    const expanded = !s.guards[guardIdx].expandedSatchel;
+    const guards = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
+    return { ...s, guards };
   }), [setState]);
 
   const adjustChip = useCallback((guardIdx, chipType, delta) => setState(s => {
@@ -173,12 +188,14 @@ export function useGameState() {
     return addLog({ ...s, guards }, `${g.name} chips reset · black → ${g.startingBlack}`);
   }), [setState]);
 
+  // Starting black chip count — settings change, no log needed
   const setStartingBlack = useCallback((guardIdx, value) => setState(s => {
     const guards = s.guards.map((g, i) => i === guardIdx
       ? { ...g, startingBlack: Math.max(0, value) } : g);
     return { ...s, guards };
   }), [setState]);
 
+  // Base stats — kept for data model but no longer exposed in settings UI
   const adjustBaseStat = useCallback((guardIdx, stat, delta) => setState(s => {
     const g = s.guards[guardIdx];
     const key = stat === 'atk' ? 'baseAtk' : 'baseDef';
@@ -187,15 +204,20 @@ export function useGameState() {
     return { ...s, guards };
   }), [setState]);
 
-  // Cities
+  // ── Cities ───────────────────────────────────────────────────────────────
   const toggleCityQuest = useCallback((cityIdx, field) => setState(s => {
     const city = s.cities[cityIdx];
     const newVal = !city[field];
     const cities = s.cities.map((c, i) => i === cityIdx ? { ...c, [field]: newVal } : c);
-    return addLog({ ...s, cities }, `${city.name} ${field} → ${newVal ? 'done' : 'undone'}`);
+    const questLabel = field === 'puzzleQuestDone' ? 'puzzle quest'
+      : field === 'bounty1Done' ? 'bounty 1'
+      : 'bounty 2';
+    return addLog({ ...s, cities },
+      `${city.name} ${questLabel} ${newVal ? 'completed' : 'reopened'}`
+    );
   }), [setState]);
 
-  // Stash
+  // ── Stash ────────────────────────────────────────────────────────────────
   const adjustStash = useCallback((itemName, delta) => setState(s => {
     const current = s.stash[itemName] ?? 0;
     const newVal = Math.max(0, current + delta);
@@ -204,29 +226,57 @@ export function useGameState() {
     return addLog({ ...s, stash }, `Stash ${itemName} ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`);
   }), [setState]);
 
-  // Stonebound
-  const setStoneboundMax = useCallback((delta) => setState(s => ({
-    ...s, stonebound: { ...s.stonebound, max: Math.max(0, s.stonebound.max + delta) },
-  })), [setState]);
+  // ── Stonebound ───────────────────────────────────────────────────────────
 
+  // Cube cap change — log it; affects strategic planning
+  const setStoneboundMax = useCallback((delta) => setState(s => {
+    const newMax = Math.max(0, s.stonebound.max + delta);
+    return addLog(
+      { ...s, stonebound: { ...s.stonebound, max: newMax } },
+      `Stonebound cube cap → ${newMax}`
+    );
+  }), [setState]);
+
+  // Adding a location — log once; selection logged separately by updateStoneboundLocation
   const addStoneboundLocation = useCallback(() => setState(s => {
     const locations = [...s.stonebound.locations, { type: '', selection: '', count: 1 }];
-    return { ...s, stonebound: { ...s.stonebound, locations } };
+    return addLog(
+      { ...s, stonebound: { ...s.stonebound, locations } },
+      'Stonebound location added'
+    );
   }), [setState]);
 
+  // Removing a location — log with whatever was selected so it's recoverable
   const removeStoneboundLocation = useCallback((idx) => setState(s => {
+    const loc = s.stonebound.locations[idx];
     const locations = s.stonebound.locations.filter((_, i) => i !== idx);
-    return { ...s, stonebound: { ...s.stonebound, locations } };
+    const label = loc.selection || 'empty location';
+    return addLog(
+      { ...s, stonebound: { ...s.stonebound, locations } },
+      `Stonebound removed: ${label}`
+    );
   }), [setState]);
 
+  // Updating a location — log selection changes and cube count changes; skip type-only changes
+  // (type is always set alongside selection in the new grouped-select UI)
   const updateStoneboundLocation = useCallback((idx, field, value) => setState(s => {
     const locations = s.stonebound.locations.map((loc, i) =>
       i === idx ? { ...loc, [field]: value } : loc
     );
-    return { ...s, stonebound: { ...s.stonebound, locations } };
+    const newState = { ...s, stonebound: { ...s.stonebound, locations } };
+
+    if (field === 'selection' && value) {
+      return addLog(newState, `Stonebound location ${idx + 1} → ${value}`);
+    }
+    if (field === 'count') {
+      const loc = s.stonebound.locations[idx];
+      const label = loc.selection || `location ${idx + 1}`;
+      return addLog(newState, `Stonebound ${label} cubes → ${value}`);
+    }
+    return newState;
   }), [setState]);
 
-  // Save data
+  // ── Save data ────────────────────────────────────────────────────────────
   const exportState = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
