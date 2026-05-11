@@ -1,11 +1,17 @@
-export function SettingsPanel({ state, actions, guardColorMap, onClose }) {
-  const { guards } = state;
-  const { adjustGuardMaxHp, setStartingBlack, exportState, importState, resetState } = actions;
+export function SettingsPanel({ state, actions, guardColorMap, allGuards, onClose }) {
+  const { guards, activeParty = ['Alek', 'Grigory'] } = state;
+  const { adjustGuardMaxHp, setStartingBlack, setPartySlot, exportState, importState, resetState } = actions;
 
   function handleImport(e) {
     const file = e.target.files[0];
     if (file) { importState(file); onClose(); }
   }
+
+  // Only show per-guard settings for the two active party members
+  const activeGuards = activeParty.map(name => ({
+    guard: guards.find(g => g.name === name),
+    gi:    guards.findIndex(g => g.name === name),
+  })).filter(({ guard }) => guard != null);
 
   return (
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -26,11 +32,46 @@ export function SettingsPanel({ state, actions, guardColorMap, onClose }) {
 
         {/* Scrollable body */}
         <div className="settings-panel-body">
-          {guards.map((guard, gi) => {
+
+          {/* ── Active party ── */}
+          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-brand)' }}>
+            <span className="settings-guard-dot" style={{ background: 'var(--c-brand)' }} aria-hidden="true" />
+            Active party
+          </div>
+          <div className="settings-sub" style={{ marginBottom: 10 }}>
+            Select the two guards for your current campaign
+          </div>
+
+          {[0, 1].map(slotIdx => {
+            const currentName = activeParty[slotIdx];
+            const otherName   = activeParty[1 - slotIdx];
+            return (
+              <div className="settings-row" key={slotIdx}>
+                <div>
+                  <div className="settings-label">Guard {slotIdx + 1}</div>
+                </div>
+                <select
+                  className="settings-select"
+                  value={currentName}
+                  onChange={e => setPartySlot(slotIdx, e.target.value)}
+                >
+                  {allGuards.map(name => (
+                    <option key={name} value={name} disabled={name === otherName}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+
+          <div className="settings-section-divider" />
+
+          {/* ── Per-guard settings — active party only ── */}
+          {activeGuards.map(({ guard, gi }) => {
             const c = guardColorMap?.[guard.name];
             return (
               <div key={gi}>
-                {/* Guard name header in their identity color */}
                 <div
                   className="settings-guard-header"
                   style={c ? { '--guard-color': c.border } : {}}
@@ -71,6 +112,8 @@ export function SettingsPanel({ state, actions, guardColorMap, onClose }) {
           })}
 
           <div className="settings-section-divider" />
+
+          {/* ── Save data ── */}
           <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-city)' }}>
             <span className="settings-guard-dot" style={{ background: 'var(--c-city)' }} aria-hidden="true" />
             Save data
@@ -101,8 +144,8 @@ export function SettingsPanel({ state, actions, guardColorMap, onClose }) {
               Reset
             </button>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );

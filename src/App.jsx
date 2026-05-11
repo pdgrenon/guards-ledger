@@ -70,6 +70,7 @@ export default function App() {
   const game = useGameState();
   const { state } = game;
 
+  const activeParty = state.activeParty ?? ['Alek', 'Grigory'];
   const activeIdx = state.activeGuardIdx ?? 0;
   const activeGuard = state.guards[activeIdx];
   const activeColor = GUARD_COLOR_MAP[activeGuard?.name] ?? FALLBACK_COLOR;
@@ -85,6 +86,7 @@ export default function App() {
     setStartingBlack:      game.setStartingBlack,
     adjustBaseStat:        game.adjustBaseStat,
     updateGuard:           game.updateGuard,
+    setPartySlot:          game.setPartySlot,
     exportState:           game.exportState,
     importState:           game.importState,
     resetState:            game.resetState,
@@ -122,16 +124,17 @@ export default function App() {
       {/* ── Guard tab ── */}
       {tab === 'Guard' && (
         <>
-          {/* Switcher — each active button uses its own guard color */}
+          {/* Switcher — only the two active party members */}
           <div className="guard-switcher">
-            {state.guards.map((g, i) => {
-              const c = GUARD_COLOR_MAP[g.name] ?? FALLBACK_COLOR;
-              const isActive = activeIdx === i;
+            {activeParty.map((name) => {
+              const guardIdx = state.guards.findIndex(g => g.name === name);
+              const c = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
+              const isActive = activeIdx === guardIdx;
               return (
                 <button
-                  key={i}
+                  key={name}
                   className={`guard-switch-btn${isActive ? ' active' : ''}`}
-                  onClick={() => game.setActiveGuard(i)}
+                  onClick={() => game.setActiveGuard(guardIdx)}
                   style={isActive ? {
                     '--guard-btn-bg':     c.bg,
                     '--guard-btn-border': c.border,
@@ -150,7 +153,7 @@ export default function App() {
                     }}
                     aria-hidden="true"
                   />
-                  {g.name}
+                  {name}
                 </button>
               );
             })}
@@ -225,6 +228,7 @@ export default function App() {
           state={state}
           actions={actions}
           guardColorMap={GUARD_COLOR_MAP}
+          allGuards={GUARDS}
           onClose={() => setSettingsOpen(false)}
         />
       )}

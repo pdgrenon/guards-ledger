@@ -1241,3 +1241,21 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .text-muted { color: var(--c-text2); }
 .text-hint { color: var(--c-text3); }
 .font-medium { font-weight: 500; }
+
+/* ─── SETTINGS SELECT (active party dropdowns) ───────────────────────────── */
+.settings-select {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  border: 0.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface2);
+  color: var(--c-text);
+  cursor: pointer;
+  min-width: 110px;
+}
+.settings-select:focus {
+  outline: none;
+  border-color: var(--c-interact);
+}

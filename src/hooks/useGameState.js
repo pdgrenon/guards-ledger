@@ -78,6 +78,11 @@ function loadState() {
     if (typeof cleanParsed.sil !== 'number')            cleanParsed.sil = 0;
     if (typeof cleanParsed.lux !== 'number')            cleanParsed.lux = 0;
 
+    // Migration: default activeParty for saves that predate the party system
+    if (!Array.isArray(cleanParsed.activeParty) || cleanParsed.activeParty.length !== 2) {
+      cleanParsed.activeParty = ['Alek', 'Grigory'];
+    }
+
     return cleanParsed;
   } catch {
     return createInitialState();
@@ -112,6 +117,23 @@ export function useGameState() {
 
   // Active guard — no log (UI navigation, not a game state change)
   const setActiveGuard = useCallback((idx) => setState(s => ({ ...s, activeGuardIdx: idx })), [setState]);
+
+  // Swap one slot of the active party (slotIdx: 0 or 1, name: guard name).
+  // Preserves the swapped-out guard's full state in the guards array.
+  // If the currently-viewed guard is in the slot being changed, resets view to slot 0.
+  const setPartySlot = useCallback((slotIdx, name) => setState(s => {
+    const currentParty = s.activeParty ?? ['Alek', 'Grigory'];
+    const newParty = [...currentParty];
+    newParty[slotIdx] = name;
+
+    const activeGuardName = s.guards[s.activeGuardIdx]?.name;
+    const activeGuardSlot = currentParty.indexOf(activeGuardName);
+    const newActiveGuardIdx = activeGuardSlot === slotIdx
+      ? s.guards.findIndex(g => g.name === newParty[0])
+      : s.activeGuardIdx;
+
+    return { ...s, activeParty: newParty, activeGuardIdx: newActiveGuardIdx };
+  }), [setState]);
 
   // ── Party resources ──────────────────────────────────────────────────────
   const setSil = useCallback((delta) => setState(s =>
@@ -337,6 +359,7 @@ export function useGameState() {
   return {
     state,
     setActiveGuard,
+    setPartySlot,
     setSil, setLux,
     adjustGuardHp, adjustGuardMaxHp,
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,

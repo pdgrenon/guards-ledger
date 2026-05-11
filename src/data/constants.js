@@ -76,6 +76,7 @@ export function createInitialState() {
     sil:            0,
     lux:            0,
     activeGuardIdx: 0,
+    activeParty:    ['Alek', 'Grigory'],
     guards:         GUARDS.map(makeGuard),
     cities:         CITIES.map(c => makeCity(c.id, c.name)),
     stash:          {},
