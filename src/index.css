@@ -191,15 +191,14 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 
 /* ─── SECTION LABEL ──────────────────────────────────────────────────────── */
-/* Bumped from 10px → 11px for legibility */
 .sec-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--c-text2);
   margin-bottom: 6px;
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
 }
 
 /* ─── DIVIDER ────────────────────────────────────────────────────────────── */
@@ -223,7 +222,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 .adj-btn:active { opacity: 0.6; }
-.adj-val { font-size: 15px; font-weight: 500; color: var(--c-text); min-width: 28px; text-align: center; }
+.adj-val { font-size: 15px; font-weight: 500; color: var(--c-text); min-width: 28px; text-align: center; font-family: var(--font-display); }
 
 .stat-adj-btn {
   width: 36px; height: 36px;
@@ -278,13 +277,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 
-/* Tagline — boosted from text3 to text2 for legibility */
+/* Tagline — branding copy uses display font */
 .top-bar-tagline {
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   font-size: 11px;
+  font-weight: 400;
   color: var(--c-text2);
   font-style: italic;
-  margin-top: 2px;
+  margin-top: 3px;
+  letter-spacing: 0.02em;
 }
 
 /* ─── RESOURCE PILLS ─────────────────────────────────────────────────────── */
@@ -441,18 +442,21 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 11px;
   color: var(--c-text3);
   font-style: italic;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 /* ─── PRIMARY SECTION LABEL — colored pip accent ─────────────────────────── */
 /* Used for Health, Combat stats, Equipment, Satchel, Chip bag inside guard card */
 .sec-label-primary {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--guard-color, var(--c-accent));
   margin-bottom: 6px;
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -461,7 +465,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   content: '';
   display: inline-block;
   width: 3px;
-  height: 11px;
+  height: 12px;
   border-radius: 2px;
   background: var(--guard-color, var(--c-accent));
   flex-shrink: 0;
@@ -502,7 +506,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
 .stat-name { font-size: 11px; color: var(--c-text2); width: 30px; flex-shrink: 0; }
-.stat-fraction { font-size: 12px; }
+.stat-fraction { font-size: 12px; font-family: var(--font-display); }
 .stat-type { font-size: 10px; color: var(--c-text3); min-width: 28px; text-align: right; }
 .adj-btn-sm { width: 24px !important; height: 24px !important; font-size: 14px !important; }
 .adj-pair { display: flex; flex-direction: row; gap: 3px; flex-shrink: 0; }
@@ -520,8 +524,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-radius: var(--radius-md);
   padding: 7px 10px;
 }
-.combat-stat-label { font-size: 11px; color: var(--c-text2); margin-bottom: 3px; font-family: var(--font-ui); }
-.combat-stat-value { font-size: 20px; font-weight: 500; color: var(--c-text); line-height: 1; }
+.combat-stat-label { font-size: 12px; color: var(--c-text2); margin-bottom: 3px; font-family: var(--font-display); letter-spacing: 0.03em; }
+.combat-stat-value { font-size: 20px; font-weight: 600; color: var(--c-text); line-height: 1; font-family: var(--font-display); }
 .combat-stat-value-row { display: flex; flex-direction: row; align-items: baseline; gap: 4px; }
 .combat-stat-temp { font-size: 11px; color: var(--c-text3); }
 .combat-stat-breakdown { font-size: 11px; color: var(--c-text3); margin-top: 2px; font-family: var(--font-ui); }
@@ -651,7 +655,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 .chip-btn:active { opacity: 0.6; }
-.chip-count { font-size: 12px; font-weight: 500; color: var(--c-text); min-width: 18px; text-align: center; }
+.chip-count { font-size: 12px; font-weight: 500; color: var(--c-text); min-width: 18px; text-align: center; font-family: var(--font-display); }
 
 .end-battle-btn {
   width: 100%;
@@ -771,6 +775,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text);
   min-width: 18px;
   text-align: center;
+  font-family: var(--font-display);
 }
 .sb-remove-btn {
   width: 28px; height: 28px;
@@ -832,12 +837,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .stash-category-header:first-child { margin-top: 0; }
 .stash-category-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--c-text2);
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
 }
 .stash-category-count {
   font-size: 10px;
@@ -880,6 +885,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-accent);
   min-width: 26px;
   text-align: center;
+  font-family: var(--font-display);
 }
 
 .stash-add-btn {

@@ -63,7 +63,7 @@ export function StashTab({
           {/* Sil */}
           <div>
             <div className="sec-label">Sil</div>
-            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10 }}>
+            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
               {sil}
             </div>
             <div className="step-selector">
@@ -80,7 +80,7 @@ export function StashTab({
           {/* Lux Essence */}
           <div>
             <div className="sec-label">Lux Essence</div>
-            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10 }}>
+            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
               {lux}
             </div>
             <div className="step-selector">
