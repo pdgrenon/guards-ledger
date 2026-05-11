@@ -2,15 +2,7 @@ import { useState } from 'react';
 import { MATERIAL_CATEGORIES, ALL_MATERIALS, RESOURCE_NODE_ITEMS, ENEMIES } from '../data/materials';
 import { CITIES } from '../data/constants';
 
-const LOCATION_TYPES = ['City', 'Resource node', 'Enemy node'];
 const CITY_NAMES = CITIES.map(c => c.name);
-
-function getSelectionOptions(type) {
-  if (type === 'City') return CITY_NAMES;
-  if (type === 'Resource node') return RESOURCE_NODE_ITEMS;
-  if (type === 'Enemy node') return ENEMIES;
-  return [];
-}
 
 const ALL_ITEMS = MATERIAL_CATEGORIES.flatMap(cat =>
   cat.items.map(item => ({ item, category: cat.label }))
@@ -119,43 +111,55 @@ export function StashTab({
 
         <div className="sb-locations">
           {locations.map((loc, i) => {
-            const options = getSelectionOptions(loc.type);
             const maxCount = Math.min(4, loc.count + cubesAvailable);
+            // Derive type from selection for state compatibility
+            const handleSelect = (value) => {
+              if (!value) {
+                updateStoneboundLocation(i, 'type', '');
+                updateStoneboundLocation(i, 'selection', '');
+                return;
+              }
+              const type = CITY_NAMES.includes(value) ? 'City'
+                : RESOURCE_NODE_ITEMS.includes(value) ? 'Resource node'
+                : 'Enemy node';
+              updateStoneboundLocation(i, 'type', type);
+              updateStoneboundLocation(i, 'selection', value);
+            };
+
             return (
               <div key={i} className="sb-location">
-                <div className="sb-loc-top">
+                {/* Single row: grouped select + cube controls + remove */}
+                <div className="sb-loc-row">
                   <select
                     className="sb-select"
-                    value={loc.type}
-                    onChange={e => updateStoneboundLocation(i, 'type', e.target.value)}
+                    value={loc.selection || ''}
+                    onChange={e => handleSelect(e.target.value)}
                   >
-                    <option value="">— type —</option>
-                    {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    <option value="">— select location —</option>
+                    <optgroup label="Cities">
+                      {CITY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </optgroup>
+                    <optgroup label="Resource nodes">
+                      {RESOURCE_NODE_ITEMS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </optgroup>
+                    <optgroup label="Enemy nodes">
+                      {ENEMIES.map(e => <option key={e} value={e}>{e}</option>)}
+                    </optgroup>
                   </select>
-                  <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(i)}>×</button>
-                </div>
-                {loc.type && (
-                  <select
-                    className="sb-select"
-                    value={loc.selection}
-                    onChange={e => updateStoneboundLocation(i, 'selection', e.target.value)}
-                  >
-                    <option value="">— select —</option>
-                    {options.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                )}
-                <div className="sb-count-row">
-                  <span className="sb-count-label">Cubes on node</span>
-                  <button
-                    className="adj-btn sb-count-btn"
-                    onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
-                  >−</button>
-                  <span className="adj-val" style={{ fontSize: 13, minWidth: 20 }}>{loc.count}</span>
-                  <button
-                    className="adj-btn sb-count-btn"
-                    disabled={loc.count >= maxCount}
-                    onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
-                  >+</button>
+
+                  <div className="sb-inline-controls">
+                    <button
+                      className="adj-btn sb-count-btn"
+                      onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
+                    >−</button>
+                    <span className="sb-count-val">{loc.count}</span>
+                    <button
+                      className="adj-btn sb-count-btn"
+                      disabled={loc.count >= maxCount}
+                      onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
+                    >+</button>
+                    <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(i)}>×</button>
+                  </div>
                 </div>
               </div>
             );

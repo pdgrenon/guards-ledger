@@ -712,48 +712,66 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .quest-lbl.done { color: var(--c-text3); text-decoration: line-through; }
 
 /* ─── STONEBOUND ─────────────────────────────────────────────────────────── */
-.sb-locations { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.sb-locations { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
 .sb-location {
   border: 0.5px solid var(--c-border);
   border-radius: var(--radius-md);
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: var(--c-surface2);
-  display: flex; flex-direction: column; gap: 6px;
 }
-.sb-loc-top { display: flex; align-items: center; gap: 6px; }
+/* Single row: grouped select grows, controls cluster right */
+.sb-loc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .sb-select {
   flex: 1;
-  width: 100%;
+  min-width: 0;
   background: var(--c-surface);
   border: 0.5px solid var(--c-border2);
   border-radius: 4px;
-  padding: 5px 8px;
+  padding: 7px 8px;
   font-size: 12px;
   color: var(--c-text);
   font-family: inherit;
   cursor: pointer;
+  height: 34px;
+}
+/* Cube controls + remove button inline to the right of the select */
+.sb-inline-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.sb-count-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text);
+  min-width: 18px;
+  text-align: center;
 }
 .sb-remove-btn {
-  width: 36px; height: 36px;
+  width: 28px; height: 28px;
   border: 0.5px solid var(--c-border2);
   border-radius: 4px;
   background: var(--c-surface);
   color: var(--c-text3);
-  font-size: 18px;
+  font-size: 15px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0;
   touch-action: manipulation;
   font-family: inherit;
   line-height: 1;
+  margin-left: 2px;
 }
 .sb-remove-btn:active { opacity: 0.6; }
-.sb-count-row { display: flex; align-items: center; gap: 5px; }
-.sb-count-label { font-size: 11px; color: var(--c-text3); flex: 1; }
-.sb-max-btn   { width: 36px !important; height: 36px !important; font-size: 18px !important; }
-.sb-count-btn { width: 36px !important; height: 36px !important; font-size: 18px !important; }
+.sb-max-btn   { width: 28px !important; height: 28px !important; font-size: 15px !important; }
+.sb-count-btn { width: 28px !important; height: 28px !important; font-size: 15px !important; }
 .sb-add-btn {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   border: 0.5px dashed var(--c-border2);
   border-radius: var(--radius-md);
   background: transparent;
