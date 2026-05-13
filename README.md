@@ -1,82 +1,126 @@
 # The Guard's Ledger
 
-> A campaign companion for *The Isofarian Guard* — tracks all per-guard and per-city state so you can focus on playing the game, not shuffling tokens.
+> A campaign companion for *The Isofarian Guard* — tracks all per-guard and per-city state so you can focus on playing, not shuffling tokens.
 
 **[→ Open the app](https://pdgrenon.github.io/guards-ledger/)**
 
-![App screenshot](docs/screenshot.png)
-
 ---
 
-## Why I built this
+## What it does
 
-*The Isofarian Guard* is a beautifully complex co-op game, but the physical upkeep is relentless. Each of up to 8 guards has HP, AP, a chip bag, a satchel, and equipment slots. Cities track prestige across three quest types. The stash holds 60+ craftable materials. Managing all of that on paper, mid-game, while also actually playing — is genuinely painful.
+*The Isofarian Guard* generates a lot of bookkeeping. Each guard has HP, attack, defense, a chip bag, a satchel, and four equipment slots. Six cities each have prestige and three quest tracks. A shared stash holds 60+ crafting materials. A stonebound cube tracker covers the campaign map. Managing all of that on paper, mid-session, is genuinely painful.
 
-I built this app to solve that problem for my own playgroup. The design goal was simple: fast to tap on a phone, never loses state between sessions, and handles the fiddly bookkeeping invisibly so the game stays front and center.
+This app handles that bookkeeping on your phone, saves automatically after every action, and stays out of the way of the game itself.
 
 ---
 
 ## Features
 
-**Guards** — up to 8 playable (Grigory, Alek, Catherine, Yury, Kharzin, Vera, Pavel, Yana)
-- HP with large number display and +/− controls
-- Attack and defense stats
-- Equipment slots: weapon, armor, accessory, item
-- Satchel (4 or 8 slots) with item names and quantities
-- Chip bag counts (black, green, red, purple)
+### Guard tab
 
-**Cities** — Mir, Razdor, Ryba, Silny, Strofa, Vouno
-- Prestige pips (0–3) derived from completed activities
-- Puzzle quest and two bounties per city
+Two guards are active at a time. The active party is configured in Settings; the switcher at the top of the Guard tab toggles between whichever two guards are currently selected.
 
-**Stash**
-- Fort Istra crafting material inventory across 7 categories, searchable by name
+Each guard card shows:
 
-**Stonebound**
-- Cube placement per location (City, Resource node, or Enemy node)
-- Total cubes used vs. cap
+- **HP** — large numeric display (current / max) with +/− controls
+- **Combat stats** — Attack and Defense, each showing the base value plus any equipment bonus, with a breakdown (e.g. "2 base + 3 weapon")
+- **Equipment** — Weapon, Armor, Accessory, and Item slots, each with a searchable autocomplete pulling from the full item lists
+- **Satchel** — 4 slots by default, expandable to 8 via a toggle. Each slot has a material name (autocomplete) and a quantity (1–4)
+- **Chip bag** — Black, Green, Red, and Purple chip counts with +/− controls and a one-tap reset back to each guard's configured starting count
 
-**Campaign globals**
-- Sil and Lux Essence totals with configurable step increments
-- Session log of all state changes (last 100 events)
+Portrait images load from `public/guards/<name>.webp`. If a portrait is missing the avatar shows the guard's initials instead.
 
-**Settings & persistence**
-- All state saves to `localStorage` automatically after every action
-- Export a dated JSON snapshot or import a previously saved one
-- Configure max HP and starting chip counts per guard
+### Cities tab
+
+Six cities: Mir, Razdor, Ryba, Silny, Strofa, and Vouno. Each city card shows:
+
+- **Prestige pips** (0–3) — derived automatically from completed quests; no separate input needed
+- **Quest rows** — Puzzle quest, Bounty 1, Bounty 2. Tapping a row toggles it done/undone and the prestige pip count updates instantly
+
+### Stash tab
+
+**Party resources** — Sil and Lux Essence totals, each with step-size buttons (×1, ×5, ×10) and +/− controls.
+
+**Stonebound** — Tracks cube placement across the campaign map. Add location entries, pick a City, Resource node, or Enemy node from grouped dropdowns, set a cube count per location, and adjust the overall cube cap. The header shows cubes used vs. cap and turns red if over budget.
+
+**Fort Istra stash** — Inventory for all craftable materials across 7 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Market & misc, and Special ingredients. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
+
+### Session log tab
+
+A reverse-chronological log of all state changes in the current session, capped at 100 entries. Each entry shows a timestamp and a plain-English description of what changed. Guard name entries are color-coded to their identity color; party and stash events use the brand ochre; system events (imports, resets) are gray.
+
+### Settings
+
+A bottom-sheet overlay (gear icon in the top bar) with:
+
+- **Active party** — two dropdowns to select which guards are in your current party (all 8 guards are always tracked; only the two active ones appear in the Guard tab switcher)
+- **Per-guard config** (active party only) — max HP adjustment and starting black chip count
+- **Export** — downloads a dated JSON snapshot (`guards-ledger-save-YYYY-MM-DD.json`)
+- **Import** — restores from a previously exported file
+- **Reset** — wipes all state back to defaults (with confirmation)
+
+---
+
+## Persistence
+
+All state saves to `localStorage` under the key `guards_ledger_v1` automatically after every action. On first load with no saved data the app opens a demo save so the UI isn't empty.
 
 ---
 
 ## Tech notes
 
-This project was built deliberately without any external UI or state management libraries. A few specific choices worth explaining:
+**Single hook for all state.** Everything lives in `src/hooks/useGameState.js`. It exposes action callbacks and owns loading/saving. All pure state logic is extracted into `src/hooks/gameReducers.js` as plain functions with no React or side-effects, which makes them unit-testable. `App.jsx` wires state and callbacks down via props — no context, no state library.
 
-**Single hook for all state.** Everything lives in `useGameState.js` — loading, saving, and all 30+ mutation functions. Prop drilling is the only data transport. For a self-contained app of this scope, adding Redux or Zustand would introduce indirection without benefit. The trade-off is intentional: the data flow is simple enough to read top to bottom.
+**No UI library.** Every component is hand-rolled with plain CSS. This trades upfront effort for full control over touch targets, theming, and interaction patterns: large tap areas, chip counters, custom autocomplete.
 
-**No UI library.** Every component is hand-rolled with plain CSS. This added upfront time but gave full control over touch targets, theming, and the specific interaction patterns the game requires: large tap areas, pip tracks, chip counters. A component library would have fought most of these.
+**CSS custom properties for theming.** Light and dark mode are handled entirely via `prefers-color-scheme` and a set of semantic tokens (`--c-bg`, `--c-text`, `--c-brand`, `--c-hp`, `--c-green`, eight guard identity color triples, etc.) defined in `src/index.css`. No runtime theming logic needed.
 
-**CSS custom properties for theming.** Light/dark mode is handled entirely via `prefers-color-scheme` and a small set of semantic variables (`--c-bg`, `--c-text`, `--c-accent`, etc.). Single stylesheet, easy to diff.
+**Guard identity colors** are defined once in `src/data/constants.js` (`GUARD_COLOR_MAP`) and imported wherever needed. There is no duplicate color map in any component file.
 
-**Stack:** React 19 · Vite · Plain CSS · GitHub Actions → GitHub Pages
+**Tests.** `src/hooks/gameReducers.test.js` covers all pure reducer functions using Vitest. Run with `npm test`.
+
+**Stack:** React 19 · Vite · Plain CSS · Vitest · GitHub Actions → GitHub Pages
 
 ---
 
-## Getting started
+## Project structure
+
+```
+src/
+  App.jsx                  # Shell: tabs, top bar, party switcher, log view, settings trigger
+  index.css                # Single stylesheet with CSS custom properties (light + dark)
+  components/
+    GuardPanel.jsx         # Per-guard card: HP, combat stats, equipment, satchel, chips
+    CitiesTab.jsx          # City grid: prestige pips + quest checkboxes
+    StashTab.jsx           # Party resources (Sil/Lux), stonebound, Fort Istra stash
+    SettingsPanel.jsx      # Bottom-sheet: active party, per-guard config, save/load/reset
+    Autocomplete.jsx       # Reusable searchable dropdown (no external library)
+  hooks/
+    useGameState.js        # All state + action callbacks; loads/saves localStorage
+    gameReducers.js        # Pure state-transition functions (unit-testable, no React)
+    gameReducers.test.js   # Vitest unit tests for all reducers
+  data/
+    constants.js           # Guard names, city names, chip types, GUARD_COLOR_MAP, createInitialState()
+    materials.js           # Item lists: weapons, armor, accessories, consumables, materials, enemies
+    demoSave.json          # Shown on first load when no localStorage save exists
+public/
+  guards/                  # Guard portrait images (*.webp, lowercase filenames)
+```
+
+---
+
+## Development
 
 ```bash
 npm install
-npm run dev       # http://localhost:5173/
+npm run dev        # Vite dev server → http://localhost:5173/
+npm run build      # Production build → dist/
+npm run preview    # Preview production build locally
+npm run test       # Vitest (reducer unit tests)
+npm run lint       # ESLint
+npm run deploy     # Build + publish to GitHub Pages
 ```
 
-```bash
-npm run build     # Production build → dist/
-npm run preview   # Preview production build locally
-npm run lint      # ESLint
-npm run deploy    # Build + publish to GitHub Pages
-```
+To add a new crafting material: add its name to the appropriate category array in `src/data/materials.js`. It will appear in both the stash panel and satchel autocomplete automatically.
 
----
-
-## License
-
-MIT
+To add guard portraits: place a `.webp` file named in lowercase (e.g. `grigory.webp`) in `public/guards/`. The avatar component falls back to initials if the file is absent.
