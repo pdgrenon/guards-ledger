@@ -10,7 +10,6 @@ import './index.css';
 const TABS = ['Guard', 'Cities', 'Stash', 'Session log'];
 
 // ─── Log entry category classifier ──────────────────────────────────────────
-// Returns the CSS class suffix for the left border color of a log entry.
 // guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
 // party   → brand ochre (Sil, Lux, Stash, Stonebound, city quests)
 // system  → neutral gray (import, reset)
@@ -27,7 +26,6 @@ function classifyEntry(message) {
 const ALL_GUARD_NAMES = Object.keys(GUARD_COLOR_MAP);
 const GUARD_NAME_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
 
-// Replaces guard name occurrences in log messages with colored spans
 function colorizeLogMessage(message) {
   return message.replace(GUARD_NAME_REGEX, (match) => {
     const color = GUARD_COLOR_MAP[match];
@@ -36,7 +34,6 @@ function colorizeLogMessage(message) {
   });
 }
 
-// Inline SVG settings icon
 function SettingsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -56,11 +53,12 @@ export default function App() {
   const { state } = game;
 
   const activeParty = state.activeParty ?? ['Alek', 'Grigory'];
-  const activeIdx = state.activeGuardIdx ?? 0;
+  const activeIdx   = state.activeGuardIdx ?? 0;
   const activeGuard = state.guards[activeIdx];
   const activeColor = GUARD_COLOR_MAP[activeGuard?.name] ?? FALLBACK_COLOR;
 
-  const actions = {
+  // actions object threaded into GuardPanel
+  const guardActions = {
     adjustGuardHp:         game.adjustGuardHp,
     adjustGuardMaxHp:      game.adjustGuardMaxHp,
     setGuardEquipment:     game.setGuardEquipment,
@@ -68,11 +66,17 @@ export default function App() {
     toggleExpandedSatchel: game.toggleExpandedSatchel,
     adjustChip:            game.adjustChip,
     resetChips:            game.resetChips,
-    setStartingBlack:      game.setStartingBlack,
-    setPartySlot:          game.setPartySlot,
-    exportState:           game.exportState,
-    importState:           game.importState,
-    resetState:            game.resetState,
+  };
+
+  // state + actions objects threaded into SettingsPanel (matches its prop signature)
+  const settingsState   = state;
+  const settingsActions = {
+    adjustGuardMaxHp: game.adjustGuardMaxHp,
+    setStartingBlack: game.setStartingBlack,
+    setPartySlot:     game.setPartySlot,
+    exportState:      game.exportState,
+    importState:      game.importState,
+    resetState:       game.resetState,
   };
 
   return (
@@ -107,7 +111,7 @@ export default function App() {
       {/* ── Guard tab ── */}
       {tab === 'Guard' && (
         <>
-          {/* Switcher — only the two active party members */}
+          {/* Switcher — only the two active party members, no party selects here */}
           <div className="guard-switcher">
             {activeParty.map((name) => {
               const guardIdx = state.guards.findIndex(g => g.name === name);
@@ -118,34 +122,12 @@ export default function App() {
                   key={name}
                   className={`guard-switch-btn${isActive ? ' active' : ''}`}
                   onClick={() => game.setActiveGuard(guardIdx)}
-                  style={isActive
-                    ? { '--switch-color': c.border, '--switch-bg': c.bg }
-                    : {}}
+                  style={isActive ? { '--switch-color': c.border, '--switch-bg': c.bg } : {}}
                 >
                   {name}
                 </button>
               );
             })}
-
-            {/* Party slot editors — swap which guards are active */}
-            <div className="party-slots">
-              {activeParty.map((name, slotIdx) => {
-                const c = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
-                return (
-                  <select
-                    key={slotIdx}
-                    className="party-slot-select"
-                    value={name}
-                    style={{ '--slot-color': c.border }}
-                    onChange={e => game.setPartySlot(slotIdx, e.target.value)}
-                  >
-                    {GUARDS.map(g => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
-                );
-              })}
-            </div>
           </div>
 
           {activeGuard && (
@@ -156,7 +138,7 @@ export default function App() {
               <GuardPanel
                 guard={activeGuard}
                 guardIdx={activeIdx}
-                actions={actions}
+                actions={guardActions}
               />
             </div>
           )}
@@ -225,16 +207,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Settings overlay */}
+      {/* Settings overlay — passes state/actions objects matching SettingsPanel's signature */}
       {settingsOpen && (
         <SettingsPanel
-          guards={state.guards}
+          state={settingsState}
+          actions={settingsActions}
           guardColorMap={GUARD_COLOR_MAP}
-          adjustGuardMaxHp={game.adjustGuardMaxHp}
-          setStartingBlack={game.setStartingBlack}
-          exportState={game.exportState}
-          importState={game.importState}
-          resetState={game.resetState}
+          allGuards={GUARDS}
           onClose={() => setSettingsOpen(false)}
         />
       )}
