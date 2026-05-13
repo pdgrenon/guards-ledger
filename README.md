@@ -52,4 +52,4 @@ npm run deploy    # Build + publish to GitHub Pages
 
 ## Deployment
 
-Push to `main` triggers the GitHub Actions workflow (`.github/workflows/deploy.yml`), which builds and publishes to GitHub Pages. Update the `homepage` field in `package.json` with your actual GitHub username before deploying.
+Push to `main` triggers the GitHub Actions workflow (`.github/workflows/deploy.yml`), which builds and publishes to GitHub Pages. Update the `homepage` field in `package.json` with your actual GitHub username before deploying. 
