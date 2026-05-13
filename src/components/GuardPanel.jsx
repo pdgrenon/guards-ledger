@@ -43,7 +43,7 @@ const CHIP_COLORS = {
 
 // Place portrait files in public/guards/ named exactly as below (e.g. grigory.webp).
 // The component falls back to initials automatically if the file is missing.
-const BASE = '/guards-ledger/guards/';
+const BASE = '/guards/';
 const GUARD_IMAGES = {
   Grigory:   `${BASE}grigory.webp`,
   Alek:      `${BASE}alek.webp`,
