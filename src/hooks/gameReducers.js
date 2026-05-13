@@ -3,14 +3,14 @@
  *
  * Pure state-transition functions extracted from useGameState.
  * Each function takes a state snapshot and returns a new state snapshot —
- * no React, no localStorage, no side-effects.  This makes them trivially
+ * no React, no localStorage, no side-effects. This makes them trivially
  * unit-testable and keeps useGameState as a thin wiring layer.
  */
 
 import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
-import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
+import { ALL_MATERIALS, ALL_ITEMS_WITH_CATEGORY, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
 
-export const ALL_EQUIPMENT   = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
+export const ALL_EQUIPMENT    = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
@@ -20,75 +20,6 @@ export function addLog(state, message) {
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const entry = { time, message, id: Date.now() + Math.random() };
   return { ...state, log: [entry, ...state.log].slice(0, 100) };
-}
-
-// ─── Migration ────────────────────────────────────────────────────────────────
-
-export function migrateGuard(g) {
-  return {
-    ...g,
-    hp:              g.hp              ?? 20,
-    maxHp:           g.maxHp           ?? 20,
-    apGray:          g.apGray          ?? 0,
-    apTemp:          g.apTemp          ?? 0,
-    baseAtk:         g.baseAtk         ?? 0,
-    baseDef:         g.baseDef         ?? 0,
-    tempDef:         g.tempDef         ?? 0,
-    expandedSatchel: g.expandedSatchel ?? false,
-    satchel: Array(8).fill(null).map((_, i) =>
-      g.satchel?.[i] ?? { item: '', qty: 1 }
-    ),
-    equipment: {
-      weapon:    g.equipment?.weapon    ?? '',
-      armor:     g.equipment?.armor     ?? '',
-      accessory: g.equipment?.accessory ?? '',
-      item:      g.equipment?.item      ?? '',
-    },
-    stones: Array(4).fill(null).map((_, i) =>
-      g.stones?.[i] ?? { state: 'ready', cooldownRound: null }
-    ),
-    chips: {
-      black:  g.chips?.black  ?? 8,
-      green:  g.chips?.green  ?? 0,
-      red:    g.chips?.red    ?? 0,
-      purple: g.chips?.purple ?? 0,
-    },
-    startingBlack: g.startingBlack ?? 8,
-  };
-}
-
-export function migrateState(parsed) {
-  if (parsed.stonebound?.slots && !parsed.stonebound.locations) {
-    parsed.stonebound = { max: parsed.stonebound.max, locations: [] };
-  }
-
-  if (parsed.guards) {
-    parsed.guards = parsed.guards.map(migrateGuard);
-  }
-
-  const fresh = createInitialState();
-  if (Array.isArray(parsed.guards)) {
-    const savedNames = new Set(parsed.guards.map(g => g.name));
-    const missing = fresh.guards.filter(g => !savedNames.has(g.name));
-    if (missing.length > 0) {
-      parsed.guards = [...parsed.guards, ...missing];
-    }
-  }
-
-  const { round, campaign, ...cleanParsed } = parsed;
-
-  if (typeof cleanParsed.activeGuardIdx !== 'number') cleanParsed.activeGuardIdx = 0;
-  if (!Array.isArray(cleanParsed.cities))             cleanParsed.cities = fresh.cities;
-  if (typeof cleanParsed.stash !== 'object' || Array.isArray(cleanParsed.stash)) cleanParsed.stash = {};
-  if (!Array.isArray(cleanParsed.log))                cleanParsed.log = [];
-  if (typeof cleanParsed.sil !== 'number')            cleanParsed.sil = 0;
-  if (typeof cleanParsed.lux !== 'number')            cleanParsed.lux = 0;
-
-  if (!Array.isArray(cleanParsed.activeParty) || cleanParsed.activeParty.length !== 2) {
-    cleanParsed.activeParty = ['Alek', 'Grigory'];
-  }
-
-  return cleanParsed;
 }
 
 // ─── Party navigation ─────────────────────────────────────────────────────────
@@ -210,6 +141,11 @@ export function reduceResetChips(s, guardIdx) {
 
 // ─── Cities ───────────────────────────────────────────────────────────────────
 
+// Prestige is always derived from the three quest booleans — never stored.
+export function cityPrestige(city) {
+  return [city.puzzleQuestDone, city.bounty1Done, city.bounty2Done].filter(Boolean).length;
+}
+
 export function reduceToggleCityQuest(s, cityIdx, field) {
   const city   = s.cities[cityIdx];
   const newVal = !city[field];
@@ -221,11 +157,6 @@ export function reduceToggleCityQuest(s, cityIdx, field) {
   return addLog({ ...s, cities },
     `${city.name} ${questLabel} ${newVal ? 'completed' : 'reopened'}`
   );
-}
-
-// City prestige is derived, not stored — compute it on demand
-export function cityPrestige(city) {
-  return [city.puzzleQuestDone, city.bounty1Done, city.bounty2Done].filter(Boolean).length;
 }
 
 // ─── Stash ────────────────────────────────────────────────────────────────────

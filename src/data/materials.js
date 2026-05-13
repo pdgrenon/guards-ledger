@@ -47,6 +47,11 @@ export const MATERIAL_CATEGORIES = [
 
 export const ALL_MATERIALS = MATERIAL_CATEGORIES.flatMap(c => c.items).sort();
 
+// Pre-computed { item, category } pairs for the stash UI — avoids re-deriving in components.
+export const ALL_ITEMS_WITH_CATEGORY = MATERIAL_CATEGORIES.flatMap(cat =>
+  cat.items.map(item => ({ item, category: cat.label }))
+);
+
 export const RESOURCE_NODE_ITEMS = [
   ...MATERIAL_CATEGORIES.find(c => c.id === 'ores').items,
   ...MATERIAL_CATEGORIES.find(c => c.id === 'timber').items,

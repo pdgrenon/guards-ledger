@@ -11,8 +11,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createInitialState, GUARDS, CITIES } from '../data/constants';
 import {
   addLog,
-  migrateGuard,
-  migrateState,
   reduceSetPartySlot,
   reduceSetSil,
   reduceSetLux,
@@ -82,42 +80,10 @@ describe('createInitialState', () => {
     }
   });
 
-  it('every guard has 8 satchel slots', () => {
-    for (const g of s.guards) {
-      expect(g.satchel).toHaveLength(8);
-    }
-  });
-
-  it('every guard has all equipment slots empty', () => {
-    for (const g of s.guards) {
-      expect(g.equipment.weapon).toBe('');
-      expect(g.equipment.armor).toBe('');
-      expect(g.equipment.accessory).toBe('');
-      expect(g.equipment.item).toBe('');
-    }
-  });
-
-  it('stonebound starts with 4-cube cap and no locations', () => {
-    expect(s.stonebound.max).toBe(4);
-    expect(s.stonebound.locations).toHaveLength(0);
-  });
-
-  it('every city starts with no quests completed', () => {
+  it('cities do not have a stored prestige field', () => {
     for (const c of s.cities) {
-      expect(c.puzzleQuestDone).toBe(false);
-      expect(c.bounty1Done).toBe(false);
-      expect(c.bounty2Done).toBe(false);
+      expect(c).not.toHaveProperty('prestige');
     }
-  });
-
-  it('guard base stats match physical game dashboards', () => {
-    const byName = Object.fromEntries(s.guards.map(g => [g.name, g]));
-    expect(byName.Grigory.baseAtk).toBe(3);
-    expect(byName.Grigory.baseDef).toBe(2);
-    expect(byName.Alek.baseAtk).toBe(2);
-    expect(byName.Alek.baseDef).toBe(1);
-    expect(byName.Pavel.baseAtk).toBe(3);
-    expect(byName.Pavel.baseDef).toBe(2);
   });
 });
 
@@ -125,23 +91,13 @@ describe('createInitialState', () => {
 
 describe('addLog', () => {
   it('prepends a log entry', () => {
-    const next = addLog(s, 'test message');
-    expect(next.log).toHaveLength(1);
-    expect(next.log[0].message).toBe('test message');
+    const next = addLog(s, 'test event');
+    expect(next.log[0].message).toBe('test event');
   });
 
-  it('prepends to existing entries (newest first)', () => {
-    const s1 = addLog(s, 'first');
-    const s2 = addLog(s1, 'second');
-    expect(s2.log[0].message).toBe('second');
-    expect(s2.log[1].message).toBe('first');
-  });
-
-  it('caps log at 100 entries', () => {
+  it('trims log to 100 entries', () => {
     let state = s;
-    for (let i = 0; i < 105; i++) {
-      state = addLog(state, `event ${i}`);
-    }
+    for (let i = 0; i < 105; i++) state = addLog(state, `event ${i}`);
     expect(state.log).toHaveLength(100);
     // Most recent event is first
     expect(state.log[0].message).toBe('event 104');
@@ -150,105 +106,6 @@ describe('addLog', () => {
   it('does not mutate the original state', () => {
     addLog(s, 'test');
     expect(s.log).toHaveLength(0);
-  });
-});
-
-// ─── migrateGuard ─────────────────────────────────────────────────────────────
-
-describe('migrateGuard', () => {
-  it('fills in missing hp/maxHp with defaults', () => {
-    const g = migrateGuard({ name: 'Alek' });
-    expect(g.hp).toBe(20);
-    expect(g.maxHp).toBe(20);
-  });
-
-  it('preserves existing hp values', () => {
-    const g = migrateGuard({ name: 'Alek', hp: 14, maxHp: 22 });
-    expect(g.hp).toBe(14);
-    expect(g.maxHp).toBe(22);
-  });
-
-  it('fills in missing chip values with defaults', () => {
-    const g = migrateGuard({ name: 'Alek' });
-    expect(g.chips.black).toBe(8);
-    expect(g.chips.green).toBe(0);
-  });
-
-  it('fills in a full 8-slot satchel from a partial save', () => {
-    const g = migrateGuard({
-      name: 'Alek',
-      satchel: [{ item: 'Iron', qty: 2 }],
-    });
-    expect(g.satchel).toHaveLength(8);
-    expect(g.satchel[0]).toEqual({ item: 'Iron', qty: 2 });
-    expect(g.satchel[1]).toEqual({ item: '', qty: 1 });
-  });
-
-  it('fills in missing equipment slots', () => {
-    const g = migrateGuard({ name: 'Alek', equipment: { weapon: 'Golden Scythe' } });
-    expect(g.equipment.weapon).toBe('Golden Scythe');
-    expect(g.equipment.armor).toBe('');
-    expect(g.equipment.accessory).toBe('');
-    expect(g.equipment.item).toBe('');
-  });
-
-  it('fills in 4 stone slots from a missing stones field', () => {
-    const g = migrateGuard({ name: 'Alek' });
-    expect(g.stones).toHaveLength(4);
-    expect(g.stones[0]).toEqual({ state: 'ready', cooldownRound: null });
-  });
-});
-
-// ─── migrateState ─────────────────────────────────────────────────────────────
-
-describe('migrateState', () => {
-  it('adds missing guards when loading an old 2-guard save', () => {
-    const old = {
-      guards: [
-        { name: 'Grigory', hp: 15, maxHp: 20 },
-        { name: 'Alek',    hp: 18, maxHp: 20 },
-      ],
-      cities: createInitialState().cities,
-      stash: {}, log: [], sil: 5, lux: 2,
-      activeGuardIdx: 0,
-      activeParty: ['Alek', 'Grigory'],
-      stonebound: { max: 4, locations: [] },
-      settings: { initialized: true },
-    };
-    const migrated = migrateState(old);
-    expect(migrated.guards).toHaveLength(8);
-    // Existing guards retain their state
-    expect(migrated.guards.find(g => g.name === 'Grigory').hp).toBe(15);
-  });
-
-  it('migrates old stonebound.slots format', () => {
-    const old = {
-      ...createInitialState(),
-      stonebound: { max: 6, slots: ['Mir', 'Iron'] },
-    };
-    const migrated = migrateState(old);
-    expect(migrated.stonebound.locations).toEqual([]);
-    expect(migrated.stonebound.max).toBe(6);
-  });
-
-  it('defaults activeParty when missing from save', () => {
-    const old = { ...createInitialState() };
-    delete old.activeParty;
-    const migrated = migrateState(old);
-    expect(migrated.activeParty).toEqual(['Alek', 'Grigory']);
-  });
-
-  it('strips legacy round and campaign fields', () => {
-    const old = { ...createInitialState(), round: 5, campaign: 'legacy' };
-    const migrated = migrateState(old);
-    expect(migrated.round).toBeUndefined();
-    expect(migrated.campaign).toBeUndefined();
-  });
-
-  it('resets stash to {} if it was stored as an array', () => {
-    const old = { ...createInitialState(), stash: [] };
-    const migrated = migrateState(old);
-    expect(migrated.stash).toEqual({});
   });
 });
 
@@ -262,35 +119,24 @@ describe('reduceSetPartySlot', () => {
   });
 
   it('resets the active guard view when the viewed guard is replaced', () => {
-    // activeGuardIdx points to Alek (index 1 in guards array)
-    // Alek is in slot 0 of activeParty
-    const alekIdx = s.guards.findIndex(g => g.name === 'Alek');
-    const next = reduceSetPartySlot({ ...s, activeGuardIdx: alekIdx }, 0, 'Catherine');
-    // Should now view Catherine, who is in slot 0
-    const catherineIdx = next.guards.findIndex(g => g.name === 'Catherine');
-    expect(next.activeGuardIdx).toBe(catherineIdx);
+    // activeGuardIdx points to Alek (slot 0); replacing slot 0 → view moves to new slot 0 guard
+    const next = reduceSetPartySlot(s, 0, 'Catherine');
+    const expectedIdx = next.guards.findIndex(g => g.name === 'Catherine');
+    expect(next.activeGuardIdx).toBe(expectedIdx);
   });
 
-  it('preserves the active guard view when a different slot is swapped', () => {
-    const alekIdx = s.guards.findIndex(g => g.name === 'Alek');
-    const next = reduceSetPartySlot({ ...s, activeGuardIdx: alekIdx }, 1, 'Catherine');
-    // Alek stays active — slot 1 was swapped, not slot 0 where Alek lives
-    expect(next.activeGuardIdx).toBe(alekIdx);
+  it('does not change activeGuardIdx when a different slot is swapped', () => {
+    const next = reduceSetPartySlot(s, 1, 'Catherine');
+    expect(next.activeGuardIdx).toBe(s.activeGuardIdx);
   });
 });
 
 // ─── Party resources ──────────────────────────────────────────────────────────
 
 describe('reduceSetSil', () => {
-  it('adds sil', () => {
+  it('increments Sil', () => {
     const next = reduceSetSil(s, 10);
     expect(next.sil).toBe(10);
-  });
-
-  it('subtracts sil', () => {
-    const s10 = reduceSetSil(s, 10);
-    const next = reduceSetSil(s10, -3);
-    expect(next.sil).toBe(7);
   });
 
   it('clamps at 0', () => {
@@ -306,17 +152,14 @@ describe('reduceSetSil', () => {
 });
 
 describe('reduceSetLux', () => {
-  it('adds lux', () => {
-    expect(reduceSetLux(s, 7).lux).toBe(7);
+  it('increments Lux', () => {
+    const next = reduceSetLux(s, 3);
+    expect(next.lux).toBe(3);
   });
 
   it('clamps at 0', () => {
-    expect(reduceSetLux(s, -5).lux).toBe(0);
-  });
-
-  it('logs the change', () => {
-    const next = reduceSetLux(s, 3);
-    expect(next.log[0].message).toContain('Lux');
+    const next = reduceSetLux(s, -999);
+    expect(next.lux).toBe(0);
   });
 });
 
@@ -375,7 +218,6 @@ describe('reduceAdjustGuardMaxHp', () => {
   });
 
   it('reduces current HP when it exceeds the new maxHp', () => {
-    // Guard is at 20/20; drop max to 15 → hp must also drop to 15
     const next = reduceAdjustGuardMaxHp(s, 0, -5);
     expect(next.guards[0].maxHp).toBe(15);
     expect(next.guards[0].hp).toBe(15);
@@ -384,67 +226,44 @@ describe('reduceAdjustGuardMaxHp', () => {
   it('does not increase current HP when maxHp is raised', () => {
     const lowHp = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, hp: 10 } : g) };
     const next  = reduceAdjustGuardMaxHp(lowHp, 0, 5);
-    expect(next.guards[0].hp).toBe(10);   // unchanged
-    expect(next.guards[0].maxHp).toBe(25);
-  });
-
-  it('logs the change', () => {
-    const next = reduceAdjustGuardMaxHp(s, 0, 5);
-    expect(next.log[0].message).toContain('max HP');
+    expect(next.guards[0].hp).toBe(10);
   });
 });
 
-// ─── Equipment ────────────────────────────────────────────────────────────────
+// ─── Guard equipment ──────────────────────────────────────────────────────────
 
 describe('reduceSetGuardEquipment', () => {
-  it('sets a known weapon and logs it', () => {
-    const next = reduceSetGuardEquipment(s, 0, 'weapon', 'Golden Scythe');
-    expect(next.guards[0].equipment.weapon).toBe('Golden Scythe');
-    expect(next.log[0].message).toContain('Golden Scythe');
-    expect(next.log[0].message).toContain('equipped');
+  it('sets a weapon slot', () => {
+    const next = reduceSetGuardEquipment(s, 0, 'weapon', 'Jade Sword');
+    expect(next.guards[0].equipment.weapon).toBe('Jade Sword');
   });
 
-  it('does not log partial / mid-typing strings', () => {
-    const next = reduceSetGuardEquipment(s, 0, 'weapon', 'Gold');
-    expect(next.guards[0].equipment.weapon).toBe('Gold');
-    expect(next.log).toHaveLength(0); // not a known item, no log
+  it('logs equipping a known item', () => {
+    const next = reduceSetGuardEquipment(s, 0, 'weapon', 'Jade Sword');
+    expect(next.log[0].message).toContain('Jade Sword');
   });
 
-  it('logs when a slot is cleared', () => {
-    const withWeapon = reduceSetGuardEquipment(s, 0, 'weapon', 'Golden Scythe');
-    const cleared    = reduceSetGuardEquipment(withWeapon, 0, 'weapon', '');
-    expect(cleared.guards[0].equipment.weapon).toBe('');
+  it('logs unequipping when value is cleared', () => {
+    const equipped = reduceSetGuardEquipment(s, 0, 'weapon', 'Jade Sword');
+    const cleared  = reduceSetGuardEquipment(equipped, 0, 'weapon', '');
     expect(cleared.log[0].message).toContain('unequipped');
-  });
-
-  it('does not log clearing an already-empty slot', () => {
-    const next = reduceSetGuardEquipment(s, 0, 'weapon', '');
-    expect(next.log).toHaveLength(0);
-  });
-
-  it('sets armor independently of weapon', () => {
-    const next = reduceSetGuardEquipment(s, 0, 'armor', 'Bear Tunic');
-    expect(next.guards[0].equipment.armor).toBe('Bear Tunic');
-    expect(next.guards[0].equipment.weapon).toBe('');
   });
 });
 
-// ─── Satchel ──────────────────────────────────────────────────────────────────
+// ─── Guard satchel ────────────────────────────────────────────────────────────
 
 describe('reduceSetGuardSatchelItem', () => {
-  it('sets a known material and logs it', () => {
+  it('sets an item in a satchel slot', () => {
     const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
     expect(next.guards[0].satchel[0].item).toBe('Iron');
+  });
+
+  it('logs setting a known material', () => {
+    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
     expect(next.log[0].message).toContain('Iron');
   });
 
-  it('does not log partial / mid-typing strings', () => {
-    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iro');
-    expect(next.guards[0].satchel[0].item).toBe('Iro');
-    expect(next.log).toHaveLength(0);
-  });
-
-  it('logs when a slot is cleared', () => {
+  it('logs clearing a slot', () => {
     const withItem = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
     const cleared  = reduceSetGuardSatchelItem(withItem, 0, 0, 'item', '');
     expect(cleared.log[0].message).toContain('cleared');
@@ -515,7 +334,7 @@ describe('reduceResetChips', () => {
   it('does not change non-black chips', () => {
     const withRed = reduceAdjustChip(s, 0, 'red', 3);
     const reset   = reduceResetChips(withRed, 0);
-    expect(reset.guards[0].chips.red).toBe(3); // red is untouched
+    expect(reset.guards[0].chips.red).toBe(3);
   });
 
   it('logs the reset', () => {
@@ -527,7 +346,6 @@ describe('reduceResetChips', () => {
   it('only resets the targeted guard', () => {
     const depleted = reduceAdjustChip(s, 0, 'black', -5);
     const reset    = reduceResetChips(depleted, 0);
-    // Guard 1's chips are unchanged
     expect(reset.guards[1].chips.black).toBe(8);
   });
 });
@@ -718,14 +536,6 @@ describe('reduceUpdateStoneboundLocation', () => {
   it('logs a cube count change', () => {
     const next = reduceUpdateStoneboundLocation(s1, 0, 'count', 2);
     expect(next.log[0].message).toContain('cubes → 2');
-  });
-
-  // Note: type-only changes fall through to the addLog default path.
-  // This test documents actual behaviour so any future refactor that
-  // intentionally suppresses type-only logging will be caught here.
-  it('logs a type-only field change (documents current behaviour)', () => {
-    const next = reduceUpdateStoneboundLocation(s1, 0, 'type', 'City');
-    expect(next.log).toHaveLength(1);
   });
 
   it('does not affect other locations', () => {

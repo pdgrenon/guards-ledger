@@ -1,12 +1,7 @@
+import { cityPrestige } from '../hooks/gameReducers';
+
 // Cities use a dedicated stone-ochre accent — distinct from all 8 guard colors.
-// Warmer and earthier than Grigory's bright amber (#ba7517), cooler and more
-// muted than the steel blue accent (#3d4a6b) used for UI chrome.
-// This color has no guard association and reads as "place" rather than "character".
 const CITY_COLOR = 'var(--c-city)';
-const CITY_COLORS = {
-  Mir: CITY_COLOR, Razdor: CITY_COLOR, Ryba: CITY_COLOR,
-  Silny: CITY_COLOR, Strofa: CITY_COLOR, Vouno: CITY_COLOR,
-};
 
 function Checkmark() {
   return (
@@ -26,14 +21,13 @@ export function CitiesTab({ cities, toggleCityQuest }) {
   return (
     <div className="cities-grid">
       {cities.map((city, idx) => {
-        const prestige = [city.puzzleQuestDone, city.bounty1Done, city.bounty2Done].filter(Boolean).length;
-        const cityColor = CITY_COLORS[city.name] ?? 'var(--c-accent)';
+        const prestige = cityPrestige(city);
 
         return (
           <div
             key={city.id}
             className="city-card"
-            style={{ '--city-color': cityColor }}
+            style={{ '--city-color': CITY_COLOR }}
           >
             {/* City name — colored via --city-color */}
             <div className="city-name">{city.name}</div>

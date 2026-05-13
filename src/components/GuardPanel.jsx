@@ -1,4 +1,4 @@
-import { CHIP_TYPES, SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { CHIP_TYPES, SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_STATS } from '../data/materials';
 import { Autocomplete } from './Autocomplete';
 
@@ -8,18 +8,6 @@ const EQUIPMENT_SLOTS = [
   { key: 'accessory', label: 'Accessory', options: ACCESSORIES },
   { key: 'item',      label: 'Item',      options: ITEMS      },
 ];
-
-const GUARD_COLORS = {
-  Grigory:   'amber',
-  Alek:      'gold',
-  Catherine: 'forest',
-  Yury:      'vermilion',
-  Kharzin:   'indigo',
-  Vera:      'teal',
-  Pavel:     'rose',
-  Yana:      'cerulean',
-};
-const FALLBACK_COLORS = ['amber', 'gold', 'forest', 'vermilion', 'indigo', 'teal', 'rose', 'cerulean'];
 
 const GUARD_ROLES = {
   Grigory:   'The Tactician',
@@ -57,10 +45,10 @@ const GUARD_IMAGES = {
 
 function initials(name) { return name.slice(0, 2).toUpperCase(); }
 
-function GuardAvatar({ name, colorClass }) {
+function GuardAvatar({ name, colorKey }) {
   const src = GUARD_IMAGES[name];
   return (
-    <div className={`guard-avatar ${colorClass}`} style={{ padding: 0, overflow: 'hidden' }}>
+    <div className={`guard-avatar ${colorKey}`} style={{ padding: 0, overflow: 'hidden' }}>
       <img
         src={src}
         alt={name}
@@ -88,8 +76,10 @@ export function GuardPanel({ guard, guardIdx, actions }) {
   } = actions;
 
   const satchelSize = guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE;
-  const color = GUARD_COLORS[guard.name] ?? FALLBACK_COLORS[guardIdx % FALLBACK_COLORS.length];
-  const role  = GUARD_ROLES[guard.name] ?? 'Guard';
+
+  // Derive color key from the shared map; fall back to 'gold' if guard name is unknown.
+  const colorKey = GUARD_COLOR_MAP[guard.name]?.key ?? 'gold';
+  const role     = GUARD_ROLES[guard.name] ?? 'Guard';
 
   const weaponBonus = WEAPON_STATS[guard.equipment.weapon] ?? 0;
   const armorBonus  = ARMOR_STATS[guard.equipment.armor]  ?? 0;
@@ -100,7 +90,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
     <div className="card guard-card">
       {/* Header */}
       <div className="guard-header">
-        <GuardAvatar name={guard.name} colorClass={color} />
+        <GuardAvatar name={guard.name} colorKey={colorKey} />
         <div>
           <div className="guard-name">{guard.name}</div>
           <div className="guard-role">{role}</div>
@@ -211,7 +201,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
       <div className="divider" />
 
-      {/* Chip Bag — single column so black (most-used) leads, count has room to breathe */}
+      {/* Chip Bag */}
       <div className="sec-label-primary">Chip bag</div>
       <div className="chips-list">
         {CHIP_TYPES.map(({ id, label }) => (

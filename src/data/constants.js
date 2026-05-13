@@ -26,14 +26,29 @@ export const CHIP_TYPES = [
   { id: 'purple', label: 'Purple', color: 'chip-purple' },
 ];
 
-export const SATCHEL_SIZE = 4;
+// Guard identity colors — single source of truth used by App.jsx, GuardPanel.jsx,
+// SettingsPanel.jsx, and the session log colorizer.
+// key: CSS variable suffix (e.g. 'amber' → --c-guard-amber-*)
+export const GUARD_COLOR_MAP = {
+  Grigory:   { key: 'amber',     border: 'var(--c-guard-amber-border)',     bg: 'var(--c-guard-amber-bg)',     text: 'var(--c-guard-amber-text)'     },
+  Alek:      { key: 'gold',      border: 'var(--c-guard-gold-border)',      bg: 'var(--c-guard-gold-bg)',      text: 'var(--c-guard-gold-text)'      },
+  Catherine: { key: 'forest',    border: 'var(--c-guard-forest-border)',    bg: 'var(--c-guard-forest-bg)',    text: 'var(--c-guard-forest-text)'    },
+  Yury:      { key: 'vermilion', border: 'var(--c-guard-vermilion-border)', bg: 'var(--c-guard-vermilion-bg)', text: 'var(--c-guard-vermilion-text)' },
+  Kharzin:   { key: 'indigo',    border: 'var(--c-guard-indigo-border)',    bg: 'var(--c-guard-indigo-bg)',    text: 'var(--c-guard-indigo-text)'    },
+  Vera:      { key: 'teal',      border: 'var(--c-guard-teal-border)',      bg: 'var(--c-guard-teal-bg)',      text: 'var(--c-guard-teal-text)'      },
+  Pavel:     { key: 'rose',      border: 'var(--c-guard-rose-border)',      bg: 'var(--c-guard-rose-bg)',      text: 'var(--c-guard-rose-text)'      },
+  Yana:      { key: 'cerulean',  border: 'var(--c-guard-cerulean-border)',  bg: 'var(--c-guard-cerulean-bg)',  text: 'var(--c-guard-cerulean-text)'  },
+};
+
+export const FALLBACK_COLOR = { key: 'gold', border: 'var(--c-guard-gold-border)', bg: 'var(--c-guard-gold-bg)', text: 'var(--c-guard-gold-text)' };
+
+export const SATCHEL_SIZE          = 4;
 export const SATCHEL_EXPANDED_SIZE = 8;
-export const MAX_HP = 20;
-export const MAX_AP = 2;
-export const MAX_PRESTIGE = 3;
+export const MAX_HP                = 20;
+export const MAX_PRESTIGE          = 3;
 
 // Verified base stats from physical game dashboards.
-// All guards start with 20 HP and 2 AP.
+// All guards start with 20 HP.
 const GUARD_DEFAULTS = {
   Grigory:   { baseAtk: 3, baseDef: 2 },
   Alek:      { baseAtk: 2, baseDef: 1 },
@@ -61,10 +76,10 @@ function makeGuard(name) {
   };
 }
 
+// prestige is NOT stored — it is always derived from the three quest booleans.
 function makeCity(id, name) {
   return {
     id, name,
-    prestige:        0,
     puzzleQuestDone: false,
     bounty1Done:     false,
     bounty2Done:     false,

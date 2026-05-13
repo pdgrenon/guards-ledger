@@ -64,8 +64,6 @@
 
   /* Pip colours */
   --c-hp:       #c94b28;
-  --c-ap-gray:  #888780;
-  --c-ap-green: #4a7c3f;
 
   /* ── Guard identity colours — 8 unique, none matching the steel-blue accent ── */
   /* Alek    — slate (distinct from both brand ochre and interact blue) */
@@ -509,23 +507,10 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .guard-avatar.rose      { background: var(--c-guard-rose-bg);      color: var(--c-guard-rose-text);      border-color: var(--c-guard-rose-border); }
 .guard-avatar.cerulean  { background: var(--c-guard-cerulean-bg);  color: var(--c-guard-cerulean-text);  border-color: var(--c-guard-cerulean-border); }
 
-/* ─── HP / AP PIPS ───────────────────────────────────────────────────────── */
-.pip-track { display: flex; gap: 3px; flex-wrap: wrap; flex: 1; }
-.pip {
-  width: 15px; height: 15px;
-  border-radius: 3px;
-  border: 0.5px solid var(--c-border2);
-  background: var(--c-surface2);
-  flex-shrink: 0;
-}
-.pip.hp       { background: var(--c-hp);       border-color: var(--c-hp); }
-.pip.ap-gray  { background: var(--c-ap-gray);  border-color: var(--c-ap-gray); }
-.pip.ap-green { background: var(--c-ap-green); border-color: var(--c-ap-green); }
+
 
 .stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
 .stat-name { font-size: 11px; color: var(--c-text2); width: 30px; flex-shrink: 0; }
-.stat-fraction { font-size: 12px; font-family: var(--font-display); }
-.stat-type { font-size: 10px; color: var(--c-text3); min-width: 28px; text-align: right; }
 .adj-btn-sm { width: 24px !important; height: 24px !important; font-size: 14px !important; }
 .adj-pair { display: flex; flex-direction: row; gap: 3px; flex-shrink: 0; }
 
@@ -554,6 +539,18 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: var(--font-display);
 }
 
+/* ─── RESOURCE VALUE (Sil / Lux Essence large number display) ───────────── */
+/* Mirrors the same visual weight as .hp-current; used in StashTab party     */
+/* resources panel so Sil/Lux don't rely on inline styles.                   */
+.resource-value {
+  font-size: 34px;
+  font-weight: 600;
+  color: var(--c-text);
+  line-height: 1;
+  margin-bottom: 10px;
+  font-family: var(--font-display);
+}
+
 /* ─── COMBAT STATS ───────────────────────────────────────────────────────── */
 .combat-stats-grid {
   display: grid;
@@ -570,7 +567,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .combat-stat-label { font-size: 12px; color: var(--c-text2); margin-bottom: 3px; font-family: var(--font-display); letter-spacing: 0.03em; }
 .combat-stat-value { font-size: 20px; font-weight: 600; color: var(--c-text); line-height: 1; font-family: var(--font-display); }
 .combat-stat-value-row { display: flex; flex-direction: row; align-items: baseline; gap: 4px; }
-.combat-stat-temp { font-size: 11px; color: var(--c-text3); }
 .combat-stat-breakdown { font-size: 11px; color: var(--c-text3); margin-top: 2px; font-family: var(--font-ui); }
 
 /* ─── EQUIPMENT ──────────────────────────────────────────────────────────── */
@@ -656,25 +652,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .satchel-qty-btn.plus:hover    { border-color: var(--c-green); color: var(--c-green); }
 .satchel-qty-btn.plus:active   { background: var(--c-green-bg); border-color: var(--c-green); color: var(--c-green); opacity: 1; }
 .satchel-qty-val { font-size: 11px; font-weight: 500; color: var(--c-accent); min-width: 16px; text-align: center; }
-
-/* ─── SPEAKING STONES ────────────────────────────────────────────────────── */
-.stones-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.stone-pill {
-  display: flex; align-items: center; gap: 4px;
-  padding: 4px 9px;
-  border-radius: 20px;
-  font-size: 11px;
-  border: 0.5px solid var(--c-border2);
-  background: var(--c-surface2);
-  color: var(--c-text2);
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none; -webkit-user-select: none;
-}
-.stone-pill.ready   { background: var(--c-green-bg);   border-color: var(--c-green);   color: var(--c-green-text); }
-.stone-pill.cooling { background: var(--c-amber-bg);   border-color: var(--c-amber);   color: var(--c-amber-text); }
-.stone-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.stone-hint { font-size: 11px; color: var(--c-text3); margin-top: 4px; }
 
 /* ─── CHIP BAG ───────────────────────────────────────────────────────────── */
 /* Colored chip dot — filled circle for green/red/purple */

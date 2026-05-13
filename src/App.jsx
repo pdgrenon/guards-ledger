@@ -4,25 +4,10 @@ import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
 import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
-import { GUARDS } from './data/constants';
+import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
 const TABS = ['Guard', 'Cities', 'Stash', 'Session log'];
-
-// ─── Guard identity color map ────────────────────────────────────────────────
-// Maps each guard name to their CSS variable key prefix and exact border color.
-// Used across: switcher active state, card top border, header name, session log.
-const GUARD_COLOR_MAP = {
-  Grigory:   { key: 'amber',     border: 'var(--c-guard-amber-border)',     bg: 'var(--c-guard-amber-bg)',     text: 'var(--c-guard-amber-text)'     },
-  Alek:      { key: 'gold',      border: 'var(--c-guard-gold-border)',      bg: 'var(--c-guard-gold-bg)',      text: 'var(--c-guard-gold-text)'      },
-  Catherine: { key: 'forest',    border: 'var(--c-guard-forest-border)',    bg: 'var(--c-guard-forest-bg)',    text: 'var(--c-guard-forest-text)'    },
-  Yury:      { key: 'vermilion', border: 'var(--c-guard-vermilion-border)', bg: 'var(--c-guard-vermilion-bg)', text: 'var(--c-guard-vermilion-text)' },
-  Kharzin:   { key: 'indigo',    border: 'var(--c-guard-indigo-border)',    bg: 'var(--c-guard-indigo-bg)',    text: 'var(--c-guard-indigo-text)'    },
-  Vera:      { key: 'teal',      border: 'var(--c-guard-teal-border)',      bg: 'var(--c-guard-teal-bg)',      text: 'var(--c-guard-teal-text)'      },
-  Pavel:     { key: 'rose',      border: 'var(--c-guard-rose-border)',      bg: 'var(--c-guard-rose-bg)',      text: 'var(--c-guard-rose-text)'      },
-  Yana:      { key: 'cerulean',  border: 'var(--c-guard-cerulean-border)',  bg: 'var(--c-guard-cerulean-bg)',  text: 'var(--c-guard-cerulean-text)'  },
-};
-const FALLBACK_COLOR = { key: 'gold', border: 'var(--c-guard-gold-border)', bg: 'var(--c-guard-gold-bg)', text: 'var(--c-guard-gold-text)' };
 
 // ─── Log entry category classifier ──────────────────────────────────────────
 // Returns the CSS class suffix for the left border color of a log entry.
@@ -84,8 +69,6 @@ export default function App() {
     adjustChip:            game.adjustChip,
     resetChips:            game.resetChips,
     setStartingBlack:      game.setStartingBlack,
-    adjustBaseStat:        game.adjustBaseStat,
-    updateGuard:           game.updateGuard,
     setPartySlot:          game.setPartySlot,
     exportState:           game.exportState,
     importState:           game.importState,
@@ -135,41 +118,60 @@ export default function App() {
                   key={name}
                   className={`guard-switch-btn${isActive ? ' active' : ''}`}
                   onClick={() => game.setActiveGuard(guardIdx)}
-                  style={isActive ? {
-                    '--guard-btn-bg':     c.bg,
-                    '--guard-btn-border': c.border,
-                    '--guard-btn-text':   c.text,
-                  } : {}}
+                  style={isActive
+                    ? { '--switch-color': c.border, '--switch-bg': c.bg }
+                    : {}}
                 >
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: 7, height: 7,
-                      borderRadius: '50%',
-                      background: c.border,
-                      marginRight: 5,
-                      verticalAlign: 'middle',
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  />
                   {name}
                 </button>
               );
             })}
+
+            {/* Party slot editors — swap which guards are active */}
+            <div className="party-slots">
+              {activeParty.map((name, slotIdx) => {
+                const c = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
+                return (
+                  <select
+                    key={slotIdx}
+                    className="party-slot-select"
+                    value={name}
+                    style={{ '--slot-color': c.border }}
+                    onChange={e => game.setPartySlot(slotIdx, e.target.value)}
+                  >
+                    {GUARDS.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Guard card — inject --guard-color so header, name, pips, section labels all match */}
-          <div style={{ '--guard-color': activeColor.border }}>
-            <GuardPanel guard={activeGuard} guardIdx={activeIdx} actions={actions} />
-          </div>
+          {activeGuard && (
+            <div
+              className="guard-card-wrapper"
+              style={{ '--guard-color': activeColor.border }}
+            >
+              <GuardPanel
+                guard={activeGuard}
+                guardIdx={activeIdx}
+                actions={actions}
+              />
+            </div>
+          )}
         </>
       )}
 
+      {/* ── Cities tab ── */}
       {tab === 'Cities' && (
-        <CitiesTab cities={state.cities} toggleCityQuest={game.toggleCityQuest} />
+        <CitiesTab
+          cities={state.cities}
+          toggleCityQuest={game.toggleCityQuest}
+        />
       )}
 
+      {/* ── Stash tab ── */}
       {tab === 'Stash' && (
         <StashTab
           sil={state.sil} lux={state.lux}
@@ -183,27 +185,27 @@ export default function App() {
         />
       )}
 
+      {/* ── Session log tab ── */}
       {tab === 'Session log' && (
         <div className="card log-card">
-          <div className="flex items-center justify-between mb-3">
-            <div className="sec-label" style={{ marginBottom: 0 }}>Session log</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="card-title">Session log</div>
             <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
           </div>
 
           {state.log.length === 0 ? (
             <div className="log-empty">
-              <div className="log-empty-title">No events recorded</div>
-              <div className="log-empty-sub">Actions taken during your session will appear here</div>
+              <div className="log-empty-title">No events yet</div>
+              <div className="log-empty-sub">Actions will appear here as you play</div>
             </div>
           ) : (
             <div className="log-list">
-              {state.log.map(entry => {
-                const cat = classifyEntry(entry.message);
-                const borderColor = cat.type === 'guard'
-                  ? `var(--c-guard-${cat.guardKey}-border)`
-                  : cat.type === 'party'
-                    ? 'var(--c-brand)'
-                    : 'var(--c-border2)';
+              {state.log.map((entry) => {
+                const cls = classifyEntry(entry.message);
+                const borderColor =
+                  cls.type === 'guard'  ? `var(--c-guard-${cls.guardKey}-border)` :
+                  cls.type === 'party'  ? 'var(--c-brand)' :
+                                          'var(--c-border2)';
                 return (
                   <div
                     key={entry.id}
@@ -223,12 +225,16 @@ export default function App() {
         </div>
       )}
 
+      {/* Settings overlay */}
       {settingsOpen && (
         <SettingsPanel
-          state={state}
-          actions={actions}
+          guards={state.guards}
           guardColorMap={GUARD_COLOR_MAP}
-          allGuards={GUARDS}
+          adjustGuardMaxHp={game.adjustGuardMaxHp}
+          setStartingBlack={game.setStartingBlack}
+          exportState={game.exportState}
+          importState={game.importState}
+          resetState={game.resetState}
           onClose={() => setSettingsOpen(false)}
         />
       )}

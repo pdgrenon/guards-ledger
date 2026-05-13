@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { MATERIAL_CATEGORIES, ALL_MATERIALS, RESOURCE_NODE_ITEMS, ENEMIES } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, RESOURCE_NODE_ITEMS, ENEMIES } from '../data/materials';
 import { CITIES } from '../data/constants';
 
 const CITY_NAMES = CITIES.map(c => c.name);
-
-const ALL_ITEMS = MATERIAL_CATEGORIES.flatMap(cat =>
-  cat.items.map(item => ({ item, category: cat.label }))
-);
 
 export function StashTab({
   sil, lux, setSil, setLux,
@@ -24,10 +20,10 @@ export function StashTab({
   const cubesAvailable = stonebound.max - cubesUsed;
   const overBudget = cubesAvailable < 0;
 
-  const activeItems = ALL_ITEMS.filter(({ item }) => (stash[item] ?? 0) > 0);
+  const activeItems = ALL_ITEMS_WITH_CATEGORY.filter(({ item }) => (stash[item] ?? 0) > 0);
 
   const addResults = addSearch.length > 0
-    ? ALL_ITEMS.filter(({ item }) =>
+    ? ALL_ITEMS_WITH_CATEGORY.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&
         (stash[item] ?? 0) === 0
       ).slice(0, 12)
@@ -63,9 +59,7 @@ export function StashTab({
           {/* Sil */}
           <div>
             <div className="sec-label">Sil</div>
-            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
-              {sil}
-            </div>
+            <div className="resource-value">{sil}</div>
             <div className="step-selector">
               {[1, 5, 10].map(s => (
                 <button key={s} className={`step-btn${silStep === s ? ' active' : ''}`} onClick={() => setSilStep(s)}>{s}</button>
@@ -80,9 +74,7 @@ export function StashTab({
           {/* Lux Essence */}
           <div>
             <div className="sec-label">Lux Essence</div>
-            <div style={{ fontSize: 34, fontWeight: 600, color: 'var(--c-text)', lineHeight: 1, marginBottom: 10, fontFamily: 'var(--font-display)' }}>
-              {lux}
-            </div>
+            <div className="resource-value">{lux}</div>
             <div className="step-selector">
               {[1, 5, 10].map(s => (
                 <button key={s} className={`step-btn${luxStep === s ? ' active' : ''}`} onClick={() => setLuxStep(s)}>{s}</button>
@@ -112,7 +104,6 @@ export function StashTab({
         <div className="sb-locations">
           {locations.map((loc, i) => {
             const maxCount = Math.min(4, loc.count + cubesAvailable);
-            // Derive type from selection for state compatibility
             const handleSelect = (value) => {
               if (!value) {
                 updateStoneboundLocation(i, 'type', '');
@@ -128,7 +119,6 @@ export function StashTab({
 
             return (
               <div key={i} className="sb-location">
-                {/* Trash on the far left — spatial separation from cube +/− on the right */}
                 <div className="sb-loc-row">
                   <button
                     className="sb-remove-btn"
@@ -189,7 +179,6 @@ export function StashTab({
       <div className="card stash-card">
         <div className="card-title mb-2">Fort Istra stash</div>
 
-        {/* Filter — always visible when there are items */}
         {activeItems.length > 0 && (
           <input
             className="stash-search"
@@ -200,7 +189,6 @@ export function StashTab({
           />
         )}
 
-        {/* Empty state */}
         {activeItems.length === 0 && (
           <div className="stash-empty">
             <div className="stash-empty-title">Stash is empty</div>
@@ -208,7 +196,6 @@ export function StashTab({
           </div>
         )}
 
-        {/* Category bands + item rows */}
         {filteredCategories.map(cat => (
           <div key={cat.label}>
             <div className="stash-category-header">
@@ -228,29 +215,29 @@ export function StashTab({
           </div>
         ))}
 
-        {/* Add item — always at the bottom, clearly a separate action from filtering */}
+        {/* Add item panel */}
         <div className="stash-add-panel">
           <div className="stash-add-panel-label">Add item</div>
           <input
             className="stash-search"
-            style={{ marginBottom: 0 }}
             type="text"
-            placeholder="Search materials to add…"
+            placeholder="Search materials…"
             value={addSearch}
             onChange={e => setAddSearch(e.target.value)}
           />
           {addResults.length > 0 && (
-            <div className="stash-add-results" style={{ marginTop: 6 }}>
+            <div className="stash-add-results">
               {addResults.map(({ item, category }) => (
-                <button key={item} className="stash-add-result" onClick={() => handleAddItem(item)}>
+                <button
+                  key={item}
+                  className="stash-add-result"
+                  onClick={() => handleAddItem(item)}
+                >
                   <span>{item}</span>
                   <span className="stash-add-cat">{category}</span>
                 </button>
               ))}
             </div>
-          )}
-          {addSearch.length > 0 && addResults.length === 0 && (
-            <div className="text-hint text-sm" style={{ paddingTop: 8 }}>No items found.</div>
           )}
         </div>
       </div>

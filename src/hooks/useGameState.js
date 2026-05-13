@@ -2,7 +2,6 @@ import demoSave from '../data/demoSave.json';
 import { useState, useCallback } from 'react';
 import { createInitialState } from '../data/constants';
 import {
-  migrateGuard,
   addLog,
   reduceSetPartySlot,
   reduceSetSil,
@@ -22,49 +21,12 @@ import {
 } from './gameReducers';
 
 const STORAGE_KEY = 'guards_ledger_v1';
-const LEGACY_KEY  = 'isofarian_companion_v1';
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return demoSave;
-    const parsed = JSON.parse(raw);
-
-    if (parsed.stonebound?.slots && !parsed.stonebound.locations) {
-      parsed.stonebound = { max: parsed.stonebound.max, locations: [] };
-    }
-
-    if (parsed.guards) {
-      parsed.guards = parsed.guards.map(migrateGuard);
-    }
-
-    // Migration: if a saved game has fewer guards than the current roster
-    // (e.g. an old 2-guard save being loaded with the 8-guard version),
-    // append any missing guards with their default starting state.
-    const fresh = createInitialState();
-    if (Array.isArray(parsed.guards)) {
-      const savedNames = new Set(parsed.guards.map(g => g.name));
-      const missing = fresh.guards.filter(g => !savedNames.has(g.name));
-      if (missing.length > 0) {
-        parsed.guards = [...parsed.guards, ...missing];
-      }
-    }
-
-    const { round, campaign, ...cleanParsed } = parsed;
-
-    if (typeof cleanParsed.activeGuardIdx !== 'number') cleanParsed.activeGuardIdx = 0;
-    if (!Array.isArray(cleanParsed.cities))             cleanParsed.cities = fresh.cities;
-    if (typeof cleanParsed.stash !== 'object' || Array.isArray(cleanParsed.stash)) cleanParsed.stash = {};
-    if (!Array.isArray(cleanParsed.log))                cleanParsed.log = [];
-    if (typeof cleanParsed.sil !== 'number')            cleanParsed.sil = 0;
-    if (typeof cleanParsed.lux !== 'number')            cleanParsed.lux = 0;
-
-    // Migration: default activeParty for saves that predate the party system
-    if (!Array.isArray(cleanParsed.activeParty) || cleanParsed.activeParty.length !== 2) {
-      cleanParsed.activeParty = ['Alek', 'Grigory'];
-    }
-
-    return cleanParsed;
+    return JSON.parse(raw);
   } catch {
     return createInitialState();
   }
@@ -105,12 +67,6 @@ export function useGameState() {
 
   // ── Guard mutations ──────────────────────────────────────────────────────
 
-  // Generic field update — no log (internal use only)
-  const updateGuard = useCallback((guardIdx, field, value) => setState(s => {
-    const guards = s.guards.map((g, i) => i === guardIdx ? { ...g, [field]: value } : g);
-    return { ...s, guards };
-  }), [setState]);
-
   const adjustGuardHp = useCallback((guardIdx, delta) =>
     setState(s => reduceAdjustGuardHp(s, guardIdx, delta)), [setState]);
 
@@ -123,7 +79,7 @@ export function useGameState() {
   const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) =>
     setState(s => reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value)), [setState]);
 
-  // Satchel expand/collapse — UI preference, not a game event; removed from log
+  // Satchel expand/collapse — UI preference, not a game event; no log
   const toggleExpandedSatchel = useCallback((guardIdx) => setState(s => {
     const expanded = !s.guards[guardIdx].expandedSatchel;
     const guards   = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
@@ -140,15 +96,6 @@ export function useGameState() {
   const setStartingBlack = useCallback((guardIdx, value) => setState(s => {
     const guards = s.guards.map((g, i) => i === guardIdx
       ? { ...g, startingBlack: Math.max(0, value) } : g);
-    return { ...s, guards };
-  }), [setState]);
-
-  // Base stats — kept for data model but no longer exposed in settings UI
-  const adjustBaseStat = useCallback((guardIdx, stat, delta) => setState(s => {
-    const g   = s.guards[guardIdx];
-    const key = stat === 'atk' ? 'baseAtk' : 'baseDef';
-    const newVal = Math.max(0, (g[key] ?? 0) + delta);
-    const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, [key]: newVal } : g2);
     return { ...s, guards };
   }), [setState]);
 
@@ -211,7 +158,6 @@ export function useGameState() {
     adjustGuardHp, adjustGuardMaxHp,
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,
     adjustChip, resetChips, setStartingBlack,
-    adjustBaseStat, updateGuard,
     toggleCityQuest,
     adjustStash,
     setStoneboundMax, addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
