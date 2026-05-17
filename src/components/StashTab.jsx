@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
 import { CITIES } from '../data/constants';
 
 const CITY_NAMES = CITIES.map(c => c.name);
+const CUSTOM_CATEGORY_LABEL = 'Custom items';
 
 export function StashTab({
   sil, lux, setSil, setLux,
@@ -22,24 +23,44 @@ export function StashTab({
 
   const activeItems = ALL_ITEMS_WITH_CATEGORY.filter(({ item }) => (stash[item] ?? 0) > 0);
 
-  const addResults = addSearch.length > 0
+  // Predefined items matching the search query that aren't yet in the stash
+  const predefinedAddResults = addSearch.length > 0
     ? ALL_ITEMS_WITH_CATEGORY.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&
         (stash[item] ?? 0) === 0
       ).slice(0, 12)
     : [];
 
+  // Show "Add as custom item" when the query doesn't exactly match any known item
+  const trimmedSearch = addSearch.trim();
+  const isKnownItem = ALL_KNOWN_ITEMS.has(trimmedSearch);
+  const showCustomOption =
+    trimmedSearch.length > 0 &&
+    !isKnownItem &&
+    !(stash[trimmedSearch] ?? 0); // don't offer to add if already in stash as custom
+
   function handleAddItem(item) {
     adjustStash(item, 1);
     setAddSearch('');
   }
 
+  // Build category groups for items currently in the stash
   const activeByCategory = MATERIAL_CATEGORIES
     .map(cat => ({
       label: cat.label,
       items: cat.items.filter(item => (stash[item] ?? 0) > 0),
     }))
     .filter(cat => cat.items.length > 0);
+
+  // Collect any stash keys not belonging to any predefined category (custom items)
+  const customItems = Object.keys(stash).filter(
+    key => !ALL_KNOWN_ITEMS.has(key) && (stash[key] ?? 0) > 0
+  );
+  if (customItems.length > 0) {
+    activeByCategory.push({ label: CUSTOM_CATEGORY_LABEL, items: customItems.sort() });
+  }
+
+  const allActiveItems = activeByCategory.flatMap(c => c.items);
 
   const filteredCategories = search.length > 0
     ? activeByCategory
@@ -90,80 +111,49 @@ export function StashTab({
 
       {/* ── Stonebound ── */}
       <div className="card mb-3 stash-card">
-        <div className="flex items-center justify-between mb-2">
-          <div className="card-title">Stonebound</div>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs${overBudget ? ' sb-over-budget' : ' text-muted'}`}>
-              {cubesUsed} / {stonebound.max} cubes
-            </span>
-            <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(-1)}>−</button>
-            <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(1)}>+</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>Stonebound</div>
+          <div className={`sb-budget${overBudget ? ' sb-over-budget' : ''}`} style={{ marginLeft: 'auto', fontSize: 12, color: overBudget ? 'var(--c-red)' : 'var(--c-text3)' }}>
+            {cubesUsed} / {stonebound.max} cubes
           </div>
+          <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(-1)}>−</button>
+          <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(1)}>+</button>
         </div>
 
         <div className="sb-locations">
           {locations.map((loc, i) => {
-            const maxCount = Math.min(4, loc.count + cubesAvailable);
-            const handleSelect = (value) => {
-              if (!value) {
-                updateStoneboundLocation(i, 'type', '');
-                updateStoneboundLocation(i, 'selection', '');
-                return;
-              }
-              const type = CITY_NAMES.includes(value) ? 'City'
-                : RESOURCE_NODE_ITEMS.includes(value) ? 'Resource node'
-                : 'Enemy drop';
-              updateStoneboundLocation(i, 'type', type);
-              updateStoneboundLocation(i, 'selection', value);
-            };
-
+            const maxCount = cubesAvailable + loc.count;
             return (
-              <div key={i} className="sb-location">
-                <div className="sb-loc-row">
+              <div key={loc.id} className="sb-location-row">
+                <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(loc.id)}>✕</button>
+                <select
+                  className="sb-select"
+                  value={loc.selection}
+                  onChange={e => updateStoneboundLocation(i, 'selection', e.target.value)}
+                >
+                  <option value="">— select location —</option>
+                  <optgroup label="Cities">
+                    {CITY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Resource nodes">
+                    {RESOURCE_NODE_ITEMS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </optgroup>
+                  <optgroup label="Enemy drops">
+                    {ENEMY_DROPS.map(e => <option key={e} value={e}>{e}</option>)}
+                  </optgroup>
+                </select>
+
+                <div className="sb-inline-controls">
                   <button
-                    className="sb-remove-btn"
-                    onClick={() => removeStoneboundLocation(i)}
-                    aria-label="Remove location"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
-                      aria-hidden="true">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
-
-                  <select
-                    className="sb-select"
-                    value={loc.selection || ''}
-                    onChange={e => handleSelect(e.target.value)}
-                  >
-                    <option value="">— select location —</option>
-                    <optgroup label="Cities">
-                      {CITY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </optgroup>
-                    <optgroup label="Resource nodes">
-                      {RESOURCE_NODE_ITEMS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </optgroup>
-                    <optgroup label="Enemy drops">
-                      {ENEMY_DROPS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </optgroup>
-                  </select>
-
-                  <div className="sb-inline-controls">
-                    <button
-                      className="adj-btn sb-count-btn"
-                      onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
-                    >−</button>
-                    <span className="sb-count-val">{loc.count}</span>
-                    <button
-                      className="adj-btn sb-count-btn"
-                      disabled={loc.count >= maxCount}
-                      onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
-                    >+</button>
-                  </div>
+                    className="adj-btn sb-count-btn"
+                    onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
+                  >−</button>
+                  <span className="sb-count-val">{loc.count}</span>
+                  <button
+                    className="adj-btn sb-count-btn"
+                    disabled={loc.count >= maxCount}
+                    onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
+                  >+</button>
                 </div>
               </div>
             );
@@ -179,7 +169,7 @@ export function StashTab({
       <div className="card stash-card">
         <div className="card-title mb-2">Fort Istra stash</div>
 
-        {activeItems.length > 0 && (
+        {allActiveItems.length > 0 && (
           <input
             className="stash-search"
             type="text"
@@ -189,10 +179,10 @@ export function StashTab({
           />
         )}
 
-        {activeItems.length === 0 && (
+        {allActiveItems.length === 0 && (
           <div className="stash-empty">
             <div className="stash-empty-title">Stash is empty</div>
-            <div className="stash-empty-sub">Search below to add crafting materials</div>
+            <div className="stash-empty-sub">Search below to add items</div>
           </div>
         )}
 
@@ -221,13 +211,13 @@ export function StashTab({
           <input
             className="stash-search"
             type="text"
-            placeholder="Search materials…"
+            placeholder="Search items…"
             value={addSearch}
             onChange={e => setAddSearch(e.target.value)}
           />
-          {addResults.length > 0 && (
+          {(predefinedAddResults.length > 0 || showCustomOption) && (
             <div className="stash-add-results">
-              {addResults.map(({ item, category }) => (
+              {predefinedAddResults.map(({ item, category }) => (
                 <button
                   key={item}
                   className="stash-add-result"
@@ -237,6 +227,15 @@ export function StashTab({
                   <span className="stash-add-cat">{category}</span>
                 </button>
               ))}
+              {showCustomOption && (
+                <button
+                  className="stash-add-result stash-add-result--custom"
+                  onClick={() => handleAddItem(trimmedSearch)}
+                >
+                  <span>Add "{trimmedSearch}"</span>
+                  <span className="stash-add-cat">Custom item</span>
+                </button>
+              )}
             </div>
           )}
         </div>

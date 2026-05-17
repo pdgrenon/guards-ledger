@@ -1065,6 +1065,16 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .stash-add-result:last-child { border-bottom: none; }
 .stash-add-result:active { background: var(--c-surface2); }
 .stash-add-cat { font-size: 11px; color: var(--c-text3); }
+/* Custom item option in the add-item panel — visually distinct from predefined results */
+.stash-add-result--custom {
+  border-top: 0.5px dashed var(--c-border2);
+  background: var(--c-surface2);
+  color: var(--c-text2);
+  font-style: italic;
+}
+.stash-add-result--custom:active { background: var(--c-border2); }
+.stash-add-result--custom .stash-add-cat { color: var(--c-brand); font-style: normal; }
+
 
 /* ─── SESSION LOG ────────────────────────────────────────────────────────── */
 .log-card { padding-bottom: 4px; }
