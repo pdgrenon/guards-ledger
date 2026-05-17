@@ -96,7 +96,11 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
   const g = s.guards[guardIdx];
   const guards = s.guards.map((gi, i) => {
     if (i !== guardIdx) return gi;
-    const satchel = gi.satchel.map((slot, si) =>
+    const FULL_SIZE = 8; // matches SATCHEL_EXPANDED_SIZE
+    const full = Array.from({ length: FULL_SIZE }, (_, i) =>
+      gi.satchel[i] ?? { item: '', qty: 1 }
+    );
+    const satchel = full.map((slot, si) =>
       si === slotIdx ? { ...slot, [field]: value } : slot
     );
     return { ...gi, satchel };

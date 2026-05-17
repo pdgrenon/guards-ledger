@@ -84,8 +84,8 @@ export const MATERIAL_CATEGORIES = [
     // Jade, Black Diamond, and Ancient Roots are also speaking stones —
     // they're tracked here as a single quantity usable for either purpose.
     items: [
-      'Coastal Bluecaps', 'Midnight Hydrangea', 'Falmundia Rosehips',
-      'Purifying Seed', 'Ancient Roots', 'Jade', 'Onyx', 'Black Diamond',
+      'Coastal Bluecaps', 'Midnight Hydrangea', 'Falmundian Rosehips',
+      'Purifying Seed', 'Ruinous Seed', 'Ancient Roots', 'Jade', 'Onyx', 'Black Diamond',
     ],
   },
   {
