@@ -259,7 +259,7 @@
       { "id": "loc-1", "type": "City",          "selection": "Mir",             "count": 1 },
       { "id": "loc-2", "type": "City",          "selection": "Razdor",          "count": 1 },
       { "id": "loc-3", "type": "Resource node", "selection": "Iron",            "count": 2 },
-      { "id": "loc-4", "type": "Enemy node",    "selection": "Corrupted Guard", "count": 1 }
+      { "id": "loc-4", "type": "Enemy drop",    "selection": "Wolf Pelt",       "count": 1 }
     ]
   },
   "log": [],

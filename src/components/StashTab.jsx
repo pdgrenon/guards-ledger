@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, RESOURCE_NODE_ITEMS, ENEMIES } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
 import { CITIES } from '../data/constants';
 
 const CITY_NAMES = CITIES.map(c => c.name);
@@ -112,7 +112,7 @@ export function StashTab({
               }
               const type = CITY_NAMES.includes(value) ? 'City'
                 : RESOURCE_NODE_ITEMS.includes(value) ? 'Resource node'
-                : 'Enemy node';
+                : 'Enemy drop';
               updateStoneboundLocation(i, 'type', type);
               updateStoneboundLocation(i, 'selection', value);
             };
@@ -147,8 +147,8 @@ export function StashTab({
                     <optgroup label="Resource nodes">
                       {RESOURCE_NODE_ITEMS.map(r => <option key={r} value={r}>{r}</option>)}
                     </optgroup>
-                    <optgroup label="Enemy nodes">
-                      {ENEMIES.map(e => <option key={e} value={e}>{e}</option>)}
+                    <optgroup label="Enemy drops">
+                      {ENEMY_DROPS.map(e => <option key={e} value={e}>{e}</option>)}
                     </optgroup>
                   </select>
 
