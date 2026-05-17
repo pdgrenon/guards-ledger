@@ -4,10 +4,11 @@ import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
 import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
+import { CampaignTab } from './components/CampaignTab';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
-const TABS = ['Guard', 'Cities', 'Stash', 'Session log'];
+const TABS = ['Guard', 'Cities', 'Stash', 'Campaign', 'Session log'];
 
 // ─── Log entry category classifier ──────────────────────────────────────────
 // guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
@@ -164,6 +165,22 @@ export default function App() {
           addStoneboundLocation={game.addStoneboundLocation}
           removeStoneboundLocation={game.removeStoneboundLocation}
           updateStoneboundLocation={game.updateStoneboundLocation}
+        />
+      )}
+
+      {/* ── Campaign tab ── */}
+      {tab === 'Campaign' && (
+        <CampaignTab
+          campaign={state.campaign}
+          onSetEventToken={game.setEventToken}
+          onResetEventToken={game.resetEventToken}
+          onSetCampaignLocation={game.setCampaignLocation}
+          onAddDynamicLocation={game.addDynamicLocation}
+          onUpdateDynamicLocation={game.updateDynamicLocation}
+          onRemoveDynamicLocation={game.removeDynamicLocation}
+          onAddPlan={game.addPlan}
+          onTogglePlan={game.togglePlan}
+          onDeletePlan={game.deletePlan}
         />
       )}
 

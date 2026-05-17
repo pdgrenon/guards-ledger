@@ -18,6 +18,15 @@ import {
   reduceAddStoneboundLocation,
   reduceRemoveStoneboundLocation,
   reduceUpdateStoneboundLocation,
+  reduceSetEventToken,
+  reduceResetEventToken,
+  reduceSetCampaignLocation,
+  reduceAddDynamicLocation,
+  reduceUpdateDynamicLocation,
+  reduceRemoveDynamicLocation,
+  reduceAddPlan,
+  reduceTogglePlan,
+  reduceDeletePlan,
 } from './gameReducers';
 
 const STORAGE_KEY = 'guards_ledger_v1';
@@ -26,7 +35,12 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return demoSave;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Migration: add campaign key if missing (for saves created before this feature)
+    if (!parsed.campaign) {
+      parsed.campaign = createInitialState().campaign;
+    }
+    return parsed;
   } catch {
     return createInitialState();
   }
@@ -82,7 +96,8 @@ export function useGameState() {
   // Satchel expand/collapse — UI preference, not a game event; no log
   const toggleExpandedSatchel = useCallback((guardIdx) => setState(s => {
     const expanded = !s.guards[guardIdx].expandedSatchel;
-    const guards   = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
+    const guards   = s.guards.map((g, i) => i === guardIdx
+      ? { ...g, expandedSatchel: expanded } : g);
     return { ...s, guards };
   }), [setState]);
 
@@ -119,6 +134,36 @@ export function useGameState() {
 
   const updateStoneboundLocation = useCallback((idx, field, value) =>
     setState(s => reduceUpdateStoneboundLocation(s, idx, field, value)), [setState]);
+
+  // ── Campaign ─────────────────────────────────────────────────────────────
+
+  const setEventToken = useCallback((region, delta) =>
+    setState(s => reduceSetEventToken(s, region, delta)), [setState]);
+
+  const resetEventToken = useCallback((region) =>
+    setState(s => reduceResetEventToken(s, region)), [setState]);
+
+  // Location changes are frequent free-text edits — no log to avoid noise
+  const setCampaignLocation = useCallback((key, value) =>
+    setState(s => reduceSetCampaignLocation(s, key, value)), [setState]);
+
+  const addDynamicLocation = useCallback((type) =>
+    setState(s => reduceAddDynamicLocation(s, type)), [setState]);
+
+  const updateDynamicLocation = useCallback((type, id, label) =>
+    setState(s => reduceUpdateDynamicLocation(s, type, id, label)), [setState]);
+
+  const removeDynamicLocation = useCallback((type, id) =>
+    setState(s => reduceRemoveDynamicLocation(s, type, id)), [setState]);
+
+  const addPlan = useCallback((text) =>
+    setState(s => reduceAddPlan(s, text)), [setState]);
+
+  const togglePlan = useCallback((id) =>
+    setState(s => reduceTogglePlan(s, id)), [setState]);
+
+  const deletePlan = useCallback((id) =>
+    setState(s => reduceDeletePlan(s, id)), [setState]);
 
   // ── Save data ────────────────────────────────────────────────────────────
   const exportState = useCallback(() => {
@@ -161,6 +206,10 @@ export function useGameState() {
     toggleCityQuest,
     adjustStash,
     setStoneboundMax, addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
+    setEventToken, resetEventToken,
+    setCampaignLocation,
+    addDynamicLocation, updateDynamicLocation, removeDynamicLocation,
+    addPlan, togglePlan, deletePlan,
     exportState, importState, resetState,
   };
 }

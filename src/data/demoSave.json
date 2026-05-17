@@ -262,6 +262,26 @@
       { "id": "loc-4", "type": "Enemy drop",    "selection": "Wolf Pelt",       "count": 1 }
     ]
   },
+  "campaign": {
+    "eventTokens": { "mountain": 1, "forest": 0, "plains": 2, "sea": 0 },
+    "locations": {
+      "party": "Razdor outskirts",
+      "caravan": "Fort Istra",
+      "mainQuest": "Vouno mountain pass",
+      "boat": "Ryba docks",
+      "sideQuests": [
+        { "id": 1, "label": "The missing merchant — Silny" }
+      ],
+      "bounties": [
+        { "id": 2, "label": "Wolf pack — Forest near Mir" }
+      ]
+    },
+    "plans": [
+      { "id": 3, "text": "Craft the Ryban Glaive upgrade for Grigory", "done": false },
+      { "id": 4, "text": "Visit Razdor to complete puzzle quest", "done": false },
+      { "id": 5, "text": "Gather Iron and Pine before heading to Vouno", "done": true }
+    ]
+  },
   "log": [],
   "settings": { "initialized": true }
 }

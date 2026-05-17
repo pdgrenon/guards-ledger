@@ -219,3 +219,74 @@ export function reduceUpdateStoneboundLocation(s, idx, field, value) {
   }
   return newState;
 }
+
+export function reduceSetEventToken(s, region, delta) {
+  const current = s.campaign.eventTokens[region] ?? 0;
+  const next    = Math.max(0, Math.min(3, current + delta));
+  const triggered = next === 3 && current < 3;
+  const newTokens = { ...s.campaign.eventTokens, [region]: next };
+  const campaign  = { ...s.campaign, eventTokens: newTokens };
+  const label = region.charAt(0).toUpperCase() + region.slice(1);
+  const msg = triggered
+    ? `Campaign ${label} event triggered! Token reset to 3`
+    : `Campaign ${label} token ${delta >= 0 ? '+' : ''}${delta} → ${next}`;
+  return addLog({ ...s, campaign }, msg);
+}
+
+export function reduceResetEventToken(s, region) {
+  const newTokens = { ...s.campaign.eventTokens, [region]: 0 };
+  const campaign  = { ...s.campaign, eventTokens: newTokens };
+  const label = region.charAt(0).toUpperCase() + region.slice(1);
+  return addLog({ ...s, campaign }, `Campaign ${label} event resolved · token reset`);
+}
+
+export function reduceSetCampaignLocation(s, key, value) {
+  const locations = { ...s.campaign.locations, [key]: value };
+  const campaign  = { ...s.campaign, locations };
+  return { ...s, campaign };
+}
+
+export function reduceAddDynamicLocation(s, type) {
+  // type: 'sideQuests' | 'bounties'
+  const id      = Date.now() + Math.random();
+  const entries = [...(s.campaign.locations[type] ?? []), { id, label: '' }];
+  const locations = { ...s.campaign.locations, [type]: entries };
+  const campaign  = { ...s.campaign, locations };
+  return { ...s, campaign };
+}
+
+export function reduceUpdateDynamicLocation(s, type, id, label) {
+  const entries = (s.campaign.locations[type] ?? []).map(e =>
+    e.id === id ? { ...e, label } : e
+  );
+  const locations = { ...s.campaign.locations, [type]: entries };
+  const campaign  = { ...s.campaign, locations };
+  return { ...s, campaign };
+}
+
+export function reduceRemoveDynamicLocation(s, type, id) {
+  const entries = (s.campaign.locations[type] ?? []).filter(e => e.id !== id);
+  const locations = { ...s.campaign.locations, [type]: entries };
+  const campaign  = { ...s.campaign, locations };
+  return { ...s, campaign };
+}
+
+export function reduceAddPlan(s, text) {
+  if (!text.trim()) return s;
+  const id   = Date.now() + Math.random();
+  const plan = { id, text: text.trim(), done: false };
+  const campaign = { ...s.campaign, plans: [...s.campaign.plans, plan] };
+  return { ...s, campaign };
+}
+
+export function reduceTogglePlan(s, id) {
+  const plans   = s.campaign.plans.map(p => p.id === id ? { ...p, done: !p.done } : p);
+  const campaign = { ...s.campaign, plans };
+  return { ...s, campaign };
+}
+
+export function reduceDeletePlan(s, id) {
+  const plans   = s.campaign.plans.filter(p => p.id !== id);
+  const campaign = { ...s.campaign, plans };
+  return { ...s, campaign };
+}

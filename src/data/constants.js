@@ -98,5 +98,14 @@ export function createInitialState() {
     stonebound:     { max: 4, locations: [] },
     log:            [],
     settings:       { initialized: true },
+    campaign: {
+      eventTokens: { mountain: 0, forest: 0, plains: 0, sea: 0 },
+      locations: {
+        party: '', caravan: '', mainQuest: '', boat: '',
+        sideQuests: [],
+        bounties: [],
+      },
+      plans: [],
+    },
   };
 }

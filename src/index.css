@@ -1378,3 +1378,242 @@ button, input, select, textarea { font-family: var(--font-ui); }
   outline: none;
   border-color: var(--c-interact);
 }
+
+/* ── Event tokens ── */
+.campaign-tokens-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.campaign-token-card {
+  background: var(--c-surface2);
+  border: 0.5px solid var(--c-border);
+  border-top: 3px solid var(--c-brand);
+  border-radius: var(--radius-md);
+  padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.2s;
+}
+.campaign-token-card.triggered {
+  border-top-color: var(--c-red);
+}
+
+.campaign-token-label {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text);
+  letter-spacing: 0.03em;
+}
+
+.campaign-token-pips {
+  display: flex;
+  gap: 6px;
+}
+.campaign-token-pip {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-border2);
+  background: var(--c-surface);
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.campaign-token-pip.filled {
+  background: var(--c-brand);
+  border-color: var(--c-brand);
+}
+.campaign-token-pip.filled.triggered {
+  background: var(--c-red);
+  border-color: var(--c-red);
+}
+
+.campaign-token-controls {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* "Resolve event" button — prominent, red-tinted, full width within card */
+.campaign-event-resolve-btn {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid var(--c-red);
+  border-radius: var(--radius-sm);
+  background: var(--c-red-bg);
+  color: var(--c-red);
+  cursor: pointer;
+  touch-action: manipulation;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+.campaign-event-resolve-btn:active { opacity: 0.7; }
+
+/* ── Location rows ── */
+.campaign-location-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 0.5px solid var(--c-border);
+}
+.campaign-location-row:last-of-type { border-bottom: none; }
+
+.campaign-location-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-text2);
+  font-family: var(--font-display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  min-width: 76px;
+  flex-shrink: 0;
+}
+
+.campaign-location-input {
+  flex: 1;
+  height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  background: var(--c-surface2);
+  border: 0.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+  min-width: 0;
+}
+.campaign-location-input:focus {
+  outline: none;
+  border-color: var(--c-interact);
+  background: var(--c-surface);
+}
+.campaign-location-input::placeholder { color: var(--c-text3); }
+
+/* ── Dynamic location rows (side quests, bounties) ── */
+.campaign-dynamic-section { margin-bottom: 4px; }
+
+.campaign-dynamic-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+/* Remove button — small ×, neutral until hover */
+.campaign-remove-btn {
+  width: 28px; height: 28px;
+  border: 0.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface2);
+  color: var(--c-text3);
+  font-size: 18px;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.campaign-remove-btn:hover {
+  border-color: var(--c-red);
+  color: var(--c-red);
+  background: var(--c-red-bg);
+}
+.campaign-remove-btn:active { opacity: 0.7; }
+
+/* "Add …" ghost link button */
+.campaign-add-link {
+  border: none;
+  background: none;
+  color: var(--c-interact);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  padding: 4px 0;
+  touch-action: manipulation;
+  display: inline-block;
+  line-height: 1;
+}
+.campaign-add-link:active { opacity: 0.7; }
+
+/* ── Plans ── */
+.campaign-plan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--c-border);
+  min-height: 44px;
+}
+.campaign-plan-row:last-of-type { border-bottom: none; }
+
+.campaign-plan-check {
+  width: 22px; height: 22px;
+  border: 1.5px solid var(--c-border2);
+  border-radius: 5px;
+  background: var(--c-surface2);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+.campaign-plan-check.done {
+  background: var(--c-green);
+  border-color: var(--c-green);
+}
+
+.campaign-plan-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  line-height: 1.4;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none; -webkit-user-select: none;
+}
+.campaign-plan-text.done {
+  color: var(--c-text3);
+  text-decoration: line-through;
+}
+
+/* Add plan row — input + button side by side */
+.campaign-plan-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.campaign-add-btn {
+  padding: 0 14px;
+  height: 34px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  border: 0.5px solid var(--c-interact);
+  border-radius: var(--radius-sm);
+  background: var(--c-interact-bg);
+  color: var(--c-interact-text);
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+.campaign-add-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+.campaign-add-btn:active { opacity: 0.7; }
