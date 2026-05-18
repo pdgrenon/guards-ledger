@@ -2,6 +2,20 @@
 import { useState, useMemo } from 'react';
 import { RECIPES, craftStatus, shortageCount, minCraftCost } from '../data/recipes';
 
+// Merge stash + both active guards' satchels into one resource count map.
+// This reflects what's actually available to craft with at the blacksmith.
+function buildCombined(stash, activeGuards) {
+  const combined = { ...stash };
+  for (const guard of activeGuards) {
+    for (const slot of (guard.satchel ?? [])) {
+      if (slot.item) {
+        combined[slot.item] = (combined[slot.item] ?? 0) + slot.qty;
+      }
+    }
+  }
+  return combined;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function starsLabel(n) {
@@ -46,9 +60,8 @@ function StatusBadge({ status }) {
   return <span className="craft-status-badge craft-status-missing">Missing</span>;
 }
 
-function RecipeCard({ recipe, stash, sil, lux, activePartyNames }) {
-  const status = craftStatus(recipe, stash, sil, lux);
-  const shortage = shortageCount(recipe, stash);
+function RecipeCard({ recipe, combined, sil, lux, activePartyNames }) {
+  const status = craftStatus(recipe, combined, sil, lux);
   const cost = formatCost(recipe);
   const cityLine = formatCityBreakdown(recipe);
 
@@ -128,7 +141,7 @@ function RecipeCard({ recipe, stash, sil, lux, activePartyNames }) {
       {recipe.materials.length > 0 && (
         <div className="craft-materials">
           {recipe.materials.map((mat, i) => {
-            const have = stash[mat.name] ?? 0;
+            const have = combined[mat.name] ?? 0;
             const ok = have >= mat.qty;
             return (
               <div key={i} className="craft-mat-row">
@@ -163,13 +176,22 @@ function RecipeCard({ recipe, stash, sil, lux, activePartyNames }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
 
   const activePartyNames = activeParty ?? [];
+
+  // Merge stash + both active guards' satchels so craftability reflects
+  // everything the party has on hand, not just what's in the Fort Istra stash.
+  const activeGuards = (guards ?? []).filter(g => activePartyNames.includes(g.name));
+  const combined = useMemo(
+    () => buildCombined(stash, activeGuards),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stash, guards, activePartyNames.join(',')]
+  );
 
   // Filtered + sorted recipes
   const filtered = useMemo(() => {
@@ -179,11 +201,11 @@ export function CraftTab({ stash, sil, lux, activeParty }) {
       if (typeFilter !== 'All' && r.type !== typeFilter) return false;
       // Min-stars filter (0 = All)
       if (minStars > 0 && r.stars < minStars) return false;
-      // Can-craft filter
-      if (canCraftOnly && craftStatus(r, stash, sil, lux) !== 'ready') return false;
+      // Can-craft filter — uses combined resources
+      if (canCraftOnly && craftStatus(r, combined, sil, lux) !== 'ready') return false;
       // Guard restriction: hide entirely if no party member can use it
       if (r.limitedTo.length > 0 && !r.limitedTo.some(g => activePartyNames.includes(g))) return false;
-      // Search: match name OR material names
+      // Search: match name OR material names OR city
       if (q) {
         const nameMatch = r.name.toLowerCase().includes(q);
         const matMatch = r.materials.some(m => m.name.toLowerCase().includes(q));
@@ -192,7 +214,7 @@ export function CraftTab({ stash, sil, lux, activeParty }) {
       }
       return true;
     });
-  }, [search, typeFilter, minStars, canCraftOnly, stash, sil, lux, activePartyNames]);
+  }, [search, typeFilter, minStars, canCraftOnly, combined, sil, lux, activePartyNames]);
 
   // Group by type in display order
   const typeOrder = ['Weapon', 'Armor', 'Accessory', 'Item'];
@@ -302,7 +324,7 @@ export function CraftTab({ stash, sil, lux, activeParty }) {
               <RecipeCard
                 key={`${r.name}-${r.city}-${i}`}
                 recipe={r}
-                stash={stash}
+                combined={combined}
                 sil={sil}
                 lux={lux}
                 activePartyNames={activePartyNames}

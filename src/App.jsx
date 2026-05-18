@@ -175,6 +175,7 @@ export default function App() {
           stash={state.stash}
           sil={state.sil}
           lux={state.lux}
+          guards={state.guards}
           activeParty={state.activeParty}
         />
       )}
