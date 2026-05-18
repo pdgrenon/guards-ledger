@@ -124,36 +124,38 @@ export function StashTab({
           {locations.map((loc, i) => {
             const maxCount = cubesAvailable + loc.count;
             return (
-              <div key={loc.id} className="sb-location-row">
-                <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(loc.id)}>✕</button>
-                <select
-                  className="sb-select"
-                  value={loc.selection}
-                  onChange={e => updateStoneboundLocation(i, 'selection', e.target.value)}
-                >
-                  <option value="">— select location —</option>
-                  <optgroup label="Cities">
-                    {CITY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </optgroup>
-                  <optgroup label="Resource nodes">
-                    {RESOURCE_NODE_ITEMS.map(r => <option key={r} value={r}>{r}</option>)}
-                  </optgroup>
-                  <optgroup label="Enemy drops">
-                    {ENEMY_DROPS.map(e => <option key={e} value={e}>{e}</option>)}
-                  </optgroup>
-                </select>
+              <div key={loc.id} className="sb-location">
+                <div className="sb-loc-row">
+                  <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(loc.id)}>✕</button>
+                  <select
+                    className="sb-select"
+                    value={loc.selection}
+                    onChange={e => updateStoneboundLocation(i, 'selection', e.target.value)}
+                  >
+                    <option value="">— select location —</option>
+                    <optgroup label="Cities">
+                      {CITY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </optgroup>
+                    <optgroup label="Resource nodes">
+                      {RESOURCE_NODE_ITEMS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </optgroup>
+                    <optgroup label="Enemy drops">
+                      {ENEMY_DROPS.map(e => <option key={e} value={e}>{e}</option>)}
+                    </optgroup>
+                  </select>
 
-                <div className="sb-inline-controls">
-                  <button
-                    className="adj-btn sb-count-btn"
-                    onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
-                  >−</button>
-                  <span className="sb-count-val">{loc.count}</span>
-                  <button
-                    className="adj-btn sb-count-btn"
-                    disabled={loc.count >= maxCount}
-                    onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
-                  >+</button>
+                  <div className="sb-inline-controls">
+                    <button
+                      className="adj-btn sb-count-btn"
+                      onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
+                    >−</button>
+                    <span className="sb-count-val">{loc.count}</span>
+                    <button
+                      className="adj-btn sb-count-btn"
+                      disabled={loc.count >= maxCount}
+                      onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
+                    >+</button>
+                  </div>
                 </div>
               </div>
             );
