@@ -5,10 +5,11 @@ import { CitiesTab } from './components/CitiesTab';
 import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
 import { CampaignTab } from './components/CampaignTab';
+import { CraftTab } from './components/CraftTab';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
-const TABS = ['Guard', 'Cities', 'Stash', 'Campaign', 'Session log'];
+const TABS = ['Guard', 'Cities', 'Stash', 'Craft', 'Campaign', 'Session log'];
 
 // ─── Log entry category classifier ──────────────────────────────────────────
 // guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
@@ -165,6 +166,16 @@ export default function App() {
           addStoneboundLocation={game.addStoneboundLocation}
           removeStoneboundLocation={game.removeStoneboundLocation}
           updateStoneboundLocation={game.updateStoneboundLocation}
+        />
+      )}
+
+      {/* --- Craft tab --- */}
+      {tab === 'Craft' && (
+        <CraftTab
+          stash={state.stash}
+          sil={state.sil}
+          lux={state.lux}
+          activeParty={state.activeParty}
         />
       )}
 
