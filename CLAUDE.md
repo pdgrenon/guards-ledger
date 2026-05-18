@@ -10,12 +10,11 @@ npm run build      # Production build → dist/
 npm run preview    # Preview production build locally
 npm run lint       # ESLint
 npm run test       # Vitest — runs pure reducer unit tests
-npm run deploy     # Build + publish to GitHub Pages
 ```
 
 ## Architecture
 
-Single-page React 19 app (Vite) for tracking game state in *The Isofarian Guard* board game. Deployed to GitHub Pages at `https://pdgrenon.github.io/guards-ledger/`.
+Single-page React 19 app (Vite) for tracking game state in *The Isofarian Guard* board game. Deployed to Cloudflare Pages at `https://isofarian.averageideas.dev`.
 
 ### State management
 

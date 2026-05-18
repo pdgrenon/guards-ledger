@@ -2,7 +2,7 @@
 
 > A campaign companion for *The Isofarian Guard* — tracks all per-guard and per-city state so you can focus on playing, not shuffling tokens.
 
-**[→ Open the app](https://pdgrenon.github.io/guards-ledger/)**
+**[→ Open the app](https://isofarian.averageideas.dev)**
 
 ---
 
@@ -79,7 +79,7 @@ All state saves to `localStorage` under the key `guards_ledger_v1` automatically
 
 **Tests.** `src/hooks/gameReducers.test.js` covers all pure reducer functions using Vitest. Run with `npm test`.
 
-**Stack:** React 19 · Vite · Plain CSS · Vitest · GitHub Actions → GitHub Pages
+**Stack:** React 19 · Vite · Plain CSS · Vitest · Cloudflare Pages
 
 ---
 
@@ -118,7 +118,6 @@ npm run build      # Production build → dist/
 npm run preview    # Preview production build locally
 npm run test       # Vitest (reducer unit tests)
 npm run lint       # ESLint
-npm run deploy     # Build + publish to GitHub Pages
 ```
 
 To add a new crafting material: add its name to the appropriate category array in `src/data/materials.js`. It will appear in both the stash panel and satchel autocomplete automatically.
