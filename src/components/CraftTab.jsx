@@ -1,6 +1,7 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo } from 'react';
 import { RECIPES, craftStatus, shortageCount, minCraftCost } from '../data/recipes';
+import { MATERIAL_SOURCES } from '../data/materials';
 
 // Merge stash + both active guards' satchels into one resource count map.
 // This reflects what's actually available to craft with at the blacksmith.
@@ -41,6 +42,16 @@ function formatCityBreakdown(recipe) {
   return entries.map(([city, cost]) => `${city} ${cost} sil`).join(' · ');
 }
 
+function InfoIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
@@ -60,7 +71,7 @@ function StatusBadge({ status }) {
   return <span className="craft-status-badge craft-status-missing">Missing</span>;
 }
 
-function RecipeCard({ recipe, combined, sil, lux, activePartyNames }) {
+function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource }) {
   const status = craftStatus(recipe, combined, sil, lux);
   const cost = formatCost(recipe);
   const cityLine = formatCityBreakdown(recipe);
@@ -143,14 +154,30 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames }) {
           {recipe.materials.map((mat, i) => {
             const have = combined[mat.name] ?? 0;
             const ok = have >= mat.qty;
+            const isShort = !ok;
+            const hasSource = !!MATERIAL_SOURCES[mat.name];
             return (
               <div key={i} className="craft-mat-row">
-                <span className="craft-mat-name">
-                  {mat.name}
-                  {mat.isSpeakingStone && (
-                    <span className="craft-stone-tag"> · speaking stone</span>
-                  )}
-                </span>
+                {isShort && hasSource ? (
+                  <button
+                    className="craft-mat-name mat-source-trigger"
+                    onClick={() => onShowSource(mat.name)}
+                    aria-label={`View sources for ${mat.name}`}
+                  >
+                    {mat.name}
+                    {mat.isSpeakingStone && (
+                      <span className="craft-stone-tag"> · speaking stone</span>
+                    )}
+                    <InfoIcon />
+                  </button>
+                ) : (
+                  <span className="craft-mat-name">
+                    {mat.name}
+                    {mat.isSpeakingStone && (
+                      <span className="craft-stone-tag"> · speaking stone</span>
+                    )}
+                  </span>
+                )}
                 <span className={`craft-mat-qty ${ok ? 'craft-mat-qty--have' : 'craft-mat-qty--short'}`}>
                   {have} / {mat.qty}
                 </span>
@@ -176,7 +203,7 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
@@ -328,6 +355,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards }) {
                 sil={sil}
                 lux={lux}
                 activePartyNames={activePartyNames}
+                onShowSource={onShowSource}
               />
             ))}
           </div>

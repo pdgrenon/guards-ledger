@@ -174,3 +174,151 @@ export const ARMOR_STATS = {
   'Tunic of the Wild': 3, "Veteran's Coat": 5, 'Volkrok Tunic': 1,
   'Wanderer of the Fields': 3, 'Woven Spine Armor': 2, "Zephyr's Tunic": 3,
 };
+
+// ─── MATERIAL SOURCES ────────────────────────────────────────────────────────
+// Used by MaterialSourcePopup to answer "where do I get this?"
+// Each entry has up to three optional arrays:
+//   enemies  — enemy names that drop this material
+//   market   — { city, price } pairs for city market purchases (Sil)
+//   nodes    — node labels for resource harvesting (ores + timber)
+//   ftIstra  — { label, luxPer4 } for Ft. Istra building purchases
+
+export const MATERIAL_SOURCES = {
+  // ── Animal drops ────────────────────────────────────────────────────────────
+  'Metal Frag.': {
+    enemies: ['Corrupted Brigand', 'Corrupted Fylakes', 'Corrupted Soldier', 'Falmund Scout', 'Kingsguard', 'Metal Eater', 'Seer Acolyte', 'Seer Zealot'],
+  },
+  'Bone Frag.': {
+    enemies: ['Flesh Eating Fish', 'Metal Eater', 'Timber Wolf'],
+    market: [{ city: 'Mir', price: 8 }, { city: 'Vouno', price: 8 }],
+  },
+  'Feathers': {
+    enemies: ['Drakondor', 'Tenebris Drakondor'],
+    market: [{ city: 'Silny', price: 60 }],
+  },
+  'Wolf Pelt': {
+    enemies: ['Timber Wolf', 'Tumani Hunter', 'Tumani Mender', 'Tumani Raider'],
+    market: [{ city: 'Razdor', price: 16 }, { city: 'Silny', price: 8 }, { city: 'Strofa', price: 16 }],
+  },
+  'Rough Leather': {
+    enemies: ['Clayhorn', 'Plains Strider', 'Stonehunter', 'Volrok'],
+    market: [{ city: 'Mir', price: 16 }, { city: 'Strofa', price: 16 }],
+  },
+  'Animal Hide': {
+    enemies: ['Tumani Hunter', 'Tumani Raider'],
+    market: [{ city: 'Strofa', price: 16 }, { city: 'Vouno', price: 16 }],
+  },
+  'Claw': {
+    enemies: ['Disruptor', 'Dusk Stalker', 'Metal Eater', 'Tenebris Guard', 'Tenebris Hunter', 'Tenebris Zhuk', 'Timber Wolf', 'Waste Prowler'],
+    market: [{ city: 'Razdor', price: 16 }, { city: 'Strofa', price: 16 }],
+  },
+  'Bear Pelt': {
+    enemies: ['Mountain Bear', 'Tenebris Colossus'],
+    market: [{ city: 'Silny', price: 16 }, { city: 'Vouno', price: 16 }],
+  },
+  'Horn': {
+    enemies: ['Armored Zhuk', 'Cave Stalker', 'Clayhorn', 'Corrupted Lobster', 'Metal Eater', 'Tenebris Clayhorn', 'Tenebris Colossus', 'Waste Prowler'],
+  },
+  'Spines': {
+    enemies: ['Dusk Stalker', 'Plains Strider', 'Tenebris Clayhorn', 'Tenebris Strider'],
+  },
+  'Scales': {
+    enemies: ['Armored Zhuk', 'Corrupted Lobster', 'Metal Eater', 'Tenebris Clayhorn', 'Tenebris Strider'],
+  },
+  'Carapace': {
+    enemies: ['Corrupted Lobster', 'Glacial Worm', 'Metal Eater', 'Tenebris Zhuk'],
+  },
+
+  // ── Tenebris drops ──────────────────────────────────────────────────────────
+  'Tenebris Shards': {
+    enemies: ['Cave Stalker', 'Corrupted Priest', 'Disruptor', 'Dusk Stalker', 'Stone Guardian', 'Tenebris Colossus', 'Tenebris Guard', 'Tenebris Hunter'],
+  },
+  'Tenebris Skull': {
+    enemies: ['Tenebris Drakondor', 'Tenebris Hunter', 'Waste Prowler'],
+  },
+  'Tenebris Essence': {
+    enemies: ['Disruptor', 'Stone Guardian'],
+  },
+
+  // ── Ores ────────────────────────────────────────────────────────────────────
+  'Iron': {
+    nodes: ['Node 15', 'Node 88'],
+    ftIstra: { label: 'Lapidary', luxPer4: 10 },
+  },
+  'Silver': {
+    nodes: ['Node 24', 'Node 34'],
+    ftIstra: { label: 'Lapidary', luxPer4: 12 },
+  },
+  'Gold': {
+    nodes: ['Node 29'],
+    ftIstra: { label: 'Lapidary', luxPer4: 14 },
+  },
+  'Agate': {
+    nodes: ['Node 2'],
+    ftIstra: { label: 'Lapidary', luxPer4: 20 },
+  },
+  'Crystal': {
+    nodes: ['Ice Caves: Crystal Vein'],
+    ftIstra: { label: 'Lapidary', luxPer4: 30 },
+  },
+  'Diamond': {
+    nodes: ['Frozen Wastes: Diamond Vein'],
+    ftIstra: { label: 'Lapidary', luxPer4: 40 },
+  },
+
+  // ── Timber ──────────────────────────────────────────────────────────────────
+  'Pine': {
+    nodes: ['Node 17', 'Node 86', 'Node 98'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 8 },
+  },
+  'Rosewood': {
+    nodes: ['Node 86'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 10 },
+  },
+  'Ash': {
+    nodes: ['Node 45'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 18 },
+  },
+  'Autumn Blaze': {
+    nodes: ['Node 71'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 12 },
+  },
+  'Dogwood': {
+    nodes: ['Node 25'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 20 },
+  },
+  'Cedar': {
+    nodes: ['Node 41'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 16 },
+  },
+  'Cherry': {
+    nodes: ['Node 71'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 14 },
+  },
+  'Ancient Oak': {
+    nodes: ['Node 17'],
+    ftIstra: { label: 'Lumbermill', luxPer4: 30 },
+  },
+
+  // ── Fish & food (market only) ────────────────────────────────────────────────
+  'Dusk Tuna':       { market: [{ city: 'Ryba', price: 15 }] },
+  'Emerald Koi':     { market: [{ city: 'Ryba', price: 20 }] },
+  'Foxtail Carp':    { market: [{ city: 'Ryba', price: 20 }] },
+  'Amethyst Trout':  { market: [{ city: 'Ryba', price: 25 }] },
+  'Ryba Blue Fins':  { market: [{ city: 'Ryba', price: 10 }] },
+  'Golden Potato':   { market: [{ city: 'Mir',  price: 5  }] },
+  'Clayhorn Steak':  { market: [{ city: 'Razdor', price: 5 }] },
+  'Mir Bread':       { market: [{ city: 'Mir',  price: 5  }] },
+
+  // ── Market & misc ────────────────────────────────────────────────────────────
+  'Health Potion': {
+    market: [
+      { city: 'Mir', price: 5 }, { city: 'Razdor', price: 5 },
+      { city: 'Ryba', price: 5 }, { city: 'Silny', price: 5 },
+      { city: 'Strofa', price: 10 }, { city: 'Vouno', price: 10 },
+    ],
+  },
+  'Tent': {
+    market: [{ city: 'Silny', price: 20 }, { city: 'Strofa', price: 30 }],
+  },
+};

@@ -6,6 +6,7 @@ import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
 import { CampaignTab } from './components/CampaignTab';
 import { CraftTab } from './components/CraftTab';
+import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
@@ -50,6 +51,7 @@ function SettingsIcon() {
 
 export default function App() {
   const [tab, setTab] = useState('Guard');
+  const [sourceItem, setSourceItem] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const game = useGameState();
   const { state } = game;
@@ -166,6 +168,7 @@ export default function App() {
           addStoneboundLocation={game.addStoneboundLocation}
           removeStoneboundLocation={game.removeStoneboundLocation}
           updateStoneboundLocation={game.updateStoneboundLocation}
+          onShowSource={setSourceItem}
         />
       )}
 
@@ -177,6 +180,7 @@ export default function App() {
           lux={state.lux}
           guards={state.guards}
           activeParty={state.activeParty}
+          onShowSource={setSourceItem}
         />
       )}
 
@@ -247,5 +251,9 @@ export default function App() {
         />
       )}
     </div>
+    <MaterialSourcePopup
+      item={sourceItem}
+      onClose={() => setSourceItem(null)}
+    />
   );
 }

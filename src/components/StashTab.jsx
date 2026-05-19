@@ -1,15 +1,26 @@
 import { useState } from 'react';
-import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS, MATERIAL_SOURCES } from '../data/materials';
 import { CITIES } from '../data/constants';
 
 const CITY_NAMES = CITIES.map(c => c.name);
 const CUSTOM_CATEGORY_LABEL = 'Custom items';
+
+function InfoIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  );
+}
 
 export function StashTab({
   sil, lux, setSil, setLux,
   stash, adjustStash,
   stonebound, setStoneboundMax,
   addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
+  onShowSource,
 }) {
   const [search, setSearch] = useState('');
   const [silStep, setSilStep] = useState(1);
@@ -37,7 +48,7 @@ export function StashTab({
   const showCustomOption =
     trimmedSearch.length > 0 &&
     !isKnownItem &&
-    !(stash[trimmedSearch] ?? 0); // don't offer to add if already in stash as custom
+    !(stash[trimmedSearch] ?? 0);
 
   function handleAddItem(item) {
     adjustStash(item, 1);
@@ -113,7 +124,10 @@ export function StashTab({
       <div className="card mb-3 stash-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>Stonebound</div>
-          <div className={`sb-budget${overBudget ? ' sb-over-budget' : ''}`} style={{ marginLeft: 'auto', fontSize: 12, color: overBudget ? 'var(--c-red)' : 'var(--c-text3)' }}>
+          <div
+            className={`sb-budget${overBudget ? ' sb-over-budget' : ''}`}
+            style={{ marginLeft: 'auto', fontSize: 12, color: overBudget ? 'var(--c-red)' : 'var(--c-text3)' }}
+          >
             {cubesUsed} / {stonebound.max} cubes
           </div>
           <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(-1)}>−</button>
@@ -196,7 +210,18 @@ export function StashTab({
             </div>
             {cat.items.map(item => (
               <div key={item} className="stash-row">
-                <span className="stash-row-name">{item}</span>
+                {MATERIAL_SOURCES[item] ? (
+                  <button
+                    className="stash-row-name mat-source-trigger"
+                    onClick={() => onShowSource(item)}
+                    aria-label={`View sources for ${item}`}
+                  >
+                    {item}
+                    <InfoIcon />
+                  </button>
+                ) : (
+                  <span className="stash-row-name">{item}</span>
+                )}
                 <div className="stash-row-controls">
                   <button className="stash-row-btn" onClick={() => adjustStash(item, -1)}>−</button>
                   <span className="stash-row-val">{stash[item] ?? 0}</span>
