@@ -200,11 +200,11 @@ export default function App() {
         />
       )}
 
-      {/* ── Session log tab ── */}
-      {tab === 'Session log' && (
+      {/* ── Log tab ── */}
+      {tab === 'Log' && (
         <div className="card log-card">
           <div className="flex items-center justify-between mb-2">
-            <div className="card-title">Session log</div>
+            <div className="card-title">Log</div>
             <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
           </div>
 
