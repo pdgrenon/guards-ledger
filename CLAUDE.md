@@ -29,20 +29,38 @@ All pure state logic is extracted into `src/hooks/gameReducers.js` — no React,
 
 ### Component structure
 
-- **`App.jsx`** — shell: tab nav (`Guard`, `Cities`, `Stash`, `Craft`, `Campaign`, `Session log`), top bar, party switcher, session log view, settings overlay trigger
+- **`App.jsx`** — shell: tab nav (`Guard`, `Cities`, `Stash`, `Craft`, `Campaign`, `Session log`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly.
 - **`GuardPanel.jsx`** — HP number display, combat stats (Atk/Def with equipment bonuses shown), equipment, satchel, chip bag per guard
 - **`CitiesTab.jsx`** — city grid: prestige pips (derived, not stored) + quest checkboxes
-- **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash
-- **`CraftTab.jsx`** — read-only recipe reference; filters by type/tier/craftability; search matches item names, material names, and cities; shows stash-aware "have/need" quantities per ingredient; hides guard-restricted items unless that guard is in the active party
+- **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash. Accepts `onShowSource` prop; tapping a material name with source data calls it.
+- **`CraftTab.jsx`** — read-only recipe reference; filters by type/tier/craftability; search matches item names, material names, and cities; shows stash-aware "have/need" quantities per ingredient; hides guard-restricted items unless that guard is in the active party. Accepts `onShowSource` prop; tapping any ingredient name with source data calls it.
+- **`MaterialSourcePopup.jsx`** — bottom-sheet overlay showing where to acquire a given material. Reads from `MATERIAL_SOURCES` in `materials.js`. Rendered at App level via a `fixed` backdrop. Closes on backdrop tap, ✕ button, or Escape key. No state of its own beyond the `item` prop passed from App.
 - **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP and starting chips, export/import/reset
 - **`Autocomplete.jsx`** — reusable searchable dropdown (no external library); max 12 results, case-insensitive
 
 ### Static data
 
 - **`src/data/constants.js`** — guard names, city names, chip types, `GUARD_COLOR_MAP` (single source of truth for guard identity colors), `FALLBACK_COLOR`, and `createInitialState()`
-- **`src/data/materials.js`** — crafting material categories, `ALL_MATERIALS`, `ALL_ITEMS_WITH_CATEGORY` (pre-computed `{ item, category }` pairs for the stash UI), `RESOURCE_NODE_ITEMS`, `ENEMIES`, `WEAPONS`, `ARMOR`, `ACCESSORIES`, `ITEMS`, `WEAPON_STATS`, `ARMOR_STATS`
+- **`src/data/materials.js`** — crafting material categories, `ALL_MATERIALS`, `ALL_ITEMS_WITH_CATEGORY` (pre-computed `{ item, category }` pairs for the stash UI), `RESOURCE_NODE_ITEMS`, `ENEMIES`, `WEAPONS`, `ARMOR`, `ACCESSORIES`, `ITEMS`, `WEAPON_STATS`, `ARMOR_STATS`, and `MATERIAL_SOURCES`
 - **`src/data/recipes.js`** — all 101 crafting recipes as a static `RECIPES` array, plus helper functions `minCraftCost`, `craftCities`, `craftStatus`, and `shortageCount`. See the shape comment at the top of that file.
 - **`src/data/demoSave.json`** — loaded on first run when no localStorage key exists
+
+### MATERIAL_SOURCES
+
+`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to four optional fields:
+
+```js
+{
+  enemies?: string[],           // enemy names that drop this material
+  nodes?: string[],             // map node labels for ores/timber (e.g. 'Node 15')
+  ftIstra?: { label: string, luxPer4: number }, // Ft. Istra building purchase option
+  market?: { city: string, price: number }[],  // city market buy prices in Sil
+}
+```
+
+Source data covers: all animal/tenebris drops (from the Common Bestiary), all ores and timber (from Ft. Istra Buildings sheet — node numbers and Lumbermill/Lapidary Lux costs), and market-buyable materials and consumables (from the Market Guide sheet). Speaking stones and special ingredients are not included.
+
+The trigger affordance is a `<button>` with class `mat-source-trigger` replacing the `<span>` that would otherwise render the ingredient name. It has a full browser button reset in CSS so it is visually identical to the span. Only items present in `MATERIAL_SOURCES` get the button; others remain spans.
 
 ### Guards
 
@@ -74,7 +92,7 @@ City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`.
 
 ### Craft tab
 
-`CraftTab` is a **read-only** component. It receives `stash`, `sil`, `lux`, and `activeParty` as props and derives all display state from them. It owns no state beyond local UI state (search string, active filters). Do not add crafting state to `useGameState` — the tab intentionally introduces no new persistence.
+`CraftTab` is a **read-only** component. It receives `stash`, `sil`, `lux`, `activeParty`, `guards`, and `onShowSource` as props and derives all display state from them. It owns no state beyond local UI state (search string, active filters). Do not add crafting state to `useGameState` — the tab intentionally introduces no new persistence.
 
 Recipe data lives entirely in `src/data/recipes.js`. Each recipe has this shape:
 
@@ -119,11 +137,9 @@ Key CSS conventions:
 - City color: `--c-city` (alias of `--c-brand`)
 - Craft card status borders: `.craft-card--ready` (green), `.craft-card--partial` (amber), `.craft-card--missing` (muted)
 - Craft star colors: `.craft-stars` (ochre brand), `.craft-stars--ft` (red, for 5-star Ft. Istra items)
+- Material source trigger: `.mat-source-trigger` — full browser button reset; compound selectors `.stash-row-name.mat-source-trigger` and `.craft-mat-name.mat-source-trigger` explicitly set the correct `font-size` and `color` to match the spans they replace
+- Source popup: `.source-popup-backdrop`, `.source-popup`, `.source-chip`, `.source-section-label` — bottom-sheet pattern matching the existing SettingsPanel
 
 ### Testing
 
 `src/hooks/gameReducers.test.js` covers all pure reducer functions. Run with `npm test`. There are no component tests.
-
-When adding a new reducer function: add it to `gameReducers.js`, export it, wire it in `useGameState.js`, and add tests in `gameReducers.test.js`.
-
-The `craftStatus` and `shortageCount` helpers in `recipes.js` are pure functions with no React dependencies and are good candidates for unit tests if the craftability logic becomes more complex.

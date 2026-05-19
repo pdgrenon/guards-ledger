@@ -45,6 +45,8 @@ Six cities: Mir, Razdor, Ryba, Silny, Strofa, and Vouno. Each city card shows:
 
 **Fort Istra stash** — Inventory for all craftable materials across 7 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Market & misc, and Special ingredients. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
 
+Tapping a material name in the stash opens a source sheet (see Material sources below).
+
 ### Craft tab
 
 A stash-aware recipe reference for all 101 craftable items — weapons, armor, accessories, and consumables. Answers mid-session questions like "do we have enough Spines for this?" and "what are we saving toward next?" without leaving the app.
@@ -55,7 +57,19 @@ A stash-aware recipe reference for all 101 craftable items — weapons, armor, a
 
 **Recipe cards** — each card shows the item name, type, stat bonus, bonus chip, and a color-coded left border (green = ready, amber = partially there, gray = far off). The materials list displays stash-aware "have X / need Y" quantities for every ingredient, with green for satisfied and red for short. Speaking stones appear in the materials list with a "· speaking stone" label since they draw from the same stash pool but have dual use. Prerequisites (must-equip items) and guard restrictions are shown inline; guard-restricted items are hidden entirely if no matching guard is in the active party. The city footer shows where to craft and the cost in Sil or Lux, with per-city price breakdowns for multi-city items.
 
+Tapping a material name in the ingredients list opens a source sheet (see Material sources below).
+
 **Craftability check** — "Ready" requires all materials in stash plus sufficient Sil (or Lux for Ft. Istra items). The check uses the cheapest available city price for multi-city items.
+
+### Material sources
+
+Tapping a material name in either the stash or a recipe card opens a bottom sheet showing where to acquire that material. Sources are grouped into up to three sections depending on what applies:
+
+- **Enemy drops** — enemies that drop the material, sourced from the bestiary
+- **Resource nodes** — map node numbers for ores and timber, plus Ft. Istra building options (Lumbermill or Lapidary) with their Lux cost for ×4
+- **Buy at market** — cities that sell the material and their buy price in Sil
+
+Not all materials have source data (speaking stones and special ingredients are excluded for now). The sheet closes by tapping the backdrop, the ✕ button, or pressing Escape.
 
 ### Session log tab
 
@@ -87,7 +101,7 @@ All state saves to `localStorage` under the key `guards_ledger_v1` automatically
 
 **CSS custom properties for theming.** Light and dark mode are handled entirely via `prefers-color-scheme` and a set of semantic tokens (`--c-bg`, `--c-text`, `--c-brand`, `--c-hp`, `--c-green`, eight guard identity color triples, etc.) defined in `src/index.css`. No runtime theming logic needed.
 
-**Guard identity colors** are defined once in `src/data/constants.js` (`GUARD_COLOR_MAP`) and imported wherever needed. There is no duplicate color map in any component file.
+**Guard identity colors** are defined once in `src/data/constants.js` (`GUARD_COLOR_MAP`) and imported wherever elsewhere. There is no duplicate color map in any component file.
 
 **Craft tab is read-only.** `CraftTab` takes `stash`, `sil`, `lux`, and `activeParty` as props and derives everything from them. It introduces no new state, no reducers, and no localStorage keys.
 
@@ -108,6 +122,7 @@ src/
     CitiesTab.jsx          # City grid: prestige pips + quest checkboxes
     StashTab.jsx           # Party resources (Sil/Lux), stonebound, Fort Istra stash
     CraftTab.jsx           # Stash-aware recipe reference: 101 items, filters, craftability
+    MaterialSourcePopup.jsx  # Bottom-sheet: where to find a given material
     SettingsPanel.jsx      # Bottom-sheet: active party, per-guard config, save/load/reset
     Autocomplete.jsx       # Reusable searchable dropdown (no external library)
   hooks/
@@ -116,7 +131,7 @@ src/
     gameReducers.test.js   # Vitest unit tests for all reducers
   data/
     constants.js           # Guard names, city names, chip types, GUARD_COLOR_MAP, createInitialState()
-    materials.js           # Item lists: weapons, armor, accessories, consumables, materials, enemies
+    materials.js           # Item lists, MATERIAL_SOURCES (enemy drops, nodes, market prices)
     recipes.js             # All 101 crafting recipes + craftStatus/shortageCount helpers
     demoSave.json          # Shown on first load when no localStorage save exists
 public/
@@ -139,5 +154,7 @@ npm run lint       # ESLint
 To add a new crafting material: add its name to the appropriate category array in `src/data/materials.js`. It will appear in both the stash panel and satchel autocomplete automatically.
 
 To add or update a crafting recipe: edit `src/data/recipes.js`. Each entry follows the shape documented at the top of that file. No component changes are needed.
+
+To add or update material source data: edit the `MATERIAL_SOURCES` export in `src/data/materials.js`. Each entry can have `enemies` (array of enemy names), `nodes` (array of node labels), `ftIstra` (`{ label, luxPer4 }`), and `market` (array of `{ city, price }`).
 
 To add guard portraits: place a `.webp` file named in lowercase (e.g. `grigory.webp`) in `public/guards/`. The avatar component falls back to initials if the file is absent.
