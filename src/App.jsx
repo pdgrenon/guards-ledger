@@ -10,7 +10,7 @@ import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
-const TABS = ['Guard', 'Cities', 'Stash', 'Craft', 'Campaign', 'Session log'];
+const TABS = ['Guard', 'Cities', 'Stash', 'Craft', 'Campaign', 'Log'];
 
 // ─── Log entry category classifier ──────────────────────────────────────────
 // guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
