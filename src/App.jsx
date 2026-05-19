@@ -51,8 +51,8 @@ function SettingsIcon() {
 
 export default function App() {
   const [tab, setTab] = useState('Guard');
-  const [sourceItem, setSourceItem] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sourceItem, setSourceItem] = useState(null);
   const game = useGameState();
   const { state } = game;
 
@@ -172,7 +172,7 @@ export default function App() {
         />
       )}
 
-      {/* --- Craft tab --- */}
+      {/* ── Craft tab ── */}
       {tab === 'Craft' && (
         <CraftTab
           stash={state.stash}
@@ -240,7 +240,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Settings overlay — passes state/actions objects matching SettingsPanel's signature */}
+      {/* Settings overlay */}
       {settingsOpen && (
         <SettingsPanel
           state={settingsState}
@@ -250,10 +250,12 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
+
+      {/* Material source popup — rendered at app level to overlay everything */}
+      <MaterialSourcePopup
+        item={sourceItem}
+        onClose={() => setSourceItem(null)}
+      />
     </div>
-    <MaterialSourcePopup
-      item={sourceItem}
-      onClose={() => setSourceItem(null)}
-    />
   );
 }
