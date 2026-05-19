@@ -1997,8 +1997,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 /* ── Source trigger — tappable material name, no visual decoration ───────────
    Resets all browser button defaults so it is visually identical to the
-   <span> it replaces. Discoverability comes from natural tapping, not
-   from underlines or icons applied to every row.                         */
+   <span> it replaces. font-size and color are NOT set here — they come
+   from the compound selectors below which match the original span rules. */
 .mat-source-trigger {
   appearance: none;
   -webkit-appearance: none;
@@ -2007,7 +2007,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-radius: 0;
   padding: 0;
   margin: 0;
-  font: inherit;
+  font-family: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -2018,8 +2018,16 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .mat-source-trigger:active { opacity: 0.6; }
 
-/* Preserve the flex:1 stretch from the original span classes */
-.stash-row-name.mat-source-trigger,
+/* Match the exact size, color, and flex of the span each button replaces.
+   These override the browser's UA stylesheet which inflates button font-size. */
+.stash-row-name.mat-source-trigger {
+  flex: 1;
+  font-size: 13px;
+  color: var(--c-text);
+}
+
 .craft-mat-name.mat-source-trigger {
   flex: 1;
+  font-size: 12px;
+  color: var(--c-text2);
 }
