@@ -10,7 +10,7 @@ import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
-const TABS = ['Guard', 'Cities', 'Stash', 'Craft', 'Campaign', 'Log'];
+const TABS = ['Guards', 'Cities', 'Stash', 'Crafting', 'Campaign', 'Log'];
 
 // ─── Log entry category classifier ──────────────────────────────────────────
 // guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
@@ -50,7 +50,7 @@ function SettingsIcon() {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('Guard');
+  const [tab, setTab] = useState('Guards');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceItem, setSourceItem] = useState(null);
   const game = useGameState();
@@ -112,8 +112,8 @@ export default function App() {
         ))}
       </div>
 
-      {/* ── Guard tab ── */}
-      {tab === 'Guard' && (
+      {/* ── Guards tab ── */}
+      {tab === 'Guards' && (
         <>
           {/* Switcher — only the two active party members, no party selects here */}
           <div className="guard-switcher">
@@ -172,8 +172,8 @@ export default function App() {
         />
       )}
 
-      {/* ── Craft tab ── */}
-      {tab === 'Craft' && (
+      {/* ── Crafting tab ── */}
+      {tab === 'Crafting' && (
         <CraftTab
           stash={state.stash}
           sil={state.sil}
