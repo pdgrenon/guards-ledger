@@ -63,13 +63,14 @@ Tapping a material name in the ingredients list opens a source sheet (see Materi
 
 ### Material sources
 
-Tapping a material name in either the stash or a recipe card opens a bottom sheet showing where to acquire that material. Sources are grouped into up to three sections depending on what applies:
+Tapping a material name in either the stash or a recipe card opens a bottom sheet showing where to acquire or sell that material. Sources are grouped into up to four sections depending on what applies:
 
 - **Enemy drops** — enemies that drop the material, sourced from the bestiary
 - **Resource nodes** — map node numbers for ores and timber, plus Ft. Istra building options (Lumbermill or Lapidary) with their Lux cost for ×4
 - **Buy at market** — cities that sell the material and their buy price in Sil
+- **Sell at market** — cities that buy the material/item and their sell price in Sil (shown in green). For crafting materials, the Ft. Istra Apothecary sell price is also shown where applicable — this pays out in Lux Essence rather than Sil. Items with no sell value (Ft. Istra gear, some special items) simply omit this section.
 
-Not all materials have source data (speaking stones and special ingredients are excluded for now). The sheet closes by tapping the backdrop, the ✕ button, or pressing Escape.
+Not all materials have source data (speaking stones and special ingredients are excluded). The sheet closes by tapping the backdrop, the ✕ button, or pressing Escape.
 
 ### Session log tab
 
@@ -122,7 +123,7 @@ src/
     CitiesTab.jsx          # City grid: prestige pips + quest checkboxes
     StashTab.jsx           # Party resources (Sil/Lux), stonebound, Fort Istra stash
     CraftTab.jsx           # Stash-aware recipe reference: 101 items, filters, craftability
-    MaterialSourcePopup.jsx  # Bottom-sheet: where to find a given material
+    MaterialSourcePopup.jsx  # Bottom-sheet: where to find or sell a given material/item
     SettingsPanel.jsx      # Bottom-sheet: active party, per-guard config, save/load/reset
     Autocomplete.jsx       # Reusable searchable dropdown (no external library)
   hooks/
@@ -131,7 +132,7 @@ src/
     gameReducers.test.js   # Vitest unit tests for all reducers
   data/
     constants.js           # Guard names, city names, chip types, GUARD_COLOR_MAP, createInitialState()
-    materials.js           # Item lists, MATERIAL_SOURCES (enemy drops, nodes, market prices)
+    materials.js           # Item lists, MATERIAL_SOURCES (enemy drops, nodes, market buy/sell prices)
     recipes.js             # All 101 crafting recipes + craftStatus/shortageCount helpers
     demoSave.json          # Shown on first load when no localStorage save exists
 public/
@@ -155,6 +156,4 @@ To add a new crafting material: add its name to the appropriate category array i
 
 To add or update a crafting recipe: edit `src/data/recipes.js`. Each entry follows the shape documented at the top of that file. No component changes are needed.
 
-To add or update material source data: edit the `MATERIAL_SOURCES` export in `src/data/materials.js`. Each entry can have `enemies` (array of enemy names), `nodes` (array of node labels), `ftIstra` (`{ label, luxPer4 }`), and `market` (array of `{ city, price }`).
-
-To add guard portraits: place a `.webp` file named in lowercase (e.g. `grigory.webp`) in `public/guards/`. The avatar component falls back to initials if the file is absent.
+To add or update material source data: edit the `MATERIAL_SOURCES` export in `src/data/materials.js`. Each entry supports `enemies`, `nodes`, `ftIstra`, `market`, `sell`, and `ftIstraSell` fields — all optional.

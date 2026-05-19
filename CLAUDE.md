@@ -34,7 +34,7 @@ All pure state logic is extracted into `src/hooks/gameReducers.js` — no React,
 - **`CitiesTab.jsx`** — city grid: prestige pips (derived, not stored) + quest checkboxes
 - **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash. Accepts `onShowSource` prop; tapping a material name with source data calls it.
 - **`CraftTab.jsx`** — read-only recipe reference; filters by type/tier/craftability; search matches item names, material names, and cities; shows stash-aware "have/need" quantities per ingredient; hides guard-restricted items unless that guard is in the active party. Accepts `onShowSource` prop; tapping any ingredient name with source data calls it.
-- **`MaterialSourcePopup.jsx`** — bottom-sheet overlay showing where to acquire a given material. Reads from `MATERIAL_SOURCES` in `materials.js`. Rendered at App level via a `fixed` backdrop. Closes on backdrop tap, ✕ button, or Escape key. No state of its own beyond the `item` prop passed from App.
+- **`MaterialSourcePopup.jsx`** — bottom-sheet overlay showing where to acquire or sell a given material/item. Reads from `MATERIAL_SOURCES` in `materials.js`. Rendered at App level via a `fixed` backdrop. Closes on backdrop tap, ✕ button, or Escape key. No state of its own beyond the `item` prop passed from App.
 - **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP and starting chips, export/import/reset
 - **`Autocomplete.jsx`** — reusable searchable dropdown (no external library); max 12 results, case-insensitive
 
@@ -47,7 +47,7 @@ All pure state logic is extracted into `src/hooks/gameReducers.js` — no React,
 
 ### MATERIAL_SOURCES
 
-`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to four optional fields:
+`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to six optional fields:
 
 ```js
 {
@@ -55,10 +55,16 @@ All pure state logic is extracted into `src/hooks/gameReducers.js` — no React,
   nodes?: string[],             // map node labels for ores/timber (e.g. 'Node 15')
   ftIstra?: { label: string, luxPer4: number }, // Ft. Istra building purchase option
   market?: { city: string, price: number }[],  // city market buy prices in Sil
+  sell?: { city: string, price: number }[],    // city market sell prices in Sil
+  ftIstraSell?: number,         // Ft. Istra Apothecary sell price (pays Lux Essence, not Sil)
 }
 ```
 
-Source data covers: all animal/tenebris drops (from the Common Bestiary), all ores and timber (from Ft. Istra Buildings sheet — node numbers and Lumbermill/Lapidary Lux costs), and market-buyable materials and consumables (from the Market Guide sheet). Speaking stones and special ingredients are not included.
+Source data covers: all animal/tenebris drops (from the Common Bestiary), all ores and timber (from Ft. Istra Buildings sheet — node numbers and Lumbermill/Lapidary Lux costs), market-buyable materials and consumables (from the Market Guide sheet), sell prices for all market items and craftable gear (from the Market Guide, Armor-Weapon Guide, and Accessory-Item Guide sheets). Speaking stones and special ingredients are not included.
+
+Items that cannot be sold (spreadsheet shows `–`) simply omit the `sell` and `ftIstraSell` fields. Ft. Istra gear (luxCost items) generally cannot be sold. The `ftIstraSell` field is distinct from `sell` because it pays out in Lux Essence rather than Sil — the popup labels it accordingly.
+
+`MATERIAL_SOURCES` also includes entries for craftable gear (armor, weapons, accessories, items) that have sell prices, even when those items have no other source data (no enemy drop, no market buy). This means gear names appear as tappable source triggers in the stash just like materials do.
 
 The trigger affordance is a `<button>` with class `mat-source-trigger` replacing the `<span>` that would otherwise render the ingredient name. It has a full browser button reset in CSS so it is visually identical to the span. Only items present in `MATERIAL_SOURCES` get the button; others remain spans.
 
@@ -139,6 +145,7 @@ Key CSS conventions:
 - Craft star colors: `.craft-stars` (ochre brand), `.craft-stars--ft` (red, for 5-star Ft. Istra items)
 - Material source trigger: `.mat-source-trigger` — full browser button reset; compound selectors `.stash-row-name.mat-source-trigger` and `.craft-mat-name.mat-source-trigger` explicitly set the correct `font-size` and `color` to match the spans they replace
 - Source popup: `.source-popup-backdrop`, `.source-popup`, `.source-chip`, `.source-section-label` — bottom-sheet pattern matching the existing SettingsPanel
+- Sell price chips: `.source-chip--sell` — green-tinted variant of `.source-chip` used exclusively in the "Sell at market" section of the source popup
 
 ### Testing
 
