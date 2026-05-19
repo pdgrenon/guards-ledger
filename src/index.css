@@ -1844,8 +1844,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
   flex: 1;
 }
 .craft-stone-tag {
-  font-size: 10px;
-  color: var(--c-text3);
+  font-size: 12px;
+  color: var(--c-text2);
   font-style: italic;
 }
 .craft-mat-qty {
