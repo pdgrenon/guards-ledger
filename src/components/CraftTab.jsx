@@ -154,11 +154,10 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
           {recipe.materials.map((mat, i) => {
             const have = combined[mat.name] ?? 0;
             const ok = have >= mat.qty;
-            const isShort = !ok;
             const hasSource = !!MATERIAL_SOURCES[mat.name];
             return (
               <div key={i} className="craft-mat-row">
-                {isShort && hasSource ? (
+                {hasSource ? (
                   <button
                     className="craft-mat-name mat-source-trigger"
                     onClick={() => onShowSource(mat.name)}
