@@ -35,6 +35,15 @@ function StoreIcon() {
   );
 }
 
+function CoinIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8"/>
+      <path d="M12 8v1m0 6v1m-2-4.5c0-.83.67-1.5 1.5-1.5h1a1.5 1.5 0 0 1 0 3h-1a1.5 1.5 0 0 0 0 3h1c.83 0 1.5-.67 1.5-1.5"/>
+    </svg>
+  );
+}
+
 export function MaterialSourcePopup({ item, onClose }) {
   const sources = item ? MATERIAL_SOURCES[item] : null;
 
@@ -128,6 +137,24 @@ export function MaterialSourcePopup({ item, onClose }) {
                     <span className="source-chip">
                       {sources.ftIstra.label} · {sources.ftIstra.luxPer4} Lux for ×4
                     </span>
+                  </div>
+                </div>
+              )}
+
+              {(sources.sell?.length > 0 || sources.ftIstraSell != null) && (
+                <div className="source-section">
+                  <div className="source-section-label">
+                    <CoinIcon /> Sell at market
+                  </div>
+                  <div className="source-chips">
+                    {sources.sell?.map(({ city, price }) => (
+                      <span key={city} className="source-chip source-chip--sell">{city} · {price} Sil</span>
+                    ))}
+                    {sources.ftIstraSell != null && (
+                      <span className="source-chip source-chip--sell">
+                        Ft. Istra Apothecary · {sources.ftIstraSell} Lux Essence
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

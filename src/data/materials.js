@@ -177,64 +177,90 @@ export const ARMOR_STATS = {
 
 // ─── MATERIAL SOURCES ────────────────────────────────────────────────────────
 // Used by MaterialSourcePopup to answer "where do I get this?"
-// Each entry has up to three optional arrays:
-//   enemies  — enemy names that drop this material
-//   market   — { city, price } pairs for city market purchases (Sil)
-//   nodes    — node labels for resource harvesting (ores + timber)
-//   ftIstra  — { label, luxPer4 } for Ft. Istra building purchases
+// Each entry has up to six optional fields:
+//   enemies     — enemy names that drop this material
+//   market      — { city, price } pairs for city market buy prices (Sil)
+//   sell        — { city, price } pairs for city market sell prices (Sil)
+//   ftIstraSell — number: Ft. Istra Apothecary sell price (pays Lux Essence)
+//   nodes       — node labels for resource harvesting (ores + timber)
+//   ftIstra     — { label, luxPer4 } for Ft. Istra building purchases
 
 export const MATERIAL_SOURCES = {
   // ── Animal drops ────────────────────────────────────────────────────────────
   'Metal Frag.': {
     enemies: ['Corrupted Brigand', 'Corrupted Fylakes', 'Corrupted Soldier', 'Falmund Scout', 'Kingsguard', 'Metal Eater', 'Seer Acolyte', 'Seer Zealot'],
+    sell: [{ city: 'Mir', price: 10 }, { city: 'Silny', price: 5 }],
+    // ftIstraSell omitted — spreadsheet shows '-' (not sellable there)
   },
   'Bone Frag.': {
     enemies: ['Flesh Eating Fish', 'Metal Eater', 'Timber Wolf'],
     market: [{ city: 'Mir', price: 8 }, { city: 'Vouno', price: 8 }],
+    sell: [{ city: 'Mir', price: 4 }, { city: 'Vouno', price: 4 }],
+    ftIstraSell: 2,
   },
   'Feathers': {
     enemies: ['Drakondor', 'Tenebris Drakondor'],
     market: [{ city: 'Silny', price: 60 }],
+    sell: [{ city: 'Silny', price: 30 }],
+    ftIstraSell: 2,
   },
   'Wolf Pelt': {
     enemies: ['Timber Wolf', 'Tumani Hunter', 'Tumani Mender', 'Tumani Raider'],
     market: [{ city: 'Razdor', price: 16 }, { city: 'Silny', price: 8 }, { city: 'Strofa', price: 16 }],
+    sell: [{ city: 'Razdor', price: 8 }, { city: 'Silny', price: 4 }, { city: 'Strofa', price: 8 }],
+    ftIstraSell: 2,
   },
   'Rough Leather': {
     enemies: ['Clayhorn', 'Plains Strider', 'Stonehunter', 'Volrok'],
     market: [{ city: 'Mir', price: 16 }, { city: 'Strofa', price: 16 }],
+    sell: [{ city: 'Mir', price: 8 }, { city: 'Strofa', price: 8 }],
+    ftIstraSell: 4,
   },
   'Animal Hide': {
     enemies: ['Tumani Hunter', 'Tumani Raider'],
     market: [{ city: 'Strofa', price: 16 }, { city: 'Vouno', price: 16 }],
+    sell: [{ city: 'Strofa', price: 8 }, { city: 'Vouno', price: 8 }],
+    ftIstraSell: 4,
   },
   'Claw': {
     enemies: ['Disruptor', 'Dusk Stalker', 'Metal Eater', 'Tenebris Guard', 'Tenebris Hunter', 'Tenebris Zhuk', 'Timber Wolf', 'Waste Prowler'],
     market: [{ city: 'Razdor', price: 16 }, { city: 'Strofa', price: 16 }],
+    sell: [{ city: 'Razdor', price: 8 }, { city: 'Strofa', price: 8 }],
+    ftIstraSell: 4,
   },
   'Bear Pelt': {
     enemies: ['Mountain Bear', 'Tenebris Colossus'],
     market: [{ city: 'Silny', price: 16 }, { city: 'Vouno', price: 16 }],
+    sell: [{ city: 'Silny', price: 8 }, { city: 'Vouno', price: 8 }],
+    ftIstraSell: 4,
   },
   'Horn': {
     enemies: ['Armored Zhuk', 'Cave Stalker', 'Clayhorn', 'Corrupted Lobster', 'Metal Eater', 'Tenebris Clayhorn', 'Tenebris Colossus', 'Waste Prowler'],
+    sell: [{ city: 'Razdor', price: 20 }, { city: 'Vouno', price: 8 }],
+    ftIstraSell: 6,
   },
   'Spines': {
     enemies: ['Dusk Stalker', 'Plains Strider', 'Tenebris Clayhorn', 'Tenebris Strider'],
+    sell: [{ city: 'Razdor', price: 20 }, { city: 'Vouno', price: 8 }],
+    ftIstraSell: 6,
   },
   'Scales': {
     enemies: ['Armored Zhuk', 'Corrupted Lobster', 'Metal Eater', 'Tenebris Clayhorn', 'Tenebris Strider'],
+    ftIstraSell: 8,
   },
   'Carapace': {
     enemies: ['Corrupted Lobster', 'Glacial Worm', 'Metal Eater', 'Tenebris Zhuk'],
+    ftIstraSell: 10,
   },
 
   // ── Tenebris drops ──────────────────────────────────────────────────────────
   'Tenebris Shards': {
     enemies: ['Cave Stalker', 'Corrupted Priest', 'Disruptor', 'Dusk Stalker', 'Stone Guardian', 'Tenebris Colossus', 'Tenebris Guard', 'Tenebris Hunter'],
+    ftIstraSell: 10,
   },
   'Tenebris Skull': {
     enemies: ['Tenebris Drakondor', 'Tenebris Hunter', 'Waste Prowler'],
+    ftIstraSell: 15,
   },
   'Tenebris Essence': {
     enemies: ['Disruptor', 'Stone Guardian'],
@@ -301,14 +327,14 @@ export const MATERIAL_SOURCES = {
   },
 
   // ── Fish & food (market only) ────────────────────────────────────────────────
-  'Dusk Tuna':       { market: [{ city: 'Ryba', price: 15 }] },
-  'Emerald Koi':     { market: [{ city: 'Ryba', price: 20 }] },
-  'Foxtail Carp':    { market: [{ city: 'Ryba', price: 20 }] },
-  'Amethyst Trout':  { market: [{ city: 'Ryba', price: 25 }] },
-  'Ryba Blue Fins':  { market: [{ city: 'Ryba', price: 10 }] },
-  'Golden Potato':   { market: [{ city: 'Mir',  price: 5  }] },
-  'Clayhorn Steak':  { market: [{ city: 'Razdor', price: 5 }] },
-  'Mir Bread':       { market: [{ city: 'Mir',  price: 5  }] },
+  'Dusk Tuna':       { market: [{ city: 'Ryba', price: 15 }], sell: [{ city: 'Ryba', price: 10 }] },
+  'Emerald Koi':     { market: [{ city: 'Ryba', price: 20 }], sell: [{ city: 'Ryba', price: 10 }] },
+  'Foxtail Carp':    { market: [{ city: 'Ryba', price: 20 }], sell: [{ city: 'Ryba', price: 10 }] },
+  'Amethyst Trout':  { market: [{ city: 'Ryba', price: 25 }], sell: [{ city: 'Ryba', price: 10 }] },
+  'Ryba Blue Fins':  { market: [{ city: 'Ryba', price: 10 }], sell: [{ city: 'Ryba', price: 5 }] },
+  'Golden Potato':   { market: [{ city: 'Mir',  price: 5  }], sell: [{ city: 'Mir', price: 2 }] },
+  'Clayhorn Steak':  { market: [{ city: 'Razdor', price: 5 }], sell: [{ city: 'Razdor', price: 2 }] },
+  'Mir Bread':       { market: [{ city: 'Mir',  price: 5  }], sell: [{ city: 'Mir', price: 2 }] },
 
   // ── Market & misc ────────────────────────────────────────────────────────────
   'Health Potion': {
@@ -317,8 +343,87 @@ export const MATERIAL_SOURCES = {
       { city: 'Ryba', price: 5 }, { city: 'Silny', price: 5 },
       { city: 'Strofa', price: 10 }, { city: 'Vouno', price: 10 },
     ],
+    sell: [
+      { city: 'Mir', price: 2 }, { city: 'Razdor', price: 2 },
+      { city: 'Ryba', price: 2 }, { city: 'Silny', price: 2 },
+      { city: 'Strofa', price: 5 }, { city: 'Vouno', price: 5 },
+    ],
   },
   'Tent': {
     market: [{ city: 'Silny', price: 20 }, { city: 'Strofa', price: 30 }],
+    sell: [{ city: 'Silny', price: 10 }, { city: 'Strofa', price: 15 }],
   },
+
+  // ── Armor ────────────────────────────────────────────────────────────────────
+  "Guard's Tunic":          { sell: [{ city: 'Mir', price: 5 }] },
+  'Woven Spine Armor':      { sell: [{ city: 'Mir', price: 15 }] },
+  'Reinforced Tunic':       { sell: [{ city: 'Razdor', price: 15 }, { city: 'Silny', price: 15 }, { city: 'Ryba', price: 10 }] },
+  'Bear Tunic':             { sell: [{ city: 'Strofa', price: 20 }, { city: 'Silny', price: 15 }] },
+  'Horned Cuirass':         { sell: [{ city: 'Ryba', price: 24 }, { city: 'Mir', price: 18 }] },
+  'Guild Cuirass':          { sell: [{ city: 'Razdor', price: 28 }] },
+  'Volkrok Tunic':          { sell: [{ city: 'Strofa', price: 24 }] },
+  "Guard's Armor":          { sell: [{ city: 'Vouno', price: 28 }] },
+  "Hero's Armor":           { sell: [{ city: 'Vouno', price: 40 }] },
+  'Tunic of the Wild':      { sell: [{ city: 'Strofa', price: 30 }] },
+  'Journey Attire':         { sell: [{ city: 'Ryba', price: 21 }] },
+  "Zephyr's Tunic":         { sell: [{ city: 'Razdor', price: 34 }] },
+  "Adventurer's Garb":      { sell: [{ city: 'Ryba', price: 21 }] },
+  "Hunter's Tunic":         { sell: [{ city: 'Silny', price: 33 }] },
+  'Drakondor Armor':        { sell: [{ city: 'Vouno', price: 34 }] },
+  'Wanderer of the Fields': { sell: [{ city: 'Mir', price: 38 }] },
+  // Red Scale Armor: sell '-' — no entry
+  // Ft. Istra armor (Raiding, Bone, Tenebris Scale, Veteran's Coat, Brother's Keeper,
+  // Scholar's Tunic, Stardust Jacket, Crimson Vest, Prophet's Jacket, Brigandine): sell '-' — no entry
+
+  // ── Weapons ──────────────────────────────────────────────────────────────────
+  'Alloy Short Sword':  { sell: [{ city: 'Razdor', price: 6 }, { city: 'Ryba', price: 6 }, { city: 'Silny', price: 6 }] },
+  'Volk Blade':         { sell: [{ city: 'Razdor', price: 8 }, { city: 'Silny', price: 8 }] },
+  'Argent Blade':       { sell: [{ city: 'Mir', price: 20 }] },
+  'Radiance':           { sell: [{ city: 'Razdor', price: 24 }] },
+  'Golden Scythe':      { sell: [{ city: 'Mir', price: 23 }] },
+  'Silver Flame':       { sell: [{ city: 'Vouno', price: 18 }] },
+  'Swift Gale':         { sell: [{ city: 'Vouno', price: 24 }] },
+  'Sword of Truth':     { sell: [{ city: 'Strofa', price: 15 }] },
+  'Euphonic Edge':      { sell: [{ city: 'Razdor', price: 18 }] },
+  'Sky Splitter':       { sell: [{ city: 'Razdor', price: 20 }] },
+  'Alloy Hand Axes':    { sell: [{ city: 'Ryba', price: 6 }] },
+  'Ornate Cleavers':    { sell: [{ city: 'Silny', price: 17 }] },
+  'Reckoning Tides':    { sell: [{ city: 'Ryba', price: 24 }] },
+  "Hunter's Spear":     { sell: [{ city: 'Mir', price: 10 }] },
+  'Partisan':           { sell: [{ city: 'Strofa', price: 22 }] },
+  'Ryban Glaive':       { sell: [{ city: 'Ryba', price: 24 }] },
+  'Falmundian Bow':     { sell: [{ city: 'Razdor', price: 6 }] },
+  'Silver Bow':         { sell: [{ city: 'Vouno', price: 20 }] },
+  "Hunter's Pride":     { sell: [{ city: 'Strofa', price: 28 }] },
+  'Silver Hammer':      { sell: [{ city: 'Vouno', price: 9 }] },
+  'Alloy Driver':       { sell: [{ city: 'Mir', price: 17 }] },
+  'Golden Mallet':      { sell: [{ city: 'Strofa', price: 30 }] },
+  'Cerulean Staff':     { sell: [{ city: 'Silny', price: 10 }] },
+  'Rosewind Staff':     { sell: [{ city: 'Razdor', price: 20 }] },
+  "Forteller's Staff":  { sell: [{ city: 'Vouno', price: 28 }] },
+  // Scaled Dagger, Relic Glove, Bleeding Heart Dagger: sell '-' — no entry
+  // Ft. Istra weapons (Lapis Blade, Star Blade, Jade Sword, Dangerous Duo, Wind Cutters,
+  // Cerulean Pike, Guardian Lance, Drakonbow, Vanguard's Promise, Ground Shaker, Final Wish,
+  // Glorious, Revelation, Contorted Staff, Magi's Command, Sword of Isofar): sell '-' — no entry
+
+  // ── Accessories ──────────────────────────────────────────────────────────────
+  'Carapace Helmet':   { sell: [{ city: 'Vouno', price: 14 }] },
+  'Concealing Cloak':  { sell: [{ city: 'Razdor', price: 10 }] },
+  'Expanded Satchel':  { sell: [{ city: 'Strofa', price: 5 }] },
+  'Feathered Mantle':  { sell: [{ city: 'Strofa', price: 15 }] },
+  'Goat Skull Mask':   { sell: [{ city: 'Strofa', price: 10 }] },
+  'Leather Gauntlets': { sell: [{ city: 'Mir', price: 7 }] },
+  "Nomad's Trap":      { sell: [{ city: 'Silny', price: 5 }] },
+  'Scale Shield':      { sell: [{ city: 'Ryba', price: 18 }] },
+  'Traveling Boots':   { sell: [{ city: 'Mir', price: 4 }] },
+  'Wolf Head Tunic':   { sell: [{ city: 'Silny', price: 5 }] },
+  'Wolf Tooth Ring':   { sell: [{ city: 'Ryba', price: 4 }, { city: 'Silny', price: 4 }] },
+  // Aegis Shield, Chrono Locket, Chronos Boots, Cleansing Amulet, Pendant of Wisdom,
+  // Power Belt, Stonebound Talisman, Twilight Guantlet: sell '-' — no entry
+
+  // ── Items ─────────────────────────────────────────────────────────────────────
+  'Smoke Bomb': { sell: [{ city: 'Strofa', price: 5 }, { city: 'Silny', price: 4 }] },
+  // Barrier Tonic, Bottled Courage, Invigorating Potion, Zoya's Elixir,
+  // Purifying Dust, Ruinous Dust, Expanded Satchel: sell '-' — no entry
+  // Tent already handled above in Market & misc
 };

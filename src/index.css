@@ -1994,6 +1994,13 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-surface2);
   color: var(--c-text);
 }
+/* ── Sell chip — green-tinted variant to visually distinguish from buy chips ── */
+.source-chip--sell {
+  border-color: var(--c-green);
+  color: var(--c-green);
+  background: color-mix(in srgb, var(--c-green) 10%, var(--c-surface2));
+}
+
 
 /* ── Source trigger — tappable material name, no visual decoration ───────────
    Resets all browser button defaults so it is visually identical to the
