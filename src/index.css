@@ -1995,11 +1995,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text);
 }
 
-/* ── Source trigger — inline affordance on clickable material names ──────────
-   Resets all browser button defaults so it sits inline exactly like the
-   <span> it replaces. The dashed underline is the only visual change.    */
+/* ── Source trigger — tappable material name, no visual decoration ───────────
+   Resets all browser button defaults so it is visually identical to the
+   <span> it replaces. Discoverability comes from natural tapping, not
+   from underlines or icons applied to every row.                         */
 .mat-source-trigger {
-  /* Reset button chrome */
   appearance: none;
   -webkit-appearance: none;
   background: none;
@@ -2012,22 +2012,13 @@ button, input, select, textarea { font-family: var(--font-ui); }
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
-  /* Sit inline like a span */
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  /* Dashed underline signals interactivity */
-  border-bottom: 1px dashed var(--c-border2);
   line-height: inherit;
 }
 .mat-source-trigger:active { opacity: 0.6; }
-.mat-source-trigger svg {
-  flex-shrink: 0;
-  color: var(--c-text3);
-}
 
-/* Preserve the flex:1 stretch that .stash-row-name and .craft-mat-name
-   normally provide — the button needs to fill that same space              */
+/* Preserve the flex:1 stretch from the original span classes */
 .stash-row-name.mat-source-trigger,
 .craft-mat-name.mat-source-trigger {
   flex: 1;

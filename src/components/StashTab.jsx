@@ -5,16 +5,6 @@ import { CITIES } from '../data/constants';
 const CITY_NAMES = CITIES.map(c => c.name);
 const CUSTOM_CATEGORY_LABEL = 'Custom items';
 
-function InfoIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="12" y1="8" x2="12" y2="12"/>
-      <line x1="12" y1="16" x2="12.01" y2="16"/>
-    </svg>
-  );
-}
-
 export function StashTab({
   sil, lux, setSil, setLux,
   stash, adjustStash,
@@ -34,7 +24,6 @@ export function StashTab({
 
   const activeItems = ALL_ITEMS_WITH_CATEGORY.filter(({ item }) => (stash[item] ?? 0) > 0);
 
-  // Predefined items matching the search query that aren't yet in the stash
   const predefinedAddResults = addSearch.length > 0
     ? ALL_ITEMS_WITH_CATEGORY.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&
@@ -42,7 +31,6 @@ export function StashTab({
       ).slice(0, 12)
     : [];
 
-  // Show "Add as custom item" when the query doesn't exactly match any known item
   const trimmedSearch = addSearch.trim();
   const isKnownItem = ALL_KNOWN_ITEMS.has(trimmedSearch);
   const showCustomOption =
@@ -55,7 +43,6 @@ export function StashTab({
     setAddSearch('');
   }
 
-  // Build category groups for items currently in the stash
   const activeByCategory = MATERIAL_CATEGORIES
     .map(cat => ({
       label: cat.label,
@@ -63,7 +50,6 @@ export function StashTab({
     }))
     .filter(cat => cat.items.length > 0);
 
-  // Collect any stash keys not belonging to any predefined category (custom items)
   const customItems = Object.keys(stash).filter(
     key => !ALL_KNOWN_ITEMS.has(key) && (stash[key] ?? 0) > 0
   );
@@ -88,7 +74,6 @@ export function StashTab({
       <div className="card mb-3 stash-card">
         <div className="card-title mb-3">Party resources</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {/* Sil */}
           <div>
             <div className="sec-label">Sil</div>
             <div className="resource-value">{sil}</div>
@@ -103,7 +88,6 @@ export function StashTab({
             </div>
           </div>
 
-          {/* Lux Essence */}
           <div>
             <div className="sec-label">Lux Essence</div>
             <div className="resource-value">{lux}</div>
@@ -217,7 +201,6 @@ export function StashTab({
                     aria-label={`View sources for ${item}`}
                   >
                     {item}
-                    <InfoIcon />
                   </button>
                 ) : (
                   <span className="stash-row-name">{item}</span>

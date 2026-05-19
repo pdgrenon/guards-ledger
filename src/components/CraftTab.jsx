@@ -3,8 +3,6 @@ import { useState, useMemo } from 'react';
 import { RECIPES, craftStatus, shortageCount, minCraftCost } from '../data/recipes';
 import { MATERIAL_SOURCES } from '../data/materials';
 
-// Merge stash + both active guards' satchels into one resource count map.
-// This reflects what's actually available to craft with at the blacksmith.
 function buildCombined(stash, activeGuards) {
   const combined = { ...stash };
   for (const guard of activeGuards) {
@@ -42,16 +40,6 @@ function formatCityBreakdown(recipe) {
   return entries.map(([city, cost]) => `${city} ${cost} sil`).join(' · ');
 }
 
-function InfoIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="12" y1="8" x2="12" y2="12"/>
-      <line x1="12" y1="16" x2="12.01" y2="16"/>
-    </svg>
-  );
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
@@ -76,8 +64,6 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
   const cost = formatCost(recipe);
   const cityLine = formatCityBreakdown(recipe);
 
-  // Guard restriction visibility: only show the card if no limitedTo,
-  // or at least one limitedTo guard is in the active party.
   const isPartyRestricted = recipe.limitedTo.length > 0 &&
     !recipe.limitedTo.some(g => activePartyNames.includes(g));
   if (isPartyRestricted) return null;
@@ -167,7 +153,6 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
                     {mat.isSpeakingStone && (
                       <span className="craft-stone-tag"> · speaking stone</span>
                     )}
-                    <InfoIcon />
                   </button>
                 ) : (
                   <span className="craft-mat-name">
@@ -210,8 +195,6 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
 
   const activePartyNames = activeParty ?? [];
 
-  // Merge stash + both active guards' satchels so craftability reflects
-  // everything the party has on hand, not just what's in the Fort Istra stash.
   const activeGuards = (guards ?? []).filter(g => activePartyNames.includes(g.name));
   const combined = useMemo(
     () => buildCombined(stash, activeGuards),
@@ -219,19 +202,13 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
     [stash, guards, activePartyNames.join(',')]
   );
 
-  // Filtered + sorted recipes
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return RECIPES.filter(r => {
-      // Type filter
       if (typeFilter !== 'All' && r.type !== typeFilter) return false;
-      // Min-stars filter (0 = All)
       if (minStars > 0 && r.stars < minStars) return false;
-      // Can-craft filter — uses combined resources
       if (canCraftOnly && craftStatus(r, combined, sil, lux) !== 'ready') return false;
-      // Guard restriction: hide entirely if no party member can use it
       if (r.limitedTo.length > 0 && !r.limitedTo.some(g => activePartyNames.includes(g))) return false;
-      // Search: match name OR material names OR city
       if (q) {
         const nameMatch = r.name.toLowerCase().includes(q);
         const matMatch = r.materials.some(m => m.name.toLowerCase().includes(q));
@@ -242,7 +219,6 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
     });
   }, [search, typeFilter, minStars, canCraftOnly, combined, sil, lux, activePartyNames]);
 
-  // Group by type in display order
   const typeOrder = ['Weapon', 'Armor', 'Accessory', 'Item'];
   const grouped = typeOrder
     .map(type => ({ type, recipes: filtered.filter(r => r.type === type) }))
@@ -271,7 +247,6 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
       {/* ── Filters ── */}
       <div className="craft-filters">
         <div className="craft-filter-row">
-          {/* Type dropdown */}
           <div className="craft-type-wrap">
             <select
               className="craft-type-select"
@@ -290,7 +265,6 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
             </svg>
           </div>
 
-          {/* Star tier pills */}
           <div className="craft-star-pills" role="group" aria-label="Minimum star tier">
             {STAR_LABELS.map((label, i) => {
               const isSelected = minStars === i;
@@ -316,7 +290,6 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
           </div>
         </div>
 
-        {/* Second row: legend + can-craft toggle */}
         <div className="craft-filter-row2">
           <div className="craft-legend">
             <span className="craft-legend-stars">★–★★★★</span> standard
