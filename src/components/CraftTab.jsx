@@ -213,7 +213,8 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
         const nameMatch = r.name.toLowerCase().includes(q);
         const matMatch = r.materials.some(m => m.name.toLowerCase().includes(q));
         const cityMatch = r.city.toLowerCase().includes(q);
-        if (!nameMatch && !matMatch && !cityMatch) return false;
+        const prereqMatch = r.prereq?.toLowerCase().includes(q) ?? false;
+        if (!nameMatch && !matMatch && !cityMatch && !prereqMatch) return false;
       }
       return true;
     });
@@ -237,7 +238,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
         <input
           className="craft-search"
           type="search"
-          placeholder="Search items or materials…"
+          placeholder="Search recipes…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           aria-label="Search recipes"
