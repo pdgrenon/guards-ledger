@@ -968,6 +968,28 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .stash-row:last-child { border-bottom: none; }
 .stash-row-name { font-size: 13px; color: var(--c-text); flex: 1; }
+.stash-row-name-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.stash-row-upgrade {
+  font-size: 10px;
+  color: var(--c-brand);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.stash-row-upgrade-stars {
+  color: var(--c-brand);
+  opacity: 0.75;
+}
+.stash-row-upgrade-stars--ft {
+  color: var(--c-red);
+  opacity: 1;
+}
 .stash-row-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 /* Smaller stash +/− buttons — controls are secondary to the count */
 .stash-row-btn {

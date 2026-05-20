@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS, MATERIAL_SOURCES } from '../data/materials';
 import { CITIES } from '../data/constants';
+import { PREREQ_UPGRADES_TO } from '../data/recipes';
 
 const CITY_NAMES = CITIES.map(c => c.name);
 const CUSTOM_CATEGORY_LABEL = 'Custom items';
@@ -192,26 +193,40 @@ export function StashTab({
               <span className="stash-category-label">{cat.label}</span>
               <span className="stash-category-count">{cat.items.length} item{cat.items.length !== 1 ? 's' : ''}</span>
             </div>
-            {cat.items.map(item => (
-              <div key={item} className="stash-row">
-                {MATERIAL_SOURCES[item] ? (
-                  <button
-                    className="stash-row-name mat-source-trigger"
-                    onClick={() => onShowSource(item)}
-                    aria-label={`View sources for ${item}`}
-                  >
-                    {item}
-                  </button>
-                ) : (
-                  <span className="stash-row-name">{item}</span>
-                )}
-                <div className="stash-row-controls">
-                  <button className="stash-row-btn" onClick={() => adjustStash(item, -1)}>−</button>
-                  <span className="stash-row-val">{stash[item] ?? 0}</span>
-                  <button className="stash-row-btn" onClick={() => adjustStash(item, 1)}>+</button>
+            {cat.items.map(item => {
+              const upgrade = PREREQ_UPGRADES_TO[item];
+              const nameEl = MATERIAL_SOURCES[item] ? (
+                <button
+                  className="stash-row-name mat-source-trigger"
+                  onClick={() => onShowSource(item)}
+                  aria-label={`View sources for ${item}`}
+                >
+                  {item}
+                </button>
+              ) : (
+                <span className="stash-row-name">{item}</span>
+              );
+              return (
+                <div key={item} className="stash-row">
+                  <div className="stash-row-name-col">
+                    {nameEl}
+                    {upgrade && (
+                      <span className="stash-row-upgrade">
+                        → {upgrade.name}
+                        <span className={`stash-row-upgrade-stars${upgrade.isFtIstra ? ' stash-row-upgrade-stars--ft' : ''}`}>
+                          {'★'.repeat(upgrade.stars)}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="stash-row-controls">
+                    <button className="stash-row-btn" onClick={() => adjustStash(item, -1)}>−</button>
+                    <span className="stash-row-val">{stash[item] ?? 0}</span>
+                    <button className="stash-row-btn" onClick={() => adjustStash(item, 1)}>+</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
 

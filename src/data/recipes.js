@@ -1100,3 +1100,17 @@ function checkCost(recipe, sil, lux) {
 export function shortageCount(recipe, stash) {
   return recipe.materials.filter(m => (stash[m.name] ?? 0) < m.qty).length;
 }
+// Maps each item name that is a prerequisite to the next recipe it unlocks.
+// Picks the lowest-star recipe when multiple branch from one prereq, on the
+// assumption that's the most immediate next step.
+export const PREREQ_UPGRADES_TO = (() => {
+  const map = {};
+  for (const r of RECIPES) {
+    if (!r.prereq) continue;
+    const existing = map[r.prereq];
+    if (!existing || r.stars < existing.stars) {
+      map[r.prereq] = { name: r.name, stars: r.stars, isFtIstra: r.isFtIstra };
+    }
+  }
+  return map;
+})();
