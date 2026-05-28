@@ -19,60 +19,101 @@ Single-page React 19 app (Vite) for tracking game state in *The Isofarian Guard*
 ### State management
 
 All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
-- loading from / saving to `localStorage` key `guards_ledger_v1` after every action
+- loading from / saving to `localStorage` key `guards_ledger_v2` after every action
 - all action callbacks (validate → mutate → log → return new state)
 - export/import of full state as a dated JSON file (`guards-ledger-save-YYYY-MM-DD.json`)
+- wiring each action to its sync section via `useSupabaseSync`
 
 All pure state logic is extracted into `src/hooks/gameReducers.js` — no React, no localStorage, no side-effects. This makes reducers trivially unit-testable. `useGameState` is a thin wiring layer on top.
 
 `App.jsx` calls `useGameState()` and passes state + action callbacks down via props. There is no context, no state library — pure prop drilling.
 
+#### State shape and sync sections
+
+State is flat at the top level (no nesting by section). Sections are a conceptual grouping that maps to Supabase columns for sync purposes:
+
+| Section | State keys | Supabase column |
+|---|---|---|
+| `resources` | `sil`, `lux` | `resources` |
+| `cities` | `cities` | `cities` |
+| `guards` | `guards`, `activeParty`, `activeGuardIdx` | `guards` |
+| `stash` | `stash`, `stonebound` | `stash` |
+| `campaign` | `campaign` | `campaign` |
+| local-only | `log`, `settings` | — not synced — |
+
+Each action in `useGameState` calls `setState(reducer, sectionName)` where `sectionName` is the section that action modifies. `setState` persists to localStorage and calls `sync.upsertSection(sectionName, nextState)` in one step.
+
+#### localStorage versioning and migration
+
+- Current key: `guards_ledger_v2`
+- Previous key: `guards_ledger_v1` (flat shape, no section factories)
+- On first load, if `v2` is absent but `v1` is present, `migrateV1()` in `useGameState.js` converts the old save and writes it under the new key. Migration runs once.
+- `importState` also accepts v1-format JSON exports via the same migration path.
+
+#### Section factories
+
+`src/data/constants.js` exports individual section factory functions alongside `createInitialState`:
+
+```js
+createInitialResources()  // { sil, lux }
+createInitialCities()     // { cities }
+createInitialGuards()     // { guards, activeParty, activeGuardIdx }
+createInitialStash()      // { stash, stonebound }
+createInitialCampaign()   // { campaign }
+createInitialState()      // all of the above + log + settings
+```
+
+Use the section factories in `migrateV1` and anywhere you need to initialize just one section without touching others. Do not add fields directly to `createInitialState` without also adding them to the appropriate section factory.
+
+### Sync (Supabase Realtime)
+
+`src/hooks/useSupabaseSync.js` owns all Supabase interaction. `useGameState` calls it and receives a `sync` handle; `App.jsx` passes `sync` to `SettingsPanel` for the create/join/leave UI.
+
+**Key behaviors:**
+- The Supabase client is `null` when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are absent. All sync calls silently no-op. The app runs as a fully local tool.
+- `sync.upsertSection(sectionName, state)` extracts the relevant keys and does a targeted `UPDATE` on the `campaigns` row — it never writes local-only keys (`log`, `settings`).
+- When offline, upserts are queued in a `Map` (keyed by section name, so later writes replace earlier ones for the same section). The queue is flushed automatically on reconnect via the `online` event.
+- On `joinCampaign`, the full remote row is fetched and all five sections are merged into local state. `log` and `settings` are preserved from local.
+- Realtime subscription uses `postgres_changes` filtered to `id=eq.{campaignId}`. On `UPDATE`, all five remote sections are applied to the current local state; local-only keys are preserved.
+- Campaign IDs are random short alphanumeric codes (e.g. `WOLF42`) stored in `localStorage` under `guards_ledger_campaign_id`.
+
+**`sync` handle shape** (returned by `useSupabaseSync`, exposed via `useGameState`):
+```js
+{
+  campaignId,       // string | null
+  syncStatus,       // 'idle' | 'syncing' | 'error' | 'offline'
+  syncError,        // string | null
+  upsertSection,    // (sectionName, state) => void
+  createCampaign,   // () => Promise<{ id, error }>
+  joinCampaign,     // (code) => Promise<{ state, error }>
+  leaveCampaign,    // () => void
+  isConfigured,     // boolean — false when Supabase env vars are absent
+}
+```
+
 ### Component structure
 
-- **`App.jsx`** — shell: tab nav (`Guard`, `Cities`, `Stash`, `Craft`, `Campaign`, `Session log`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly.
+- **`App.jsx`** — shell: tab nav (`Guards`, `Cities`, `Stash`, `Crafting`, `Campaign`, `Log`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly. Passes `sync={game.sync}` to `SettingsPanel`.
 - **`GuardPanel.jsx`** — HP number display, combat stats (Atk/Def with equipment bonuses shown), equipment, satchel, chip bag per guard
 - **`CitiesTab.jsx`** — city grid: prestige pips (derived, not stored) + quest checkboxes
 - **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash. Accepts `onShowSource` prop; tapping a material name with source data calls it.
 - **`CraftTab.jsx`** — read-only recipe reference; filters by type/tier/craftability; search matches item names, material names, and cities; shows stash-aware "have/need" quantities per ingredient; hides guard-restricted items unless that guard is in the active party. Accepts `onShowSource` prop; tapping any ingredient name with source data calls it.
 - **`MaterialSourcePopup.jsx`** — bottom-sheet overlay showing where to acquire or sell a given material/item. Reads from `MATERIAL_SOURCES` in `materials.js`. Rendered at App level via a `fixed` backdrop. Closes on backdrop tap, ✕ button, or Escape key. No state of its own beyond the `item` prop passed from App.
-- **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP and starting chips, export/import/reset
+- **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP and starting chips, multiplayer (create/join/leave campaign + sync status), export/import/reset. Accepts `sync` prop from App.
 - **`Autocomplete.jsx`** — reusable searchable dropdown (no external library); max 12 results, case-insensitive
 
 ### Static data
 
-- **`src/data/constants.js`** — guard names, city names, chip types, `GUARD_COLOR_MAP` (single source of truth for guard identity colors), `FALLBACK_COLOR`, and `createInitialState()`
+- **`src/data/constants.js`** — guard names, city names, chip types, `GUARD_COLOR_MAP` (single source of truth for guard identity colors), `FALLBACK_COLOR`, section factories, and `createInitialState()`
 - **`src/data/materials.js`** — crafting material categories, `ALL_MATERIALS`, `ALL_ITEMS_WITH_CATEGORY` (pre-computed `{ item, category }` pairs for the stash UI), `RESOURCE_NODE_ITEMS`, `ENEMIES`, `WEAPONS`, `ARMOR`, `ACCESSORIES`, `ITEMS`, `WEAPON_STATS`, `ARMOR_STATS`, and `MATERIAL_SOURCES`
 - **`src/data/recipes.js`** — all 101 crafting recipes as a static `RECIPES` array, plus helper functions `minCraftCost`, `craftCities`, `craftStatus`, and `shortageCount`. See the shape comment at the top of that file.
-- **`src/data/demoSave.json`** — loaded on first run when no localStorage key exists
-
-### MATERIAL_SOURCES
-
-`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to six optional fields:
-
-```js
-{
-  enemies?: string[],           // enemy names that drop this material
-  nodes?: string[],             // map node labels for ores/timber (e.g. 'Node 15')
-  ftIstra?: { label: string, luxPer4: number }, // Ft. Istra building purchase option
-  market?: { city: string, price: number }[],  // city market buy prices in Sil
-  sell?: { city: string, price: number }[],    // city market sell prices in Sil
-  ftIstraSell?: number,         // Ft. Istra Apothecary sell price (pays Lux Essence, not Sil)
-}
-```
-
-Source data covers: all animal/tenebris drops (from the Common Bestiary), all ores and timber (from Ft. Istra Buildings sheet — node numbers and Lumbermill/Lapidary Lux costs), market-buyable materials and consumables (from the Market Guide sheet), sell prices for all market items and craftable gear (from the Market Guide, Armor-Weapon Guide, and Accessory-Item Guide sheets). Speaking stones and special ingredients are not included.
-
-Items that cannot be sold (spreadsheet shows `–`) simply omit the `sell` and `ftIstraSell` fields. Ft. Istra gear (luxCost items) generally cannot be sold. The `ftIstraSell` field is distinct from `sell` because it pays out in Lux Essence rather than Sil — the popup labels it accordingly.
-
-`MATERIAL_SOURCES` also includes entries for craftable gear (armor, weapons, accessories, items) that have sell prices, even when those items have no other source data (no enemy drop, no market buy). This means gear names appear as tappable source triggers in the stash just like materials do.
-
-The trigger affordance is a `<button>` with class `mat-source-trigger` replacing the `<span>` that would otherwise render the ingredient name. It has a full browser button reset in CSS so it is visually identical to the span. Only items present in `MATERIAL_SOURCES` get the button; others remain spans.
+- **`src/data/demoSave.json`** — loaded on first run when no localStorage key exists; uses v1 flat shape and is migrated automatically
 
 ### Guards
 
 8 playable guards: Grigory, Alek, Catherine, Yury, Kharzin, Vera, Pavel, Yana.
 
-Two guards are active at a time (`state.activeParty`, a 2-element name array). The active party is selected in SettingsPanel. The guard tab shows a switcher between the two active guards; `state.activeGuardIdx` tracks which one is currently visible.
+Two guards are active at a time (`state.activeParty`, a 2-element name array). The active party is selected in SettingsPanel. The guard tab shows a switcher between the two active guards; `state.activeGuardIdx` tracks which one is currently visible (index into the full 8-guard array, not into activeParty).
 
 Each guard in state has: `name`, `hp`, `maxHp`, `baseAtk`, `baseDef`, `expandedSatchel`, `satchel` (8-slot array of `{ item, qty }`), `equipment` (`{ weapon, armor, accessory, item }`), `chips` (`{ black, green, red, purple }`), `startingBlack`.
 
@@ -95,6 +136,10 @@ City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`.
 ### Stonebound
 
 `state.stonebound`: `{ max: number, locations: Array<{ type, selection, count }> }`. `type` is one of `'City'`, `'Resource node'`, `'Enemy node'` and is derived from the selection when set — it is not independently editable in the UI.
+
+### Campaign
+
+`state.campaign`: `{ eventTokens: { mountain, forest, plains, sea }, locations: { party, caravan, mainQuest, boat, sideQuests[], bounties[] }, plans[] }`.
 
 ### Craft tab
 
@@ -128,9 +173,20 @@ Recipe data lives entirely in `src/data/recipes.js`. Each recipe has this shape:
 
 Guard-restricted recipes (`limitedTo` is non-empty) are hidden entirely from the list if no matching guard is in `activeParty`. When a matching guard is active, a restriction note is shown on the card.
 
-Speaking stones appear in `materials` with `isSpeakingStone: true`. They draw from the same `state.stash` pool as all other materials and are labeled "· speaking stone" inline on the material row for context.
+### MATERIAL_SOURCES
 
-Apothecary items (Barrier Tonic, Invigorating Potion, etc.) have no `materials` entries and use `itemReq` for their special ingredient string. These always show as `partial` since the special ingredients are not individually trackable in the stash.
+`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to six optional fields:
+
+```js
+{
+  enemies?: string[],
+  nodes?: string[],
+  ftIstra?: { label: string, luxPer4: number },
+  market?: { city: string, price: number }[],
+  sell?: { city: string, price: number }[],
+  ftIstraSell?: number,
+}
+```
 
 ### Styling
 
@@ -145,8 +201,19 @@ Key CSS conventions:
 - Craft star colors: `.craft-stars` (ochre brand), `.craft-stars--ft` (red, for 5-star Ft. Istra items)
 - Material source trigger: `.mat-source-trigger` — full browser button reset; compound selectors `.stash-row-name.mat-source-trigger` and `.craft-mat-name.mat-source-trigger` explicitly set the correct `font-size` and `color` to match the spans they replace
 - Source popup: `.source-popup-backdrop`, `.source-popup`, `.source-chip`, `.source-section-label` — bottom-sheet pattern matching the existing SettingsPanel
-- Sell price chips: `.source-chip--sell` — green-tinted variant of `.source-chip` used exclusively in the "Sell at market" section of the source popup
+- Sell price chips: `.source-chip--sell` — green-tinted variant of `.source-chip`
 
 ### Testing
 
 `src/hooks/gameReducers.test.js` covers all pure reducer functions. Run with `npm test`. There are no component tests.
+
+### Supabase setup
+
+For local development with multiplayer enabled:
+
+1. Run `supabase/schema.sql` in the Supabase SQL editor
+2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table
+3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+4. `npm install @supabase/supabase-js`
+
+Without these env vars the app runs as a local-only tool — no errors, sync is simply disabled.
