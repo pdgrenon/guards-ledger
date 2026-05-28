@@ -22,8 +22,8 @@ function classifyEntry(message) {
   return { type: 'system' };
 }
 
-const ALL_GUARD_NAMES   = Object.keys(GUARD_COLOR_MAP);
-const GUARD_NAME_REGEX  = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
+const ALL_GUARD_NAMES  = Object.keys(GUARD_COLOR_MAP);
+const GUARD_NAME_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
 
 function colorizeLogMessage(message) {
   return message.replace(GUARD_NAME_REGEX, (match) => {
@@ -45,9 +45,18 @@ function SettingsIcon() {
   );
 }
 
+// Sync status dot colors — matches SyncBadge in SettingsPanel
+const SYNC_DOT_COLOR = {
+  idle:    'var(--c-green)',
+  syncing: 'var(--c-brand)',
+  offline: 'var(--c-text2)',
+  error:   'var(--c-red)',
+};
+
 export default function App() {
   const [tab, setTab]               = useState('Guards');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen]     = useState(false);
+  const [settingsScrollToMultiplayer, setSettingsScrollToMultiplayer] = useState(false);
   const [sourceItem, setSourceItem] = useState(null);
   const game = useGameState();
   const { state } = game;
@@ -76,6 +85,24 @@ export default function App() {
     resetState:       game.resetState,
   };
 
+  function openSettings() {
+    setSettingsScrollToMultiplayer(false);
+    setSettingsOpen(true);
+  }
+
+  function openSettingsAtMultiplayer() {
+    setSettingsScrollToMultiplayer(true);
+    setSettingsOpen(true);
+  }
+
+  function closeSettings() {
+    setSettingsOpen(false);
+    setSettingsScrollToMultiplayer(false);
+  }
+
+  const { campaignId, syncStatus } = game.sync;
+  const dotColor = SYNC_DOT_COLOR[syncStatus] ?? 'var(--c-text2)';
+
   return (
     <div>
       {/* Top bar */}
@@ -85,7 +112,24 @@ export default function App() {
           <div className="wordmark-title">Guard's Ledger</div>
           <div className="wordmark-rule" aria-hidden="true" />
         </div>
-        <button className="icon-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+
+        {/* Campaign pill — only shown when connected to a campaign */}
+        {campaignId && (
+          <button
+            className="campaign-pill"
+            onClick={openSettingsAtMultiplayer}
+            aria-label={`Connected to campaign ${campaignId}. Tap to open multiplayer settings.`}
+          >
+            <span
+              className="campaign-pill-dot"
+              style={{ background: dotColor }}
+              aria-hidden="true"
+            />
+            {campaignId}
+          </button>
+        )}
+
+        <button className="icon-btn" onClick={openSettings} aria-label="Settings">
           <SettingsIcon />
         </button>
       </div>
@@ -244,7 +288,8 @@ export default function App() {
           sync={game.sync}
           guardColorMap={GUARD_COLOR_MAP}
           allGuards={GUARDS}
-          onClose={() => setSettingsOpen(false)}
+          scrollToMultiplayer={settingsScrollToMultiplayer}
+          onClose={closeSettings}
         />
       )}
 

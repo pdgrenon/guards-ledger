@@ -297,6 +297,43 @@ button, input, select, textarea { font-family: var(--font-ui); }
   opacity: 1;
 }
 
+/* ─── CAMPAIGN PILL (top bar sync indicator) ─────────────────────────────── */
+/* Shown when connected to a Supabase campaign. Sits between the wordmark     */
+/* and the settings gear. Tapping opens Settings scrolled to Multiplayer.     */
+.campaign-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 0.5px solid var(--c-border2);
+  border-radius: 20px;
+  background: var(--c-surface2);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--c-text2);
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.campaign-pill:hover {
+  background: var(--c-brand-bg);
+  border-color: var(--c-brand);
+  color: var(--c-brand-text);
+}
+.campaign-pill:active { opacity: 0.7; }
+
+.campaign-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
 /* ─── RESOURCE PILLS ─────────────────────────────────────────────────────── */
 .resource-pill {
   display: flex; align-items: center; gap: 5px;

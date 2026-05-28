@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // ─── Sync status indicator ────────────────────────────────────────────────────
 
@@ -23,15 +23,29 @@ function SyncBadge({ status }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, onClose }) {
+export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, scrollToMultiplayer, onClose }) {
   const { guards, activeParty = ['Alek', 'Grigory'] } = state;
   const { adjustGuardMaxHp, setStartingBlack, setPartySlot, exportState, importState, resetState } = actions;
 
   // Multiplayer UI state
-  const [joinCode,    setJoinCode]    = useState('');
-  const [mpWorking,   setMpWorking]   = useState(false); // loading spinner for async actions
-  const [mpError,     setMpError]     = useState(null);
-  const [copied,      setCopied]      = useState(false);
+  const [joinCode,  setJoinCode]  = useState('');
+  const [mpWorking, setMpWorking] = useState(false);
+  const [mpError,   setMpError]   = useState(null);
+  const [copied,    setCopied]    = useState(false);
+
+  // Ref for the multiplayer section header — used to scroll into view
+  const multiplayerRef = useRef(null);
+  const bodyRef        = useRef(null);
+
+  // Scroll to multiplayer section when opened via the campaign pill
+  useEffect(() => {
+    if (scrollToMultiplayer && multiplayerRef.current && bodyRef.current) {
+      // Small timeout lets the panel finish its mount animation first
+      setTimeout(() => {
+        multiplayerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    }
+  }, [scrollToMultiplayer]);
 
   function handleImport(e) {
     const file = e.target.files[0];
@@ -55,6 +69,13 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
 
   async function handleJoinCampaign() {
     if (!joinCode.trim()) return;
+
+    // Warn that joining replaces local state
+    const confirmed = window.confirm(
+      'Joining will replace your local game state with the campaign\'s current state.\n\nExport a save file first if you want to keep your current data.'
+    );
+    if (!confirmed) return;
+
     setMpWorking(true);
     setMpError(null);
     const { error } = await sync.joinCampaign(joinCode);
@@ -101,7 +122,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
         </div>
 
         {/* Scrollable body */}
-        <div className="settings-panel-body">
+        <div className="settings-panel-body" ref={bodyRef}>
 
           {/* ── Active party ── */}
           <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-brand)' }}>
@@ -184,7 +205,11 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           <div className="settings-section-divider" />
 
           {/* ── Multiplayer ── */}
-          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-green)' }}>
+          <div
+            className="settings-guard-header"
+            style={{ '--guard-color': 'var(--c-green)' }}
+            ref={multiplayerRef}
+          >
             <span className="settings-guard-dot" style={{ background: 'var(--c-green)' }} aria-hidden="true" />
             Multiplayer
           </div>

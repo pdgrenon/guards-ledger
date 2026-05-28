@@ -6,8 +6,10 @@
  * Responsibilities:
  *   - Creating and joining campaigns (short alphanumeric code)
  *   - Subscribing to Realtime changes on the active campaign
- *   - Upsetting individual sections when local state changes
+ *   - Upserting individual sections when local state changes
  *   - Queuing upserts while offline and flushing on reconnect
+ *   - Resubscribing when the page becomes visible again after being backgrounded
+ *     (mobile browsers drop websockets silently when a tab is backgrounded)
  *
  * Section mapping (matches Supabase columns):
  *   resources  ← { sil, lux }
@@ -53,9 +55,9 @@ const SECTION_KEYS = {
 
 /** Generate a random short campaign code like 'WOLF42'. */
 function generateCampaignId() {
-  const words   = ['WOLF','BEAR','HAWK','IRON','GOLD','SNOW','DARK','FIRE','VALE','DUSK'];
-  const word    = words[Math.floor(Math.random() * words.length)];
-  const digits  = Math.floor(10 + Math.random() * 90); // 10–99
+  const words  = ['WOLF','BEAR','HAWK','IRON','GOLD','SNOW','DARK','FIRE','VALE','DUSK'];
+  const word   = words[Math.floor(Math.random() * words.length)];
+  const digits = Math.floor(10 + Math.random() * 90); // 10–99
   return `${word}${digits}`;
 }
 
@@ -101,36 +103,18 @@ export function useSupabaseSync(state, onRemoteChange) {
   const [syncError,   setSyncError]   = useState(null);
 
   // Pending upserts queued while offline: Map<sectionName, sectionData>
-  // Using a Map means newer data for the same section overwrites older — we
-  // never need to replay stale intermediate states.
-  const pendingQueue = useRef(new Map());
-  const isOnline     = useRef(navigator.onLine);
-  const channelRef   = useRef(null);
-  // Keep a ref to latest state so the reconnect handler can flush it
-  const stateRef     = useRef(state);
-  useEffect(() => { stateRef.current = state; }, [state]);
+  // Using a Map means newer data for the same section overwrites older.
+  const pendingQueue  = useRef(new Map());
+  const isOnline      = useRef(navigator.onLine);
+  const channelRef    = useRef(null);
+  // Keep a ref to the latest state and campaignId so async callbacks
+  // always see current values without stale closure issues.
+  const stateRef      = useRef(state);
+  const campaignIdRef = useRef(campaignId);
+  useEffect(() => { stateRef.current      = state;      }, [state]);
+  useEffect(() => { campaignIdRef.current = campaignId; }, [campaignId]);
 
-  // ── Online / offline detection ────────────────────────────────────────────
-
-  useEffect(() => {
-    function handleOnline() {
-      isOnline.current = true;
-      if (campaignId) flushQueue();
-    }
-    function handleOffline() {
-      isOnline.current = false;
-      setSyncStatus('offline');
-    }
-    window.addEventListener('online',  handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online',  handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId]);
-
-  // ── Realtime subscription ─────────────────────────────────────────────────
+  // ── Core subscribe / unsubscribe ─────────────────────────────────────────
 
   const subscribe = useCallback((id) => {
     if (!supabase || !id) return;
@@ -159,14 +143,60 @@ export function useSupabaseSync(state, onRemoteChange) {
         }
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') setSyncStatus('idle');
+        if (status === 'SUBSCRIBED')    setSyncStatus('idle');
         if (status === 'CHANNEL_ERROR') setSyncStatus('error');
       });
 
     channelRef.current = channel;
   }, [onRemoteChange]);
 
-  // Subscribe / unsubscribe when campaignId changes
+  // ── Online / offline detection ────────────────────────────────────────────
+
+  useEffect(() => {
+    function handleOnline() {
+      isOnline.current = true;
+      const id = campaignIdRef.current;
+      if (id) {
+        subscribe(id);   // resubscribe in case the socket dropped while offline
+        flushQueue();
+      }
+    }
+    function handleOffline() {
+      isOnline.current = false;
+      setSyncStatus('offline');
+    }
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscribe]);
+
+  // ── Visibility-based resubscription ──────────────────────────────────────
+  // Mobile browsers silently drop WebSocket connections when a tab is
+  // backgrounded. When the page becomes visible again we tear down the
+  // existing channel and resubscribe to ensure we're receiving updates.
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        const id = campaignIdRef.current;
+        if (id && supabase) {
+          subscribe(id);
+          // Also flush any queued upserts that accumulated while hidden
+          flushQueue();
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscribe]);
+
+  // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
+
   useEffect(() => {
     if (campaignId) {
       subscribe(campaignId);
@@ -187,16 +217,15 @@ export function useSupabaseSync(state, onRemoteChange) {
 
   // ── Upsert helpers ────────────────────────────────────────────────────────
 
-  /** Flush all queued section upserts. Called on reconnect. */
+  /** Flush all queued section upserts. Called on reconnect / visibility restore. */
   async function flushQueue() {
-    if (!supabase || !campaignId || pendingQueue.current.size === 0) return;
+    if (!supabase || !campaignIdRef.current || pendingQueue.current.size === 0) return;
 
-    // Build a single merged update from all queued sections
-    const update = { id: campaignId };
+    const update = { id: campaignIdRef.current };
     const now    = new Date().toISOString();
     for (const [section, data] of pendingQueue.current.entries()) {
-      update[section]                        = data;
-      update[`${section}_updated_at`]        = now;
+      update[section]                 = data;
+      update[`${section}_updated_at`] = now;
     }
     pendingQueue.current.clear();
 
@@ -204,7 +233,7 @@ export function useSupabaseSync(state, onRemoteChange) {
     const { error } = await supabase
       .from('campaigns')
       .update(update)
-      .eq('id', campaignId);
+      .eq('id', campaignIdRef.current);
 
     setSyncStatus(error ? 'error' : 'idle');
     if (error) setSyncError(error.message);
@@ -213,9 +242,6 @@ export function useSupabaseSync(state, onRemoteChange) {
   /**
    * Upsert a single section to Supabase.
    * If offline, queues it for later.
-   *
-   * @param {string} sectionName  One of: resources, cities, guards, stash, campaign
-   * @param {object} currentState Full current state (section will be extracted)
    */
   const upsertSection = useCallback(async (sectionName, currentState) => {
     if (!supabase || !campaignId) return;
@@ -223,7 +249,6 @@ export function useSupabaseSync(state, onRemoteChange) {
     const sectionData = extractSection(currentState, sectionName);
 
     if (!isOnline.current) {
-      // Queue it — newer write for the same section replaces older
       pendingQueue.current.set(sectionName, sectionData);
       setSyncStatus('offline');
       return;
@@ -233,15 +258,14 @@ export function useSupabaseSync(state, onRemoteChange) {
     const { error } = await supabase
       .from('campaigns')
       .update({
-        [sectionName]:                    sectionData,
-        [`${sectionName}_updated_at`]:    new Date().toISOString(),
+        [sectionName]:                 sectionData,
+        [`${sectionName}_updated_at`]: new Date().toISOString(),
       })
       .eq('id', campaignId);
 
     if (error) {
       setSyncError(error.message);
       setSyncStatus('error');
-      // Queue it so it retries on reconnect
       pendingQueue.current.set(sectionName, sectionData);
     } else {
       setSyncStatus('idle');
@@ -253,13 +277,11 @@ export function useSupabaseSync(state, onRemoteChange) {
 
   /**
    * Create a new campaign in Supabase and store the ID locally.
-   * Inserts the full current state as the initial row.
    * Returns { id, error }.
    */
   const createCampaign = useCallback(async () => {
     if (!supabase) return { id: null, error: 'Supabase not configured' };
 
-    // Try a few times in case of ID collision (extremely unlikely but tidy)
     for (let attempt = 0; attempt < 5; attempt++) {
       const id  = generateCampaignId();
       const row = buildFullRow(id, stateRef.current);
@@ -270,7 +292,6 @@ export function useSupabaseSync(state, onRemoteChange) {
         setCampaignId(id);
         return { id, error: null };
       }
-      // 23505 = unique_violation (duplicate ID) — retry
       if (error.code !== '23505') {
         return { id: null, error: error.message };
       }
@@ -281,7 +302,7 @@ export function useSupabaseSync(state, onRemoteChange) {
   /**
    * Join an existing campaign by code.
    * Fetches the row and replaces local state, then subscribes.
-   * Returns { state, error } where state is the full merged game state.
+   * Returns { state, error }.
    */
   const joinCampaign = useCallback(async (code) => {
     if (!supabase) return { state: null, error: 'Supabase not configured' };
@@ -297,7 +318,6 @@ export function useSupabaseSync(state, onRemoteChange) {
       return { state: null, error: 'Campaign not found. Check the code and try again.' };
     }
 
-    // Merge all remote sections into current local state
     let merged = stateRef.current;
     for (const section of Object.keys(SECTION_KEYS)) {
       merged = applyRemoteSection(merged, section, data[section]);
