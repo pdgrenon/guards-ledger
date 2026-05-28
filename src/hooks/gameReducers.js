@@ -5,19 +5,30 @@
  * Each function takes a state snapshot and returns a new state snapshot —
  * no React, no localStorage, no side-effects. This makes them trivially
  * unit-testable and keeps useGameState as a thin wiring layer.
+ *
+ * State shape (flat, sections spread at top level):
+ *   resources : { sil, lux }
+ *   cities    : { cities[] }
+ *   guards    : { guards[], activeParty, activeGuardIdx }
+ *   stash     : { stash{}, stonebound }
+ *   campaign  : { campaign: { eventTokens, locations, plans } }
+ *   + log[], settings{} (local-only, not synced)
+ *
+ * Reducers read and write the flat state directly — the sectioning is a
+ * conceptual and persistence boundary, not a nesting change.
  */
 
 import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
-import { ALL_MATERIALS, ALL_ITEMS_WITH_CATEGORY, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
+import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
 
-export const ALL_EQUIPMENT    = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
+export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
 
 export function addLog(state, message) {
-  const now  = new Date();
-  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const now   = new Date();
+  const time  = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const entry = { time, message, id: Date.now() + Math.random() };
   return { ...state, log: [entry, ...state.log].slice(0, 100) };
 }
@@ -26,11 +37,11 @@ export function addLog(state, message) {
 
 export function reduceSetPartySlot(s, slotIdx, name) {
   const currentParty = s.activeParty ?? ['Alek', 'Grigory'];
-  const newParty = [...currentParty];
-  newParty[slotIdx] = name;
+  const newParty     = [...currentParty];
+  newParty[slotIdx]  = name;
 
-  const activeGuardName = s.guards[s.activeGuardIdx]?.name;
-  const activeGuardSlot = currentParty.indexOf(activeGuardName);
+  const activeGuardName  = s.guards[s.activeGuardIdx]?.name;
+  const activeGuardSlot  = currentParty.indexOf(activeGuardName);
   const newActiveGuardIdx = activeGuardSlot === slotIdx
     ? s.guards.findIndex(g => g.name === newParty[0])
     : s.activeGuardIdx;
@@ -57,24 +68,26 @@ export function reduceSetLux(s, delta) {
 // ─── Guard HP ─────────────────────────────────────────────────────────────────
 
 export function reduceAdjustGuardHp(s, guardIdx, delta) {
-  const g = s.guards[guardIdx];
+  const g     = s.guards[guardIdx];
   const newHp = Math.min(g.maxHp, Math.max(0, g.hp + delta));
   const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, hp: newHp } : g2);
   return addLog({ ...s, guards }, `${g.name} HP ${delta >= 0 ? '+' : ''}${delta} → ${newHp}`);
 }
 
 export function reduceAdjustGuardMaxHp(s, guardIdx, delta) {
-  const g = s.guards[guardIdx];
+  const g      = s.guards[guardIdx];
   const newMax = Math.max(1, g.maxHp + delta);
   const newHp  = Math.min(g.hp, newMax);
-  const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, maxHp: newMax, hp: newHp } : g2);
+  const guards = s.guards.map((g2, i) =>
+    i === guardIdx ? { ...g2, maxHp: newMax, hp: newHp } : g2
+  );
   return addLog({ ...s, guards }, `${g.name} max HP → ${newMax}`);
 }
 
 // ─── Guard equipment ──────────────────────────────────────────────────────────
 
 export function reduceSetGuardEquipment(s, guardIdx, slot, value) {
-  const g = s.guards[guardIdx];
+  const g      = s.guards[guardIdx];
   const guards = s.guards.map((g2, i) =>
     i === guardIdx ? { ...g2, equipment: { ...g2.equipment, [slot]: value } } : g2
   );
@@ -93,12 +106,11 @@ export function reduceSetGuardEquipment(s, guardIdx, slot, value) {
 // ─── Guard satchel ────────────────────────────────────────────────────────────
 
 export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
-  const g = s.guards[guardIdx];
+  const g      = s.guards[guardIdx];
   const guards = s.guards.map((gi, i) => {
     if (i !== guardIdx) return gi;
-    const FULL_SIZE = 8; // matches SATCHEL_EXPANDED_SIZE
-    const full = Array.from({ length: FULL_SIZE }, (_, i) =>
-      gi.satchel[i] ?? { item: '', qty: 1 }
+    const full    = Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) =>
+      gi.satchel[k] ?? { item: '', qty: 1 }
     );
     const satchel = full.map((slot, si) =>
       si === slotIdx ? { ...slot, [field]: value } : slot
@@ -124,7 +136,7 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
 // ─── Guard chips ──────────────────────────────────────────────────────────────
 
 export function reduceAdjustChip(s, guardIdx, chipType, delta) {
-  const g = s.guards[guardIdx];
+  const g      = s.guards[guardIdx];
   const newVal = Math.max(0, (g.chips[chipType] ?? 0) + delta);
   const guards = s.guards.map((g2, i) =>
     i === guardIdx ? { ...g2, chips: { ...g2.chips, [chipType]: newVal } } : g2
@@ -136,7 +148,7 @@ export function reduceAdjustChip(s, guardIdx, chipType, delta) {
 }
 
 export function reduceResetChips(s, guardIdx) {
-  const g = s.guards[guardIdx];
+  const g      = s.guards[guardIdx];
   const guards = s.guards.map((g2, i) =>
     i === guardIdx ? { ...g2, chips: { ...g2.chips, black: g2.startingBlack } } : g2
   );
@@ -156,7 +168,7 @@ export function reduceToggleCityQuest(s, cityIdx, field) {
   const cities = s.cities.map((c, i) => i === cityIdx ? { ...c, [field]: newVal } : c);
   const questLabel =
     field === 'puzzleQuestDone' ? 'puzzle quest' :
-    field === 'bounty1Done'     ? 'bounty 1' :
+    field === 'bounty1Done'     ? 'bounty 1'     :
                                   'bounty 2';
   return addLog({ ...s, cities },
     `${city.name} ${questLabel} ${newVal ? 'completed' : 'reopened'}`
@@ -220,13 +232,15 @@ export function reduceUpdateStoneboundLocation(s, idx, field, value) {
   return newState;
 }
 
+// ─── Campaign ─────────────────────────────────────────────────────────────────
+
 export function reduceSetEventToken(s, region, delta) {
-  const current = s.campaign.eventTokens[region] ?? 0;
-  const next    = Math.max(0, Math.min(3, current + delta));
+  const current   = s.campaign.eventTokens[region] ?? 0;
+  const next      = Math.max(0, Math.min(3, current + delta));
   const triggered = next === 3 && current < 3;
   const newTokens = { ...s.campaign.eventTokens, [region]: next };
   const campaign  = { ...s.campaign, eventTokens: newTokens };
-  const label = region.charAt(0).toUpperCase() + region.slice(1);
+  const label     = region.charAt(0).toUpperCase() + region.slice(1);
   const msg = triggered
     ? `Campaign ${label} event triggered! Token reset to 3`
     : `Campaign ${label} token ${delta >= 0 ? '+' : ''}${delta} → ${next}`;
@@ -236,7 +250,7 @@ export function reduceSetEventToken(s, region, delta) {
 export function reduceResetEventToken(s, region) {
   const newTokens = { ...s.campaign.eventTokens, [region]: 0 };
   const campaign  = { ...s.campaign, eventTokens: newTokens };
-  const label = region.charAt(0).toUpperCase() + region.slice(1);
+  const label     = region.charAt(0).toUpperCase() + region.slice(1);
   return addLog({ ...s, campaign }, `Campaign ${label} event resolved · token reset`);
 }
 
@@ -247,16 +261,15 @@ export function reduceSetCampaignLocation(s, key, value) {
 }
 
 export function reduceAddDynamicLocation(s, type) {
-  // type: 'sideQuests' | 'bounties'
-  const id      = Date.now() + Math.random();
-  const entries = [...(s.campaign.locations[type] ?? []), { id, label: '' }];
+  const id        = Date.now() + Math.random();
+  const entries   = [...(s.campaign.locations[type] ?? []), { id, label: '' }];
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
   return { ...s, campaign };
 }
 
 export function reduceUpdateDynamicLocation(s, type, id, label) {
-  const entries = (s.campaign.locations[type] ?? []).map(e =>
+  const entries   = (s.campaign.locations[type] ?? []).map(e =>
     e.id === id ? { ...e, label } : e
   );
   const locations = { ...s.campaign.locations, [type]: entries };
@@ -265,7 +278,7 @@ export function reduceUpdateDynamicLocation(s, type, id, label) {
 }
 
 export function reduceRemoveDynamicLocation(s, type, id) {
-  const entries = (s.campaign.locations[type] ?? []).filter(e => e.id !== id);
+  const entries   = (s.campaign.locations[type] ?? []).filter(e => e.id !== id);
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
   return { ...s, campaign };
@@ -273,20 +286,20 @@ export function reduceRemoveDynamicLocation(s, type, id) {
 
 export function reduceAddPlan(s, text) {
   if (!text.trim()) return s;
-  const id   = Date.now() + Math.random();
-  const plan = { id, text: text.trim(), done: false };
+  const id       = Date.now() + Math.random();
+  const plan     = { id, text: text.trim(), done: false };
   const campaign = { ...s.campaign, plans: [...s.campaign.plans, plan] };
   return { ...s, campaign };
 }
 
 export function reduceTogglePlan(s, id) {
-  const plans   = s.campaign.plans.map(p => p.id === id ? { ...p, done: !p.done } : p);
+  const plans    = s.campaign.plans.map(p => p.id === id ? { ...p, done: !p.done } : p);
   const campaign = { ...s.campaign, plans };
   return { ...s, campaign };
 }
 
 export function reduceDeletePlan(s, id) {
-  const plans   = s.campaign.plans.filter(p => p.id !== id);
+  const plans    = s.campaign.plans.filter(p => p.id !== id);
   const campaign = { ...s.campaign, plans };
   return { ...s, campaign };
 }

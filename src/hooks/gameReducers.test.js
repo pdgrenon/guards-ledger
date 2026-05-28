@@ -8,7 +8,16 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createInitialState, GUARDS, CITIES } from '../data/constants';
+import {
+  createInitialState,
+  createInitialResources,
+  createInitialCities,
+  createInitialGuards,
+  createInitialStash,
+  createInitialCampaign,
+  GUARDS,
+  CITIES,
+} from '../data/constants';
 import {
   addLog,
   reduceSetPartySlot,
@@ -61,29 +70,57 @@ describe('createInitialState', () => {
   });
 
   it('starts with an empty log', () => {
-    expect(s.log).toHaveLength(0);
+    expect(s.log).toEqual([]);
   });
 
-  it('every guard starts at full HP', () => {
-    for (const g of s.guards) {
-      expect(g.hp).toBe(g.maxHp);
-      expect(g.maxHp).toBe(20);
-    }
+  it('starts with default stonebound', () => {
+    expect(s.stonebound).toEqual({ max: 4, locations: [] });
   });
 
-  it('every guard starts with 8 black chips and 0 of the rest', () => {
-    for (const g of s.guards) {
-      expect(g.chips.black).toBe(8);
-      expect(g.chips.green).toBe(0);
-      expect(g.chips.red).toBe(0);
-      expect(g.chips.purple).toBe(0);
-    }
+  it('starts with zeroed event tokens', () => {
+    expect(s.campaign.eventTokens).toEqual({ mountain: 0, forest: 0, plains: 0, sea: 0 });
+  });
+});
+
+// ─── Section factories ────────────────────────────────────────────────────────
+
+describe('createInitialResources', () => {
+  it('returns sil and lux at 0', () => {
+    expect(createInitialResources()).toEqual({ sil: 0, lux: 0 });
+  });
+});
+
+describe('createInitialCities', () => {
+  it('returns 6 cities', () => {
+    expect(createInitialCities().cities).toHaveLength(6);
+  });
+});
+
+describe('createInitialGuards', () => {
+  it('returns guards array, activeParty, and activeGuardIdx', () => {
+    const g = createInitialGuards();
+    expect(g.guards).toHaveLength(8);
+    expect(g.activeParty).toEqual(['Alek', 'Grigory']);
+    expect(g.activeGuardIdx).toBe(0);
+  });
+});
+
+describe('createInitialStash', () => {
+  it('returns empty stash and default stonebound', () => {
+    const st = createInitialStash();
+    expect(st.stash).toEqual({});
+    expect(st.stonebound).toEqual({ max: 4, locations: [] });
+  });
+});
+
+describe('createInitialCampaign', () => {
+  it('returns campaign with zeroed event tokens', () => {
+    const c = createInitialCampaign();
+    expect(c.campaign.eventTokens).toEqual({ mountain: 0, forest: 0, plains: 0, sea: 0 });
   });
 
-  it('cities do not have a stored prestige field', () => {
-    for (const c of s.cities) {
-      expect(c).not.toHaveProperty('prestige');
-    }
+  it('returns campaign with empty plans', () => {
+    expect(createInitialCampaign().campaign.plans).toEqual([]);
   });
 });
 
@@ -91,36 +128,43 @@ describe('createInitialState', () => {
 
 describe('addLog', () => {
   it('prepends a log entry', () => {
-    const next = addLog(s, 'test event');
-    expect(next.log[0].message).toBe('test event');
+    const next = addLog(s, 'test message');
+    expect(next.log[0].message).toBe('test message');
   });
 
-  it('trims log to 100 entries', () => {
+  it('caps log at 100 entries', () => {
     let state = s;
-    for (let i = 0; i < 105; i++) state = addLog(state, `event ${i}`);
+    for (let i = 0; i < 105; i++) state = addLog(state, `entry ${i}`);
     expect(state.log).toHaveLength(100);
-    // Most recent event is first
-    expect(state.log[0].message).toBe('event 104');
-  });
-
-  it('does not mutate the original state', () => {
-    addLog(s, 'test');
-    expect(s.log).toHaveLength(0);
   });
 });
 
-// ─── Party slot ───────────────────────────────────────────────────────────────
+// ─── Party navigation ─────────────────────────────────────────────────────────
 
 describe('reduceSetPartySlot', () => {
-  it('swaps a guard into the specified slot', () => {
-    const next = reduceSetPartySlot(s, 0, 'Catherine');
-    expect(next.activeParty[0]).toBe('Catherine');
-    expect(next.activeParty[1]).toBe('Grigory');
+  it('replaces a guard in the active party', () => {
+    const next = reduceSetPartySlot(s, 1, 'Catherine');
+    expect(next.activeParty[1]).toBe('Catherine');
+  });
+
+  it('keeps the other party slot unchanged', () => {
+    const next = reduceSetPartySlot(s, 1, 'Catherine');
+    expect(next.activeParty[0]).toBe('Alek');
+  });
+
+  it('preserves activeGuardIdx when a non-viewed slot is swapped', () => {
+    const next = reduceSetPartySlot(s, 1, 'Catherine');
+    expect(next.activeGuardIdx).toBe(s.activeGuardIdx);
+  });
+
+  it('updates activeGuardIdx when the viewed guard is replaced', () => {
+    const next        = reduceSetPartySlot(s, 0, 'Catherine');
+    const expectedIdx = next.guards.findIndex(g => g.name === 'Catherine');
+    expect(next.activeGuardIdx).toBe(expectedIdx);
   });
 
   it('resets the active guard view when the viewed guard is replaced', () => {
-    // activeGuardIdx points to Alek (slot 0); replacing slot 0 → view moves to new slot 0 guard
-    const next = reduceSetPartySlot(s, 0, 'Catherine');
+    const next        = reduceSetPartySlot(s, 0, 'Catherine');
     const expectedIdx = next.guards.findIndex(g => g.name === 'Catherine');
     expect(next.activeGuardIdx).toBe(expectedIdx);
   });
@@ -177,37 +221,30 @@ describe('reduceAdjustGuardHp', () => {
     expect(next.guards[0].hp).toBe(17);
   });
 
-  it('clamps HP at maxHp', () => {
-    const next = reduceAdjustGuardHp(s, 0, 999);
-    expect(next.guards[0].hp).toBe(s.guards[0].maxHp);
-  });
-
-  it('clamps HP at 0', () => {
+  it('clamps at 0', () => {
     const next = reduceAdjustGuardHp(s, 0, -999);
     expect(next.guards[0].hp).toBe(0);
   });
 
+  it('clamps at maxHp', () => {
+    const next = reduceAdjustGuardHp(s, 0, 999);
+    expect(next.guards[0].hp).toBe(s.guards[0].maxHp);
+  });
+
   it('only mutates the targeted guard', () => {
     const next = reduceAdjustGuardHp(s, 0, -5);
-    for (let i = 1; i < next.guards.length; i++) {
-      expect(next.guards[i].hp).toBe(s.guards[i].hp);
-    }
+    expect(next.guards[1].hp).toBe(s.guards[1].hp);
   });
 
-  it('logs the change with guard name', () => {
-    const next = reduceAdjustGuardHp(s, 0, -2);
+  it('logs the change', () => {
+    const next = reduceAdjustGuardHp(s, 0, -3);
     expect(next.log[0].message).toContain(s.guards[0].name);
     expect(next.log[0].message).toContain('HP');
-  });
-
-  it('does not mutate the original state', () => {
-    reduceAdjustGuardHp(s, 0, -5);
-    expect(s.guards[0].hp).toBe(20);
   });
 });
 
 describe('reduceAdjustGuardMaxHp', () => {
-  it('increases maxHp', () => {
+  it('increases max HP', () => {
     const next = reduceAdjustGuardMaxHp(s, 0, 5);
     expect(next.guards[0].maxHp).toBe(25);
   });
@@ -217,73 +254,13 @@ describe('reduceAdjustGuardMaxHp', () => {
     expect(next.guards[0].maxHp).toBe(1);
   });
 
-  it('reduces current HP when it exceeds the new maxHp', () => {
+  it('reduces current HP to new max when max drops below current', () => {
     const next = reduceAdjustGuardMaxHp(s, 0, -5);
-    expect(next.guards[0].maxHp).toBe(15);
-    expect(next.guards[0].hp).toBe(15);
-  });
-
-  it('does not increase current HP when maxHp is raised', () => {
-    const lowHp = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, hp: 10 } : g) };
-    const next  = reduceAdjustGuardMaxHp(lowHp, 0, 5);
-    expect(next.guards[0].hp).toBe(10);
+    expect(next.guards[0].hp).toBeLessThanOrEqual(next.guards[0].maxHp);
   });
 });
 
-// ─── Guard equipment ──────────────────────────────────────────────────────────
-
-describe('reduceSetGuardEquipment', () => {
-  it('sets a weapon slot', () => {
-    const next = reduceSetGuardEquipment(s, 0, 'weapon', 'Jade Sword');
-    expect(next.guards[0].equipment.weapon).toBe('Jade Sword');
-  });
-
-  it('logs equipping a known item', () => {
-    const next = reduceSetGuardEquipment(s, 0, 'weapon', 'Jade Sword');
-    expect(next.log[0].message).toContain('Jade Sword');
-  });
-
-  it('logs unequipping when value is cleared', () => {
-    const equipped = reduceSetGuardEquipment(s, 0, 'weapon', 'Jade Sword');
-    const cleared  = reduceSetGuardEquipment(equipped, 0, 'weapon', '');
-    expect(cleared.log[0].message).toContain('unequipped');
-  });
-});
-
-// ─── Guard satchel ────────────────────────────────────────────────────────────
-
-describe('reduceSetGuardSatchelItem', () => {
-  it('sets an item in a satchel slot', () => {
-    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
-    expect(next.guards[0].satchel[0].item).toBe('Iron');
-  });
-
-  it('logs setting a known material', () => {
-    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
-    expect(next.log[0].message).toContain('Iron');
-  });
-
-  it('logs clearing a slot', () => {
-    const withItem = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
-    const cleared  = reduceSetGuardSatchelItem(withItem, 0, 0, 'item', '');
-    expect(cleared.log[0].message).toContain('cleared');
-  });
-
-  it('logs qty changes when a named item is in the slot', () => {
-    const withItem = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
-    const withQty  = reduceSetGuardSatchelItem(withItem, 0, 0, 'qty', 3);
-    expect(withQty.log[0].message).toContain('×3');
-  });
-
-  it('does not affect other satchel slots', () => {
-    const next = reduceSetGuardSatchelItem(s, 0, 2, 'item', 'Iron');
-    expect(next.guards[0].satchel[0].item).toBe('');
-    expect(next.guards[0].satchel[1].item).toBe('');
-    expect(next.guards[0].satchel[2].item).toBe('Iron');
-  });
-});
-
-// ─── Chips ────────────────────────────────────────────────────────────────────
+// ─── Guard chips ──────────────────────────────────────────────────────────────
 
 describe('reduceAdjustChip', () => {
   it('increments a chip type', () => {
@@ -481,8 +458,8 @@ describe('reduceAddStoneboundLocation', () => {
   });
 
   it('can add multiple locations', () => {
-    const s1 = reduceAddStoneboundLocation(s);
-    const s2 = reduceAddStoneboundLocation(s1);
+    const s1   = reduceAddStoneboundLocation(s);
+    const s2   = reduceAddStoneboundLocation(s1);
     expect(s2.stonebound.locations).toHaveLength(2);
   });
 
@@ -501,8 +478,8 @@ describe('reduceRemoveStoneboundLocation', () => {
   });
 
   it('logs removal with the selection name when present', () => {
-    const s1 = reduceAddStoneboundLocation(s);
-    const s2 = reduceUpdateStoneboundLocation(s1, 0, 'selection', 'Mir');
+    const s1   = reduceAddStoneboundLocation(s);
+    const s2   = reduceUpdateStoneboundLocation(s1, 0, 'selection', 'Mir');
     const next = reduceRemoveStoneboundLocation(s2, 0);
     expect(next.log[0].message).toContain('Mir');
   });

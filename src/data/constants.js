@@ -86,26 +86,66 @@ function makeCity(id, name) {
   };
 }
 
-export function createInitialState() {
+// ─── Sectioned initial state ──────────────────────────────────────────────────
+//
+// State is split into sync sections that map 1:1 to Supabase columns.
+// Each section is independently updatable so two players can write
+// different sections simultaneously without clobbering each other.
+//
+// Sections:
+//   resources — sil, lux                          (player A owns)
+//   cities    — city quest flags                  (player A owns)
+//   guards    — guards, activeParty, activeGuardIdx (shared)
+//   stash     — stash, stonebound                 (shared)
+//   campaign  — eventTokens, locations, plans     (player B owns)
+//
+// log and settings remain local-only (never synced).
+
+export function createInitialResources() {
+  return { sil: 0, lux: 0 };
+}
+
+export function createInitialCities() {
+  return { cities: CITIES.map(c => makeCity(c.id, c.name)) };
+}
+
+export function createInitialGuards() {
   return {
-    sil:            0,
-    lux:            0,
-    activeGuardIdx: 0,
-    activeParty:    ['Alek', 'Grigory'],
     guards:         GUARDS.map(makeGuard),
-    cities:         CITIES.map(c => makeCity(c.id, c.name)),
-    stash:          {},
-    stonebound:     { max: 4, locations: [] },
-    log:            [],
-    settings:       { initialized: true },
+    activeParty:    ['Alek', 'Grigory'],
+    activeGuardIdx: 0,
+  };
+}
+
+export function createInitialStash() {
+  return {
+    stash:      {},
+    stonebound: { max: 4, locations: [] },
+  };
+}
+
+export function createInitialCampaign() {
+  return {
     campaign: {
       eventTokens: { mountain: 0, forest: 0, plains: 0, sea: 0 },
       locations: {
         party: '', caravan: '', mainQuest: '', boat: '',
         sideQuests: [],
-        bounties: [],
+        bounties:   [],
       },
       plans: [],
     },
+  };
+}
+
+export function createInitialState() {
+  return {
+    ...createInitialResources(),
+    ...createInitialCities(),
+    ...createInitialGuards(),
+    ...createInitialStash(),
+    ...createInitialCampaign(),
+    log:      [],
+    settings: { initialized: true },
   };
 }
