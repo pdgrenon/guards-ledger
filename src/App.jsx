@@ -12,10 +12,7 @@ import './index.css';
 
 const TABS = ['Guards', 'Cities', 'Stash', 'Crafting', 'Campaign', 'Log'];
 
-// ─── Log entry category classifier ──────────────────────────────────────────
-// guard   → the guard's identity color (looked up from GUARD_COLOR_MAP)
-// party   → brand ochre (Sil, Lux, Stash, Stonebound, city quests)
-// system  → neutral gray (import, reset)
+// ─── Log entry category classifier ───────────────────────────────────────────
 const CITY_NAMES_SET = new Set(['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno']);
 
 function classifyEntry(message) {
@@ -25,9 +22,8 @@ function classifyEntry(message) {
   return { type: 'system' };
 }
 
-// Regex for colorizing guard names inline in log messages
-const ALL_GUARD_NAMES = Object.keys(GUARD_COLOR_MAP);
-const GUARD_NAME_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
+const ALL_GUARD_NAMES   = Object.keys(GUARD_COLOR_MAP);
+const GUARD_NAME_REGEX  = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
 
 function colorizeLogMessage(message) {
   return message.replace(GUARD_NAME_REGEX, (match) => {
@@ -50,7 +46,7 @@ function SettingsIcon() {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('Guards');
+  const [tab, setTab]               = useState('Guards');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceItem, setSourceItem] = useState(null);
   const game = useGameState();
@@ -61,7 +57,6 @@ export default function App() {
   const activeGuard = state.guards[activeIdx];
   const activeColor = GUARD_COLOR_MAP[activeGuard?.name] ?? FALLBACK_COLOR;
 
-  // actions object threaded into GuardPanel
   const guardActions = {
     adjustGuardHp:         game.adjustGuardHp,
     adjustGuardMaxHp:      game.adjustGuardMaxHp,
@@ -72,8 +67,6 @@ export default function App() {
     resetChips:            game.resetChips,
   };
 
-  // state + actions objects threaded into SettingsPanel (matches its prop signature)
-  const settingsState   = state;
   const settingsActions = {
     adjustGuardMaxHp: game.adjustGuardMaxHp,
     setStartingBlack: game.setStartingBlack,
@@ -104,7 +97,7 @@ export default function App() {
             key={t}
             role="tab"
             aria-selected={tab === t}
-            className={`tab${tab === t ? ' active' : ''}`}
+            className={`tab${tab === t ? ' tab--active' : ''}`}
             onClick={() => setTab(t)}
           >
             {t}
@@ -112,146 +105,150 @@ export default function App() {
         ))}
       </div>
 
-      {/* ── Guards tab ── */}
-      {tab === 'Guards' && (
-        <>
-          {/* Switcher — only the two active party members, no party selects here */}
-          <div className="guard-switcher">
-            {activeParty.map((name) => {
-              const guardIdx = state.guards.findIndex(g => g.name === name);
-              const c = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
-              const isActive = activeIdx === guardIdx;
-              return (
-                <button
-                  key={name}
-                  className={`guard-switch-btn${isActive ? ' active' : ''}`}
-                  onClick={() => game.setActiveGuard(guardIdx)}
-                  style={isActive ? { '--switch-color': c.border, '--switch-bg': c.bg } : {}}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
+      {/* Tab content */}
+      <div className="tab-content">
 
-          {activeGuard && (
-            <div
-              className="guard-card-wrapper"
-              style={{ '--guard-color': activeColor.border }}
-            >
-              <GuardPanel
-                guard={activeGuard}
-                guardIdx={activeIdx}
-                actions={guardActions}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Cities tab ── */}
-      {tab === 'Cities' && (
-        <CitiesTab
-          cities={state.cities}
-          toggleCityQuest={game.toggleCityQuest}
-        />
-      )}
-
-      {/* ── Stash tab ── */}
-      {tab === 'Stash' && (
-        <StashTab
-          sil={state.sil} lux={state.lux}
-          setSil={game.setSil} setLux={game.setLux}
-          stash={state.stash} adjustStash={game.adjustStash}
-          stonebound={state.stonebound}
-          setStoneboundMax={game.setStoneboundMax}
-          addStoneboundLocation={game.addStoneboundLocation}
-          removeStoneboundLocation={game.removeStoneboundLocation}
-          updateStoneboundLocation={game.updateStoneboundLocation}
-          onShowSource={setSourceItem}
-        />
-      )}
-
-      {/* ── Crafting tab ── */}
-      {tab === 'Crafting' && (
-        <CraftTab
-          stash={state.stash}
-          sil={state.sil}
-          lux={state.lux}
-          guards={state.guards}
-          activeParty={state.activeParty}
-          onShowSource={setSourceItem}
-        />
-      )}
-
-      {/* ── Campaign tab ── */}
-      {tab === 'Campaign' && (
-        <CampaignTab
-          campaign={state.campaign}
-          onSetEventToken={game.setEventToken}
-          onResetEventToken={game.resetEventToken}
-          onSetCampaignLocation={game.setCampaignLocation}
-          onAddDynamicLocation={game.addDynamicLocation}
-          onUpdateDynamicLocation={game.updateDynamicLocation}
-          onRemoveDynamicLocation={game.removeDynamicLocation}
-          onAddPlan={game.addPlan}
-          onTogglePlan={game.togglePlan}
-          onDeletePlan={game.deletePlan}
-        />
-      )}
-
-      {/* ── Log tab ── */}
-      {tab === 'Log' && (
-        <div className="card log-card">
-          <div className="flex items-center justify-between mb-2">
-            <div className="card-title">Log</div>
-            <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
-          </div>
-
-          {state.log.length === 0 ? (
-            <div className="log-empty">
-              <div className="log-empty-title">No events yet</div>
-              <div className="log-empty-sub">Actions will appear here as you play</div>
-            </div>
-          ) : (
-            <div className="log-list">
-              {state.log.map((entry) => {
-                const cls = classifyEntry(entry.message);
-                const borderColor =
-                  cls.type === 'guard'  ? `var(--c-guard-${cls.guardKey}-border)` :
-                  cls.type === 'party'  ? 'var(--c-brand)' :
-                                          'var(--c-border2)';
+        {/* ── Guards tab ── */}
+        {tab === 'Guards' && (
+          <>
+            <div className="guard-switcher">
+              {activeParty.map(name => {
+                const guardIdx = state.guards.findIndex(g => g.name === name);
+                const c        = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
+                const isActive = activeIdx === guardIdx;
                 return (
-                  <div
-                    key={entry.id}
-                    className="log-entry"
-                    style={{ '--log-border': borderColor }}
+                  <button
+                    key={name}
+                    className={`guard-switch-btn${isActive ? ' active' : ''}`}
+                    onClick={() => game.setActiveGuard(guardIdx)}
+                    style={isActive ? { '--switch-color': c.border, '--switch-bg': c.bg } : {}}
                   >
-                    <span className="log-time">{entry.time}</span>
-                    <span
-                      className="log-text"
-                      dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
-                    />
-                  </div>
+                    {name}
+                  </button>
                 );
               })}
             </div>
-          )}
-        </div>
-      )}
+
+            {activeGuard && (
+              <div
+                className="guard-card-wrapper"
+                style={{ '--guard-color': activeColor.border }}
+              >
+                <GuardPanel
+                  guard={activeGuard}
+                  guardIdx={activeIdx}
+                  actions={guardActions}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Cities tab ── */}
+        {tab === 'Cities' && (
+          <CitiesTab
+            cities={state.cities}
+            toggleCityQuest={game.toggleCityQuest}
+          />
+        )}
+
+        {/* ── Stash tab ── */}
+        {tab === 'Stash' && (
+          <StashTab
+            sil={state.sil} lux={state.lux}
+            setSil={game.setSil} setLux={game.setLux}
+            stash={state.stash} adjustStash={game.adjustStash}
+            stonebound={state.stonebound}
+            setStoneboundMax={game.setStoneboundMax}
+            addStoneboundLocation={game.addStoneboundLocation}
+            removeStoneboundLocation={game.removeStoneboundLocation}
+            updateStoneboundLocation={game.updateStoneboundLocation}
+            onShowSource={setSourceItem}
+          />
+        )}
+
+        {/* ── Crafting tab ── */}
+        {tab === 'Crafting' && (
+          <CraftTab
+            stash={state.stash}
+            sil={state.sil}
+            lux={state.lux}
+            guards={state.guards}
+            activeParty={state.activeParty}
+            onShowSource={setSourceItem}
+          />
+        )}
+
+        {/* ── Campaign tab ── */}
+        {tab === 'Campaign' && (
+          <CampaignTab
+            campaign={state.campaign}
+            onSetEventToken={game.setEventToken}
+            onResetEventToken={game.resetEventToken}
+            onSetCampaignLocation={game.setCampaignLocation}
+            onAddDynamicLocation={game.addDynamicLocation}
+            onUpdateDynamicLocation={game.updateDynamicLocation}
+            onRemoveDynamicLocation={game.removeDynamicLocation}
+            onAddPlan={game.addPlan}
+            onTogglePlan={game.togglePlan}
+            onDeletePlan={game.deletePlan}
+          />
+        )}
+
+        {/* ── Log tab ── */}
+        {tab === 'Log' && (
+          <div className="card log-card">
+            <div className="flex items-center justify-between mb-2">
+              <div className="card-title">Log</div>
+              <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
+            </div>
+
+            {state.log.length === 0 ? (
+              <div className="log-empty">
+                <div className="log-empty-title">No events yet</div>
+                <div className="log-empty-sub">Actions will appear here as you play</div>
+              </div>
+            ) : (
+              <div className="log-list">
+                {state.log.map((entry) => {
+                  const cls = classifyEntry(entry.message);
+                  const borderColor =
+                    cls.type === 'guard'  ? `var(--c-guard-${cls.guardKey}-border)` :
+                    cls.type === 'party'  ? 'var(--c-brand)' :
+                                            'var(--c-border2)';
+                  return (
+                    <div
+                      key={entry.id}
+                      className="log-entry"
+                      style={{ '--log-border': borderColor }}
+                    >
+                      <span className="log-time">{entry.time}</span>
+                      <span
+                        className="log-text"
+                        dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Settings overlay */}
       {settingsOpen && (
         <SettingsPanel
-          state={settingsState}
+          state={state}
           actions={settingsActions}
+          sync={game.sync}
           guardColorMap={GUARD_COLOR_MAP}
           allGuards={GUARDS}
           onClose={() => setSettingsOpen(false)}
         />
       )}
 
-      {/* Material source popup — rendered at app level to overlay everything */}
+      {/* Material source popup */}
       <MaterialSourcePopup
         item={sourceItem}
         onClose={() => setSourceItem(null)}

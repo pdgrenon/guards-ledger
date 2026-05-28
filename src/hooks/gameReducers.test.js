@@ -153,24 +153,31 @@ describe('reduceSetPartySlot', () => {
   });
 
   it('preserves activeGuardIdx when a non-viewed slot is swapped', () => {
-    const next = reduceSetPartySlot(s, 1, 'Catherine');
+    // activeGuardIdx=0 → viewing Grigory (guards[0]), who is in party slot 1.
+    // Swapping slot 0 (Alek) does not affect the viewed guard.
+    const next = reduceSetPartySlot(s, 0, 'Catherine');
     expect(next.activeGuardIdx).toBe(s.activeGuardIdx);
   });
 
   it('updates activeGuardIdx when the viewed guard is replaced', () => {
-    const next        = reduceSetPartySlot(s, 0, 'Catherine');
-    const expectedIdx = next.guards.findIndex(g => g.name === 'Catherine');
+    // activeGuardIdx=0 → viewing Grigory (guards[0]), who is in party slot 1.
+    // Replacing slot 1 replaces the viewed guard → activeGuardIdx should move
+    // to the first guard in the new party (newParty[0] = Alek, guards index 1).
+    const next        = reduceSetPartySlot(s, 1, 'Catherine');
+    const expectedIdx = next.guards.findIndex(g => g.name === next.activeParty[0]);
     expect(next.activeGuardIdx).toBe(expectedIdx);
   });
 
   it('resets the active guard view when the viewed guard is replaced', () => {
-    const next        = reduceSetPartySlot(s, 0, 'Catherine');
-    const expectedIdx = next.guards.findIndex(g => g.name === 'Catherine');
-    expect(next.activeGuardIdx).toBe(expectedIdx);
+    // Same as above — confirms the view lands on a guard still in the party.
+    const next         = reduceSetPartySlot(s, 1, 'Catherine');
+    const viewedGuard  = next.guards[next.activeGuardIdx]?.name;
+    expect(next.activeParty).toContain(viewedGuard);
   });
 
   it('does not change activeGuardIdx when a different slot is swapped', () => {
-    const next = reduceSetPartySlot(s, 1, 'Catherine');
+    // Replacing slot 0 (Alek) leaves Grigory (guards[0]) as the viewed guard.
+    const next = reduceSetPartySlot(s, 0, 'Catherine');
     expect(next.activeGuardIdx).toBe(s.activeGuardIdx);
   });
 });

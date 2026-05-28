@@ -1,17 +1,87 @@
-export function SettingsPanel({ state, actions, guardColorMap, allGuards, onClose }) {
+import { useState } from 'react';
+
+// ─── Sync status indicator ────────────────────────────────────────────────────
+
+function SyncBadge({ status }) {
+  const config = {
+    idle:    { label: 'Synced',     color: 'var(--c-green)'  },
+    syncing: { label: 'Syncing…',   color: 'var(--c-brand)'  },
+    offline: { label: 'Offline',    color: 'var(--c-text2)'  },
+    error:   { label: 'Sync error', color: 'var(--c-red)'    },
+  }[status] ?? { label: status, color: 'var(--c-text2)' };
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: config.color }}>
+      <span style={{
+        width: 7, height: 7, borderRadius: '50%',
+        background: config.color, flexShrink: 0,
+      }} />
+      {config.label}
+    </span>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, onClose }) {
   const { guards, activeParty = ['Alek', 'Grigory'] } = state;
   const { adjustGuardMaxHp, setStartingBlack, setPartySlot, exportState, importState, resetState } = actions;
+
+  // Multiplayer UI state
+  const [joinCode,    setJoinCode]    = useState('');
+  const [mpWorking,   setMpWorking]   = useState(false); // loading spinner for async actions
+  const [mpError,     setMpError]     = useState(null);
+  const [copied,      setCopied]      = useState(false);
 
   function handleImport(e) {
     const file = e.target.files[0];
     if (file) { importState(file); onClose(); }
   }
 
-  // Only show per-guard settings for the two active party members
   const activeGuards = activeParty.map(name => ({
     guard: guards.find(g => g.name === name),
     gi:    guards.findIndex(g => g.name === name),
   })).filter(({ guard }) => guard != null);
+
+  // ── Multiplayer handlers ────────────────────────────────────────────────
+
+  async function handleCreateCampaign() {
+    setMpWorking(true);
+    setMpError(null);
+    const { error } = await sync.createCampaign();
+    setMpWorking(false);
+    if (error) setMpError(error);
+  }
+
+  async function handleJoinCampaign() {
+    if (!joinCode.trim()) return;
+    setMpWorking(true);
+    setMpError(null);
+    const { error } = await sync.joinCampaign(joinCode);
+    setMpWorking(false);
+    if (error) {
+      setMpError(error);
+    } else {
+      setJoinCode('');
+    }
+  }
+
+  function handleLeaveCampaign() {
+    if (window.confirm('Leave this campaign? Your local data is kept, but you will stop syncing.')) {
+      sync.leaveCampaign();
+    }
+  }
+
+  async function handleCopyCode() {
+    if (!sync.campaignId) return;
+    try {
+      await navigator.clipboard.writeText(sync.campaignId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API not available — silently ignore
+    }
+  }
 
   return (
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -67,7 +137,7 @@ export function SettingsPanel({ state, actions, guardColorMap, allGuards, onClos
 
           <div className="settings-section-divider" />
 
-          {/* ── Per-guard settings — active party only ── */}
+          {/* ── Per-guard settings ── */}
           {activeGuards.map(({ guard, gi }) => {
             const c = guardColorMap?.[guard.name];
             return (
@@ -110,6 +180,121 @@ export function SettingsPanel({ state, actions, guardColorMap, allGuards, onClos
               </div>
             );
           })}
+
+          <div className="settings-section-divider" />
+
+          {/* ── Multiplayer ── */}
+          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-green)' }}>
+            <span className="settings-guard-dot" style={{ background: 'var(--c-green)' }} aria-hidden="true" />
+            Multiplayer
+          </div>
+
+          {!sync.isConfigured ? (
+            <div className="settings-sub" style={{ marginBottom: 12 }}>
+              Multiplayer sync is not configured in this environment.
+            </div>
+          ) : sync.campaignId ? (
+            /* ── Active campaign ── */
+            <>
+              <div className="settings-row" style={{ alignItems: 'flex-start' }}>
+                <div>
+                  <div className="settings-label">Campaign code</div>
+                  <div className="settings-sub">Share this with your co-player to join</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  <span style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                    color: 'var(--c-text)',
+                  }}>
+                    {sync.campaignId}
+                  </span>
+                  <button
+                    className="settings-action-btn"
+                    onClick={handleCopyCode}
+                    style={{ minWidth: 80 }}
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="settings-row">
+                <div className="settings-label">Sync status</div>
+                <SyncBadge status={sync.syncStatus} />
+              </div>
+
+              {sync.syncError && (
+                <div className="settings-sub" style={{ color: 'var(--c-red)', marginBottom: 8 }}>
+                  {sync.syncError}
+                </div>
+              )}
+
+              <div className="settings-row">
+                <div>
+                  <div className="settings-label" style={{ color: 'var(--c-red)' }}>Leave campaign</div>
+                  <div className="settings-sub">Stops syncing. Your local data is kept.</div>
+                </div>
+                <button
+                  className="settings-action-btn settings-action-btn--danger"
+                  onClick={handleLeaveCampaign}
+                  disabled={mpWorking}
+                >
+                  Leave
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ── No active campaign ── */
+            <>
+              <div className="settings-sub" style={{ marginBottom: 12 }}>
+                Create a campaign to get a shareable code, or enter a code from your co-player to join theirs.
+              </div>
+
+              {mpError && (
+                <div className="settings-sub" style={{ color: 'var(--c-red)', marginBottom: 8 }}>
+                  {mpError}
+                </div>
+              )}
+
+              <div className="settings-row">
+                <div className="settings-label">Start new campaign</div>
+                <button
+                  className="settings-action-btn"
+                  onClick={handleCreateCampaign}
+                  disabled={mpWorking}
+                >
+                  {mpWorking ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+
+              <div className="settings-row" style={{ alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div className="settings-label" style={{ marginBottom: 6 }}>Join existing campaign</div>
+                  <input
+                    className="settings-select"
+                    style={{ width: '100%', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                    type="text"
+                    placeholder="Enter code e.g. WOLF42"
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                    onKeyDown={e => { if (e.key === 'Enter') handleJoinCampaign(); }}
+                    maxLength={8}
+                  />
+                </div>
+                <button
+                  className="settings-action-btn"
+                  style={{ alignSelf: 'flex-end' }}
+                  onClick={handleJoinCampaign}
+                  disabled={mpWorking || !joinCode.trim()}
+                >
+                  {mpWorking ? 'Joining…' : 'Join'}
+                </button>
+              </div>
+            </>
+          )}
 
           <div className="settings-section-divider" />
 
