@@ -89,8 +89,11 @@ function saveState(state) {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGameState() {
-  const [state, setRaw] = useState(loadState);
+    const [state, setRaw] = useState(loadState);
     const saveTimer = useRef(null);
+    const upsertTimer = useRef(null);
+    const stateRef = useRef(state);
+    useEffect(() => { stateRef.current = state; }, [state]);
 
     useEffect(() => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -121,13 +124,22 @@ export function useGameState() {
     const sync = useSupabaseSync(state, handleRemoteChange);
     // ── Core setState — persists locally and upserts the changed section ─────
     // sectionName: which Supabase column this change belongs to, or null for local-only.
-    const setState = useCallback((updater, sectionName = null) => {
-      setRaw(prev => {
-        const next = typeof updater === 'function' ? updater(prev) : updater;
-        if (sectionName) sync.upsertSection(sectionName, next);
-        return next;
-      });
-    }, [sync]);
+
+      const pendingUpsert = useRef({ sectionName: null, state: null });
+
+      const setState = useCallback((updater, sectionName = null) => {
+        setRaw(prev => {
+          const next = typeof updater === 'function' ? updater(prev) : updater;
+          return next;
+        });
+        if (sectionName) {
+          pendingUpsert.current = { sectionName, updater };
+          if (upsertTimer.current) clearTimeout(upsertTimer.current);
+          upsertTimer.current = setTimeout(() => {
+            sync.upsertSection(pendingUpsert.current.sectionName, stateRef.current);
+          }, 400);
+        }
+      }, [sync]);
 
   // ── Active guard (UI navigation — local only, no sync) ──────────────────
   const setActiveGuard = useCallback((idx) =>

@@ -107,6 +107,8 @@ export function useSupabaseSync(state, onRemoteChange) {
   const pendingQueue  = useRef(new Map());
   const isOnline      = useRef(navigator.onLine);
   const channelRef    = useRef(null);
+  const sessionId     = useRef(`${Date.now()}-${Math.random()}`);
+  const lastUpsertAt  = useRef(0);
   // Keep a ref to the latest state and campaignId so async callbacks
   // always see current values without stale closure issues.
   const stateRef      = useRef(state);
@@ -131,16 +133,18 @@ export function useSupabaseSync(state, onRemoteChange) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'campaigns', filter: `id=eq.${id}` },
         (payload) => {
-          const row = payload.new;
-          if (!row) return;
-          // Apply each remote section on top of current local state.
-          // Local-only keys (log, settings) are preserved untouched.
-          let merged = stateRef.current;
-          for (const section of Object.keys(SECTION_KEYS)) {
-            merged = applyRemoteSection(merged, section, row[section]);
+            const row = payload.new;
+            if (!row) return;
+            // Ignore echoes of our own upserts (within a 3s window)
+            if (Date.now() - lastUpsertAt.current < 3000) return;
+            // Apply each remote section on top of current local state.
+            // Local-only keys (log, settings) are preserved untouched.
+            let merged = stateRef.current;
+            for (const section of Object.keys(SECTION_KEYS)) {
+              merged = applyRemoteSection(merged, section, row[section]);
+            }
+            onRemoteChange(merged);
           }
-          onRemoteChange(merged);
-        }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED')    setSyncStatus('idle');
@@ -229,12 +233,6 @@ export function useSupabaseSync(state, onRemoteChange) {
     }
     pendingQueue.current.clear();
 
-    setSyncStatus('syncing');
-    const { error } = await supabase
-      .from('campaigns')
-      .update(update)
-      .eq('id', campaignIdRef.current);
-
     setSyncStatus(error ? 'error' : 'idle');
     if (error) setSyncError(error.message);
   }
@@ -254,6 +252,7 @@ export function useSupabaseSync(state, onRemoteChange) {
       return;
     }
 
+    lastUpsertAt.current = Date.now();
     setSyncStatus('syncing');
     const { error } = await supabase
       .from('campaigns')
