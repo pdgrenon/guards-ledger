@@ -1,5 +1,5 @@
 import demoSave from '../data/demoSave.json';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   createInitialState,
   createInitialResources,
@@ -90,33 +90,44 @@ function saveState(state) {
 
 export function useGameState() {
   const [state, setRaw] = useState(loadState);
+    const saveTimer = useRef(null);
 
-  // ── Remote change handler (called by useSupabaseSync on Realtime event) ──
-  // Merges remote state into local, preserving log and settings.
-  const handleRemoteChange = useCallback((remoteState) => {
-    setRaw(prev => {
-      const merged = {
-        ...remoteState,
-        log:      prev.log,      // log is local-only
-        settings: prev.settings, // settings is local-only
-      };
-      saveState(merged);
-      return merged;
-    });
-  }, []);
+    useEffect(() => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        saveState(state);
+      }, 400);
+      return () => clearTimeout(saveTimer.current);
+    }, [state]);
 
-  const sync = useSupabaseSync(state, handleRemoteChange);
+    useEffect(() => {
+      const flush = () => saveState(state);
+      window.addEventListener('beforeunload', flush);
+      return () => window.removeEventListener('beforeunload', flush);
+    }, [state]);
 
-  // ── Core setState — persists locally and upserts the changed section ─────
-  // sectionName: which Supabase column this change belongs to, or null for local-only.
-  const setState = useCallback((updater, sectionName = null) => {
-    setRaw(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      saveState(next);
-      if (sectionName) sync.upsertSection(sectionName, next);
-      return next;
-    });
-  }, [sync]);
+    // ── Remote change handler (called by useSupabaseSync on Realtime event) ──
+    // Merges remote state into local, preserving log and settings.
+    const handleRemoteChange = useCallback((remoteState) => {
+      setRaw(prev => {
+        const merged = {
+          ...remoteState,
+          log:      prev.log,      // log is local-only
+          settings: prev.settings, // settings is local-only
+        };
+        return merged;
+      });
+    }, []);
+    const sync = useSupabaseSync(state, handleRemoteChange);
+    // ── Core setState — persists locally and upserts the changed section ─────
+    // sectionName: which Supabase column this change belongs to, or null for local-only.
+    const setState = useCallback((updater, sectionName = null) => {
+      setRaw(prev => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        if (sectionName) sync.upsertSection(sectionName, next);
+        return next;
+      });
+    }, [sync]);
 
   // ── Active guard (UI navigation — local only, no sync) ──────────────────
   const setActiveGuard = useCallback((idx) =>
