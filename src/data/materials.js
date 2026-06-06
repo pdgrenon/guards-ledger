@@ -9,11 +9,11 @@ export const WEAPONS = [
   'Dangerous Duo', 'Drakonbow', 'Euphonic Edge', 'Falmundian Bow', 'Final Wish',
   "Forteller's Staff", 'Glorious', 'Golden Mallet', 'Golden Scythe', 'Ground Shaker',
   'Guardian Lance', "Hunter's Pride", "Hunter's Spear", 'Jade Sword', 'Lapis Blade',
-  "Magi's Command", 'Ornate Cleavers', 'Partisan', 'Radiance', 'Reckoning Tides',
-  'Relic Glove', 'Revelation', 'Rosewind Staff', 'Ryban Glaive', 'Scaled Dagger',
-  'Silver Bow', 'Silver Flame', 'Silver Hammer', 'Sky Splitter', 'Star Blade',
-  'Swift Gale', 'Sword of Isofar', 'Sword of Truth', "Vanguard's Promise",
-  'Volk Blade', 'Wind Cutters',
+  "Magi's Command", 'Nadya', 'Ornate Cleavers', 'Partisan', 'Radiance', 'Reckoning Tides',
+  'Relic Glove', 'Revelation', 'Rosewind Staff', 'Ryban Glaive', 'Sapphire Staff',
+  'Scaled Dagger', 'Silver Bow', 'Silver Flame', 'Silver Hammer', 'Sky Splitter',
+  'Snow Hunter Bow', 'Star Blade', "Squire's Blade", 'Swift Gale', 'Sword of Isofar',
+  'Sword of Truth', "Vanguard's Promise", 'Volk Blade', 'Wind Cutters',
 ];
 
 export const ARMOR = [
@@ -27,16 +27,23 @@ export const ARMOR = [
 ];
 
 export const ACCESSORIES = [
-  'Aegis Shield', 'Carapace Helmet', 'Chrono Locket', 'Chronos Boots',
-  'Cleansing Amulet', 'Concealing Cloak', 'Feathered Mantle', 'Goat Skull Mask',
-  'Leather Gauntlets', "Nomad's Trap", 'Pendant of Wisdom', 'Power Belt',
-  'Scale Shield', 'Stonebound Talisman', 'Traveling Boots', 'Twilight Guantlet',
-  'Wolf Head Tunic', 'Wolf Tooth Ring',
+  'Adamant Ring', 'Aegis Shield', 'Ancient Gloves', 'Carapace Helmet',
+  'Chrono Locket', 'Chronos Boots', 'Cleansing Amulet', 'Concealing Cloak',
+  'Feathered Mantle', 'Goat Skull Mask', "Karst's Signet", 'Leather Gauntlets',
+  'Mirror Fragment', "Nomad's Trap", 'Obsidian Ring', "Ophelia's Brush",
+  'Pendant of Wisdom', 'Power Belt', 'Ring of Fate', 'Ring of Healing',
+  'Ring of Life', 'Ring of Lux', 'Ring of Power', 'Ring of Shielding',
+  'Scale Shield', 'Seal of Mir', 'Star Fragment Amulet', 'Stonebound Talisman',
+  'Traveling Boots', 'Twilight Guantlet', 'Umbral Ring', 'Wolf Head Tunic', 'Wolf Tooth Ring',
 ];
 
 export const ITEMS = [
-  'Barrier Tonic', 'Bottled Courage', 'Expanded Satchel', 'Invigorating Potion',
-  'Purifying Dust', 'Ruinous Dust', 'Smoke Bomb', 'Tent', "Zoya's Elixir",
+  'Aged Drink', 'Barrier Tonic', 'Bottled Courage', 'Cooked Fish',
+  'Expanded Satchel', 'Invigorating Potion', 'Natural Remedies Volume 1',
+  'Natural Remedies Volume 2', 'Natural Remedies Volume 3', 'Order from Chaos',
+  'Pickaxe', 'Purifying Dust', 'Ruinous Dust', 'Smoke Bomb',
+  'Spicy Stew', 'Tent', 'The Foundations of Telios', 'Wood Chopping Axe',
+  'Zamar', "Zoya's Elixir",
 ];
 
 // ─── MATERIAL CATEGORIES ──────────────────────────────────────────────────────
@@ -69,7 +76,7 @@ export const MATERIAL_CATEGORIES = [
     id: 'fish',
     label: 'Fish & food',
     items: [
-      'Dusk Tuna', 'Emerald Koi', 'Foxtail Carp', 'Amethyst Trout',
+      'Cooked Fish', 'Dusk Tuna', 'Emerald Koi', 'Foxtail Carp', 'Amethyst Trout',
       'Ryba Blue Fins', 'Golden Potato', 'Clayhorn Steak', 'Mir Bread',
     ],
   },
@@ -144,7 +151,6 @@ export const ENEMIES = [
   'Tumani Mender', 'Tumani Raider', 'Volrok', 'Waste Nomad', 'Waste Prowler',
 ];
 
-// WEAPON_STATS and ARMOR_STATS were previously defined here — add them back if needed.
 export const WEAPON_STATS = {
   'Alloy Driver': 2, 'Alloy Hand Axes': 1, 'Alloy Short Sword': 1,
   'Argent Blade': 2, 'Bleeding Heart Dagger': 2, 'Cerulean Pike': 4,
@@ -154,6 +160,11 @@ export const WEAPON_STATS = {
   'Golden Mallet': 3, 'Golden Scythe': 3, 'Ground Shaker': 4,
   'Guardian Lance': 5, "Hunter's Pride": 3, "Hunter's Spear": 1,
   'Jade Sword': 6, 'Lapis Blade': 4, "Magi's Command": 5,
+  // Quest-reward weapons — TODO: replace placeholders with actual stat bonuses from physical cards
+  'Nadya': 1,           // TODO: verify actual stat bonus (Grigory only, ★ rating)
+  'Sapphire Staff': 1,  // TODO: verify actual stat bonus (Yana only, ★ rating)
+  'Snow Hunter Bow': 1, // TODO: verify actual stat bonus (Vera only, ★ rating)
+  "Squire's Blade": 1,  // TODO: verify actual stat bonus (Alek only, ★ rating)
   'Ornate Cleavers': 2, 'Partisan': 2, 'Radiance': 3,
   'Reckoning Tides': 3, 'Relic Glove': 2, 'Revelation': 5,
   'Rosewind Staff': 2, 'Ryban Glaive': 3, 'Scaled Dagger': 2,
@@ -402,6 +413,7 @@ export const MATERIAL_SOURCES = {
   'Rosewind Staff':     { sell: [{ city: 'Razdor', price: 20 }] },
   "Forteller's Staff":  { sell: [{ city: 'Vouno', price: 28 }] },
   // Scaled Dagger, Relic Glove, Bleeding Heart Dagger: sell '-' — no entry
+  // Quest-reward weapons (Nadya, Squire's Blade, Snow Hunter Bow, Sapphire Staff): sell '-' — no entry
   // Ft. Istra weapons (Lapis Blade, Star Blade, Jade Sword, Dangerous Duo, Wind Cutters,
   // Cerulean Pike, Guardian Lance, Drakonbow, Vanguard's Promise, Ground Shaker, Final Wish,
   // Glorious, Revelation, Contorted Staff, Magi's Command, Sword of Isofar): sell '-' — no entry
@@ -420,10 +432,16 @@ export const MATERIAL_SOURCES = {
   'Wolf Tooth Ring':   { sell: [{ city: 'Ryba', price: 4 }, { city: 'Silny', price: 4 }] },
   // Aegis Shield, Chrono Locket, Chronos Boots, Cleansing Amulet, Pendant of Wisdom,
   // Power Belt, Stonebound Talisman, Twilight Guantlet: sell '-' — no entry
+  // Quest/Ft. Istra accessories (Adamant Ring, Ancient Gloves, Umbral Ring, Ring of Shielding,
+  // Ring of Healing, Ring of Power, Ring of Fate, Ring of Lux, Star Fragment Amulet,
+  // Obsidian Ring, Mirror Fragment, Ring of Life, Ophelia's Brush, Karst's Signet,
+  // Seal of Mir): sell data unknown — no entry
 
   // ── Items ─────────────────────────────────────────────────────────────────────
   'Smoke Bomb': { sell: [{ city: 'Strofa', price: 5 }, { city: 'Silny', price: 4 }] },
   // Barrier Tonic, Bottled Courage, Invigorating Potion, Zoya's Elixir,
   // Purifying Dust, Ruinous Dust, Expanded Satchel: sell '-' — no entry
   // Tent already handled above in Market & misc
+  // Quest/Ft. Istra items (Aged Drink, Spicy Stew, Cooked Fish, Natural Remedies Vol 1-3,
+  // Zamar, The Foundations of Telios, Order from Chaos, Wood Chopping Axe, Pickaxe): sell data unknown — no entry
 };
