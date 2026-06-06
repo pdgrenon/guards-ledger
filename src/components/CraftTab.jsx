@@ -1,7 +1,10 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo } from 'react';
-import { RECIPES, craftStatus, shortageCount, minCraftCost } from '../data/recipes';
+import { RECIPES, craftStatus, shortageCount, minCraftCost, craftCostForCity, availableInCity, craftCities } from '../data/recipes';
 import { MATERIAL_SOURCES } from '../data/materials';
+import { cityPrestige } from '../hooks/gameReducers';
+
+const CITY_NAMES = ['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno'];
 
 function buildCombined(stash, activeGuards) {
   const combined = { ...stash };
@@ -21,9 +24,13 @@ function starsLabel(n) {
   return '★'.repeat(n);
 }
 
-function formatCost(recipe) {
+function formatCost(recipe, selectedCity) {
   if (recipe.luxCost) return `${recipe.luxCost} lux`;
   if (recipe.craftCost === null) return null;
+  if (selectedCity) {
+    const cost = craftCostForCity(recipe, selectedCity);
+    return cost !== null ? `${cost} sil` : null;
+  }
   if (typeof recipe.craftCost === 'number') return `${recipe.craftCost} sil`;
   const entries = Object.entries(recipe.craftCost);
   if (entries.length === 1) return `${entries[0][1]} sil`;
@@ -32,7 +39,8 @@ function formatCost(recipe) {
   return min === max ? `${min} sil` : `${min}–${max} sil`;
 }
 
-function formatCityBreakdown(recipe) {
+function formatCityBreakdown(recipe, selectedCity) {
+  if (selectedCity) return selectedCity;
   if (!recipe.craftCost || typeof recipe.craftCost === 'number') return recipe.city;
   if (recipe.luxCost) return recipe.city;
   const entries = Object.entries(recipe.craftCost);
@@ -59,10 +67,11 @@ function StatusBadge({ status }) {
   return <span className="craft-status-badge craft-status-missing">Missing</span>;
 }
 
-function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource }) {
-  const status = craftStatus(recipe, combined, sil, lux);
-  const cost = formatCost(recipe);
-  const cityLine = formatCityBreakdown(recipe);
+function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource, selectedCity, cityPrestigeLevel }) {
+  const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
+  const status = craftStatus(recipe, combined, sil, lux, selectedCity, cityPrestigeLevel);
+  const cost = formatCost(recipe, selectedCity);
+  const cityLine = formatCityBreakdown(recipe, selectedCity);
 
   const isPartyRestricted = recipe.limitedTo.length > 0 &&
     !recipe.limitedTo.some(g => activePartyNames.includes(g));
@@ -138,9 +147,11 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
       {recipe.materials.length > 0 && (
         <div className="craft-materials">
           {recipe.materials.map((mat, i) => {
+            const effectiveQty = (useDiscount && mat.qty2R !== null) ? mat.qty2R : mat.qty;
             const have = combined[mat.name] ?? 0;
-            const ok = have >= mat.qty;
+            const ok = have >= effectiveQty;
             const hasSource = !!MATERIAL_SOURCES[mat.name];
+            const showDiscount = useDiscount && mat.qty2R !== null && mat.qty2R < mat.qty;
             return (
               <div key={i} className="craft-mat-row">
                 {hasSource ? (
@@ -163,7 +174,10 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
                   </span>
                 )}
                 <span className={`craft-mat-qty ${ok ? 'craft-mat-qty--have' : 'craft-mat-qty--short'}`}>
-                  {have} / {mat.qty}
+                  {have} / {showDiscount
+                    ? <><s className="craft-mat-qty-original">{mat.qty}</s> {mat.qty2R}</>
+                    : effectiveQty
+                  }
                 </span>
               </div>
             );
@@ -180,6 +194,9 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
         </svg>
         <span className="craft-city-text">{cityLine}</span>
         {cost && <span className="craft-cost-badge">{cost}</span>}
+        {useDiscount && (
+          <span className="craft-discount-badge" title="Prestige 2+ discount active">2★</span>
+        )}
       </div>
     </div>
   );
@@ -187,11 +204,12 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowSource }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
+  const [selectedCity, setSelectedCity] = useState(null);
 
   const activePartyNames = activeParty ?? [];
 
@@ -202,12 +220,25 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
     [stash, guards, activePartyNames.join(',')]
   );
 
+  // Build prestige map from cities prop
+  const prestigeMap = useMemo(() => {
+    const map = {};
+    for (const city of (cities ?? [])) {
+      map[city.name] = cityPrestige(city);
+    }
+    return map;
+  }, [cities]);
+
+  const cityPrestigeLevel = selectedCity ? (prestigeMap[selectedCity] ?? 0) : 0;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return RECIPES.filter(r => {
       if (typeFilter !== 'All' && r.type !== typeFilter) return false;
       if (minStars > 0 && r.stars < minStars) return false;
-      if (canCraftOnly && craftStatus(r, combined, sil, lux) !== 'ready') return false;
+      // City filter: hide recipes not available in selected city
+      if (selectedCity && !availableInCity(r, selectedCity)) return false;
+      if (canCraftOnly && craftStatus(r, combined, sil, lux, selectedCity, cityPrestigeLevel) !== 'ready') return false;
       if (r.limitedTo.length > 0 && !r.limitedTo.some(g => activePartyNames.includes(g))) return false;
       if (q) {
         const nameMatch = r.name.toLowerCase().includes(q);
@@ -218,7 +249,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
       }
       return true;
     });
-  }, [search, typeFilter, minStars, canCraftOnly, combined, sil, lux, activePartyNames]);
+  }, [search, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames]);
 
   const typeOrder = ['Weapon', 'Armor', 'Accessory', 'Item'];
   const grouped = typeOrder
@@ -266,6 +297,27 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
             </svg>
           </div>
 
+          <div className="craft-type-wrap">
+            <select
+              className="craft-type-select"
+              value={selectedCity ?? ''}
+              onChange={e => setSelectedCity(e.target.value || null)}
+              aria-label="Filter by city"
+            >
+              <option value="">All cities</option>
+              {CITY_NAMES.map(c => (
+                <option key={c} value={c}>
+                  {c}{prestigeMap[c] >= 2 ? ' ✦' : ''}
+                </option>
+              ))}
+            </select>
+            <svg className="craft-select-chevron" width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div className="craft-filter-row">
           <div className="craft-star-pills" role="group" aria-label="Minimum star tier">
             {STAR_LABELS.map((label, i) => {
               const isSelected = minStars === i;
@@ -329,6 +381,8 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, onShowSource })
                 lux={lux}
                 activePartyNames={activePartyNames}
                 onShowSource={onShowSource}
+                selectedCity={selectedCity}
+                cityPrestigeLevel={cityPrestigeLevel}
               />
             ))}
           </div>

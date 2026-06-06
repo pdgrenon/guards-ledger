@@ -19,7 +19,9 @@
 //   prereq      string | null   item that must be equipped first
 //   itemReq     string | null   special ingredient required (apothecary items)
 //   limitedTo   string[]        guard names; empty = available to all
-//   materials   Array<{ name, qty, isSpeakingStone }>
+//   materials   Array<{ name, qty, qty2R, isSpeakingStone }>
+//               qty2R — reduced quantity at prestige 2+ in a qualifying city;
+//               null means no discount applies (Ft. Istra, speaking-stone items, etc.)
 
 export const RECIPES = [
   // ── ARMOR ────────────────────────────────────────────────────────────────
@@ -28,8 +30,8 @@ export const RECIPES = [
     statBonus: '0⛊', bonusChip: null, effect: null,
     craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
@@ -37,9 +39,9 @@ export const RECIPES = [
     statBonus: '2⛊', bonusChip: '⛊⛊', effect: null,
     craftCost: 25, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Bone Frag.', qty: 4, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Spines', qty: 4, isSpeakingStone: false },
+      { name: 'Bone Frag.', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Spines', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
@@ -48,9 +50,9 @@ export const RECIPES = [
     craftCost: { Razdor: 20, Silny: 20, Ryba: 15 }, luxCost: null,
     prereq: "Guard's Tunic", itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 4, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -59,7 +61,7 @@ export const RECIPES = [
     craftCost: { Strofa: 35, Silny: 30 }, luxCost: null,
     prereq: 'Reinforced Tunic', itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Bear Pelt', qty: 2, isSpeakingStone: false },
+      { name: 'Bear Pelt', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -68,9 +70,9 @@ export const RECIPES = [
     craftCost: { Mir: 36, Ryba: 48 }, luxCost: null,
     prereq: 'Reinforced Tunic', itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Claw', qty: 2, isSpeakingStone: false },
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Claw', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Horn', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -78,10 +80,10 @@ export const RECIPES = [
     statBonus: '2⛊', bonusChip: '❤︎', effect: null,
     craftCost: 56, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Spines', qty: 2, isSpeakingStone: false },
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Spines', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Scales', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -89,8 +91,8 @@ export const RECIPES = [
     statBonus: '1⛊', bonusChip: 'Evade', effect: null,
     craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Claw', qty: 4, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Claw', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
@@ -98,9 +100,9 @@ export const RECIPES = [
     statBonus: '3⛊', bonusChip: null, effect: null,
     craftCost: 56, luxCost: null, prereq: 'Horned Cuirass', itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Animal Hide', qty: 2, isSpeakingStone: false },
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Gold', qty: 2, isSpeakingStone: false },
+      { name: 'Animal Hide', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Scales', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Gold', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -108,19 +110,19 @@ export const RECIPES = [
     statBonus: '4⛊', bonusChip: '🗡️⛊', effect: null,
     craftCost: 80, luxCost: null, prereq: "Guard's Tunic", itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 2, isSpeakingStone: false },
-      { name: 'Agate', qty: 2, isSpeakingStone: false },
-      { name: 'Crystal', qty: 2, isSpeakingStone: false },
+      { name: 'Tenebris Shards', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Agate', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Crystal', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Raiding Armor', type: 'Armor', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
+    name: 'Raiding Armor', type: 'Armor', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
     statBonus: '4⛊', bonusChip: null, effect: null,
     craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Scales', qty: 4, isSpeakingStone: false },
-      { name: 'Carapace', qty: 2, isSpeakingStone: false },
-      { name: 'Diamond', qty: 2, isSpeakingStone: false },
+      { name: 'Scales', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Carapace', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 2, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -128,9 +130,9 @@ export const RECIPES = [
     statBonus: '6⛊', bonusChip: null, effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Bone Frag.', qty: 8, isSpeakingStone: false },
-      { name: 'Horn', qty: 8, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
+      { name: 'Bone Frag.', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Horn', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -139,10 +141,10 @@ export const RECIPES = [
     craftCost: 60, luxCost: null, prereq: null, itemReq: null,
     limitedTo: ['Grigory', 'Kharzin', 'Pavel'],
     materials: [
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Claw', qty: 4, isSpeakingStone: false },
-      { name: 'Bear Pelt', qty: 2, isSpeakingStone: false },
-      { name: 'Scales', qty: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Claw', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Bear Pelt', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Scales', qty: 1, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -150,9 +152,9 @@ export const RECIPES = [
     statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Grigory'],
     materials: [
-      { name: 'Scales', qty: 4, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Black Diamond', qty: 2, isSpeakingStone: true },
+      { name: 'Scales', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Black Diamond', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -160,9 +162,9 @@ export const RECIPES = [
     statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Kharzin'],
     materials: [
-      { name: 'Animal Hide', qty: 4, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Onyx', qty: 1, isSpeakingStone: true },
+      { name: 'Animal Hide', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Onyx', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -170,9 +172,9 @@ export const RECIPES = [
     statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Pavel'],
     materials: [
-      { name: 'Animal Hide', qty: 2, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
+      { name: 'Animal Hide', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -181,10 +183,10 @@ export const RECIPES = [
     craftCost: 42, luxCost: null, prereq: null, itemReq: null,
     limitedTo: ['Alek', 'Yury'],
     materials: [
-      { name: 'Bone Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
-      { name: 'Crystal', qty: 2, isSpeakingStone: false },
+      { name: 'Bone Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Crystal', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -193,9 +195,9 @@ export const RECIPES = [
     craftCost: 68, luxCost: null, prereq: null, itemReq: null,
     limitedTo: ['Alek', 'Yury'],
     materials: [
-      { name: 'Feathers', qty: 4, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 2, isSpeakingStone: false },
+      { name: 'Feathers', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Crystal', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -203,9 +205,9 @@ export const RECIPES = [
     statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Alek'],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 3, isSpeakingStone: true },
+      { name: 'Rough Leather', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 3, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -213,9 +215,9 @@ export const RECIPES = [
     statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Yury'],
     materials: [
-      { name: 'Animal Hide', qty: 2, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Lapis Lazuli', qty: 2, isSpeakingStone: true },
+      { name: 'Animal Hide', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Lapis Lazuli', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -224,10 +226,10 @@ export const RECIPES = [
     craftCost: 42, luxCost: null, prereq: null, itemReq: null,
     limitedTo: ['Catherine', 'Vera', 'Yana'],
     materials: [
-      { name: 'Bone Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
-      { name: 'Crystal', qty: 2, isSpeakingStone: false },
+      { name: 'Bone Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Crystal', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -236,63 +238,60 @@ export const RECIPES = [
     craftCost: 65, luxCost: null, prereq: 'Reinforced Tunic', itemReq: null,
     limitedTo: ['Catherine', 'Vera', 'Yana'],
     materials: [
-      { name: 'Wolf Pelt', qty: 2, isSpeakingStone: false },
-      { name: 'Animal Hide', qty: 2, isSpeakingStone: false },
-      { name: 'Bear Pelt', qty: 2, isSpeakingStone: false },
+      { name: 'Wolf Pelt', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Animal Hide', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Bear Pelt', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Red Scale Armor', type: 'Armor', city: 'Ft. Istra (The Misty Forge)', isFtIstra: true, stars: 5,
-    statBonus: '3⛊', bonusChip: '❤︎', effect: null,
-    craftCost: 85, luxCost: null, prereq: null, itemReq: 'Falmundian Rosehips x2',
-    limitedTo: ['Catherine', 'Vera', 'Yana'],
+    name: 'Red Scale Armor', type: 'Armor', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
+    statBonus: '3⛊', bonusChip: '🗡️⛊', effect: null,
+    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Catherine'],
     materials: [
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Crystal', qty: 4, isSpeakingStone: false },
+      { name: 'Scales', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 4, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
     name: 'Drakondor Armor', type: 'Armor', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '2⛊', bonusChip: 'Evade', effect: null,
-    craftCost: 68, luxCost: null, prereq: null, itemReq: null,
-    limitedTo: ['Catherine', 'Vera', 'Yana'],
+    statBonus: '4⛊', bonusChip: 'Evade', effect: null,
+    craftCost: 80, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Catherine'],
     materials: [
-      { name: 'Feathers', qty: 4, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Claw', qty: 4, isSpeakingStone: false },
-      { name: 'Carapace', qty: 2, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
+      { name: 'Feathers', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Claw', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Carapace', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Wanderer of the Fields', type: 'Armor', city: 'Mir', isFtIstra: false, stars: 4,
-    statBonus: '3⛊', bonusChip: '🗡️⛊', effect: null,
-    craftCost: 77, luxCost: null, prereq: 'Reinforced Tunic', itemReq: null,
-    limitedTo: ['Catherine', 'Vera', 'Yana'],
+    name: 'Wanderer of the Fields', type: 'Armor', city: 'Vouno', isFtIstra: false, stars: 4,
+    statBonus: '3⛊', bonusChip: 'Evade', effect: null,
+    craftCost: 80, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Vera'],
     materials: [
-      { name: 'Carapace', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 2, isSpeakingStone: false },
+      { name: 'Carapace', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Crystal', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
     name: "Scholar's Tunic", type: 'Armor', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5⛊', bonusChip: '1 AP', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: 'Coastal Bluecaps x4',
-    limitedTo: ['Catherine'],
+    statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Alek'],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Topaz', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Crimson Vest', type: 'Armor', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
     statBonus: '5⛊', bonusChip: '🗡️⛊', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Vera'],
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Catherine'],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Star Fragment', qty: 1, isSpeakingStone: true },
+      { name: 'Rough Leather', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Star Fragment', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -300,10 +299,10 @@ export const RECIPES = [
     statBonus: '5⛊', bonusChip: '❤︎', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Yana'],
     materials: [
-      { name: 'Wolf Pelt', qty: 4, isSpeakingStone: false },
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-      { name: 'Aventurine', qty: 1, isSpeakingStone: true },
+      { name: 'Wolf Pelt', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Aventurine', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
 
@@ -313,426 +312,432 @@ export const RECIPES = [
     statBonus: '1👊', bonusChip: null, effect: null,
     craftCost: 12, luxCost: null, prereq: 'Iron Short Sword', itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Pine', qty: 2, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Pine', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Scaled Dagger', type: 'Weapon', city: "Ft. Istra (The Brothers' Anvil)", isFtIstra: true, stars: 5,
-    statBonus: '2👊', bonusChip: 'Poison', effect: null,
-    craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    name: 'Scaled Dagger', type: 'Weapon', city: 'Ryba', isFtIstra: false, stars: 2,
+    statBonus: '2👊', bonusChip: null, effect: null,
+    craftCost: 20, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Scales', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 2, isSpeakingStone: false },
+      { name: 'Scales', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Gold', qty: 2, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
     name: 'Relic Glove', type: 'Weapon', city: "Ft. Istra (The Brothers' Anvil)", isFtIstra: true, stars: 5,
-    statBonus: '2👊', bonusChip: 'Stun', effect: null,
-    craftCost: 55, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
-    materials: [
-      { name: 'Silver', qty: 8, isSpeakingStone: false },
-      { name: 'Crystal', qty: 4, isSpeakingStone: false },
-      { name: 'Aquamarine', qty: 1, isSpeakingStone: true },
-    ],
-  },
-  {
-    name: 'Bleeding Heart Dagger', type: 'Weapon', city: "Ft. Istra (The Brothers' Anvil)", isFtIstra: true, stars: 5,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 70, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
-    materials: [
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 2, isSpeakingStone: false },
-      { name: 'Garnet', qty: 2, isSpeakingStone: true },
-    ],
-  },
-  {
-    name: 'Volk Blade', type: 'Weapon', city: 'Razdor, Silny', isFtIstra: false, stars: 2,
-    statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 15, luxCost: null, prereq: "Captain's Blade", itemReq: null, limitedTo: ['Grigory'],
-    materials: [
-      { name: 'Pine', qty: 4, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Argent Blade', type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Grigory'],
-    materials: [
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Radiance', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 4,
     statBonus: '3👊', bonusChip: null, effect: null,
-    craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Grigory'],
+    craftCost: 50, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Carapace', qty: 4, isSpeakingStone: false },
-      { name: 'Dogwood', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
+      { name: 'Silver', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Aquamarine', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
-    name: 'Lapis Blade', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
-    statBonus: '4👊', bonusChip: '❤︎', effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Grigory'],
+    name: 'Bleeding Heart Dagger', type: 'Weapon', city: 'Ryba', isFtIstra: false, stars: 3,
+    statBonus: '2👊', bonusChip: '❤︎', effect: null,
+    craftCost: 32, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 8, isSpeakingStone: false },
-      { name: 'Lapis Lazuli', qty: 2, isSpeakingStone: true },
+      { name: 'Scales', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Garnet', qty: 2, qty2R: null, isSpeakingStone: true },
+    ],
+  },
+  {
+    name: 'Volk Blade', type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 1,
+    statBonus: '1👊', bonusChip: null, effect: null,
+    craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Pine', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Argent Blade', type: 'Weapon', city: 'Mir, Ryba', isFtIstra: false, stars: 2,
+    statBonus: '2👊', bonusChip: null, effect: null,
+    craftCost: { Mir: 18, Ryba: 22 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Radiance', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Carapace', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Dogwood', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: 2, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Lapis Blade', type: 'Weapon', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
+    statBonus: '4👊', bonusChip: null, effect: null,
+    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Lapis Lazuli', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Sword of Isofar', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: '🗡️⛊', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Grigory'],
-    materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 8, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Golden Scythe', type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
-    craftCost: 46, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Alek'],
-    materials: [
-      { name: 'Autumn Blaze', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 2, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Silver Flame', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 36, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Alek'],
-    materials: [
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Autumn Blaze', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Swift Gale', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '3👊', bonusChip: null, effect: null,
-    craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Alek'],
-    materials: [
-      { name: 'Carapace', qty: 2, isSpeakingStone: false },
-      { name: 'Dogwood', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Star Blade', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
     statBonus: '5👊', bonusChip: null, effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Alek'],
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 8, isSpeakingStone: false },
-      { name: 'Star Fragment', qty: 1, isSpeakingStone: true },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Topaz', qty: 2, qty2R: null, isSpeakingStone: true },
+    ],
+  },
+  {
+    name: 'Golden Scythe', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 3,
+    statBonus: '2👊', bonusChip: null, effect: null,
+    craftCost: 45, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Autumn Blaze', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Agate', qty: 2, qty2R: 1, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Silver Flame', type: 'Weapon', city: 'Razdor, Silny', isFtIstra: false, stars: 3,
+    statBonus: '2👊', bonusChip: '❤︎', effect: null,
+    craftCost: { Razdor: 42, Silny: 36 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Autumn Blaze', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Swift Gale', type: 'Weapon', city: 'Silny', isFtIstra: false, stars: 3,
+    statBonus: '2👊', bonusChip: 'Evade', effect: null,
+    craftCost: 45, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Carapace', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Dogwood', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: 2, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Star Blade', type: 'Weapon', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
+    statBonus: '4👊', bonusChip: '🗡️⛊', effect: null,
+    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Star Fragment', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Jade Sword', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '6👊', bonusChip: null, effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Alek'],
+    statBonus: '5👊', bonusChip: 'Evade', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Peridot', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
-    name: 'Sword of Truth', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 2,
-    statBonus: '1👊', bonusChip: '🗡️🗡️', effect: null,
-    craftCost: 30, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Catherine'],
-    materials: [
-      { name: 'Metal Frag.', qty: 3, isSpeakingStone: false },
-      { name: 'Rosewood', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 4, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Euphonic Edge', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 36, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Catherine'],
-    materials: [
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 2, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Sky Splitter', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 4,
+    name: 'Sword of Truth', type: 'Weapon', city: 'Silny, Strofa', isFtIstra: false, stars: 3,
     statBonus: '3👊', bonusChip: null, effect: null,
-    craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Catherine'],
+    craftCost: { Strofa: 52, Silny: 44 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Carapace', qty: 3, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 3, qty2R: 2, isSpeakingStone: false },
+      { name: 'Rosewood', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Glorious', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
-    statBonus: '4👊', bonusChip: '⛊⛊', effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Catherine'],
+    name: 'Euphonic Edge', type: 'Weapon', city: 'Silny, Strofa', isFtIstra: false, stars: 3,
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: { Strofa: 52, Silny: 44 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 8, isSpeakingStone: false },
-      { name: 'Star Quartz', qty: 2, isSpeakingStone: true },
+      { name: 'Scales', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 2, qty2R: 1, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Sky Splitter', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
+    statBonus: '4👊', bonusChip: null, effect: null,
+    craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Carapace', qty: 3, qty2R: 2, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: 2, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Glorious', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
+    statBonus: '5👊', bonusChip: null, effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Star Quartz', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Revelation', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: 'Poison', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Catherine'],
+    statBonus: '6👊', bonusChip: null, effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 8, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Gold', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Coral', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
-    name: 'Alloy Hand Axes', type: 'Weapon', city: 'Ryba', isFtIstra: false, stars: 2,
-    statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 12, luxCost: null, prereq: 'Iron Hand Axes', itemReq: null, limitedTo: ['Yury'],
-    materials: [
-      { name: 'Ash', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
-    ],
-  },
-  {
-    name: 'Ornate Cleavers', type: 'Weapon', city: 'Silny', isFtIstra: false, stars: 3,
+    name: 'Alloy Hand Axes', type: 'Weapon', city: 'Razdor, Silny', isFtIstra: false, stars: 2,
     statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 34, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Yury'],
+    craftCost: { Razdor: 18, Silny: 15 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Autumn Blaze', qty: 4, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Ash', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Reckoning Tides', type: 'Weapon', city: 'Ryba', isFtIstra: false, stars: 4,
-    statBonus: '3👊', bonusChip: '❤︎', effect: null,
-    craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Yury'],
+    name: 'Ornate Cleavers', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 3,
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 2, isSpeakingStone: false },
-      { name: 'Dogwood', qty: 2, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
+      { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Autumn Blaze', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Dangerous Duo', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
-    statBonus: '4👊', bonusChip: '🗡️🗡️', effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Yury'],
+    name: 'Reckoning Tides', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
+    statBonus: '4👊', bonusChip: '⛊⛊', effect: null,
+    craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Ancient Oak', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
-      { name: 'Carnelian', qty: 2, isSpeakingStone: true },
+      { name: 'Tenebris Shards', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Dogwood', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: 2, isSpeakingStone: false },
+    ],
+  },
+  {
+    name: 'Dangerous Duo', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
+    statBonus: '5👊', bonusChip: '⛊⛊', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
+    materials: [
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Ancient Oak', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Carnelian', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Wind Cutters', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: '1 AP', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Yury'],
+    statBonus: '5👊', bonusChip: 'Evade', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Ancient Oak', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Ancient Oak', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Aventurine', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
-    name: "Hunter's Spear", type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 2,
-    statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 20, luxCost: null, prereq: "Guard's Spear", itemReq: null, limitedTo: ['Kharzin'],
+    name: "Hunter's Spear", type: 'Weapon', city: 'Mir, Silny', isFtIstra: false, stars: 2,
+    statBonus: '2👊', bonusChip: null, effect: null,
+    craftCost: { Mir: 14, Silny: 18 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Pine', qty: 4, isSpeakingStone: false },
-      { name: 'Iron', qty: 4, isSpeakingStone: false },
+      { name: 'Pine', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Iron', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
     name: 'Partisan', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 44, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Kharzin'],
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 44, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Ash', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Ash', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Ryban Glaive', type: 'Weapon', city: 'Ryba', isFtIstra: false, stars: 4,
-    statBonus: '3👊', bonusChip: '🗡️🗡️', effect: null,
-    craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Kharzin'],
+    name: 'Ryban Glaive', type: 'Weapon', city: 'Ryba', isFtIstra: false, stars: 3,
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Carapace', qty: 2, isSpeakingStone: false },
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Cedar', qty: 2, isSpeakingStone: false },
-      { name: 'Agate', qty: 2, isSpeakingStone: false },
+      { name: 'Carapace', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Tenebris Shards', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Cedar', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Agate', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Cerulean Pike', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
-    statBonus: '4👊', bonusChip: '❤︎', effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Kharzin'],
+    name: 'Cerulean Pike', type: 'Weapon', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
+    statBonus: '4👊', bonusChip: null, effect: null,
+    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 4, isSpeakingStone: false },
-      { name: 'Lapis Lazuli', qty: 2, isSpeakingStone: true },
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Lapis Lazuli', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Guardian Lance', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
     statBonus: '5👊', bonusChip: '⛊⛊', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Kharzin'],
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
-      { name: 'Star Quartz', qty: 4, isSpeakingStone: true },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Star Quartz', qty: 4, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
-    name: 'Falmundian Bow', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 2,
+    name: 'Falmundian Bow', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 1,
     statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 12, luxCost: null, prereq: 'Long Bow', itemReq: null, limitedTo: ['Vera'],
+    craftCost: 12, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Ash', qty: 4, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
+      { name: 'Ash', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
     name: 'Silver Bow', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Vera'],
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Autumn Blaze', qty: 2, isSpeakingStone: false },
-      { name: 'Dogwood', qty: 1, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
+      { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Autumn Blaze', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Dogwood', qty: 1, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
-    name: "Hunter's Pride", type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 4,
-    statBonus: '3👊', bonusChip: '🗡️🗡️', effect: null,
-    craftCost: 56, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Vera'],
+    name: "Hunter's Pride", type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
+    statBonus: '4👊', bonusChip: null, effect: null,
+    craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Scales', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 2, isSpeakingStone: false },
+      { name: 'Scales', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Agate', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Drakonbow', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
+    name: 'Drakonbow', type: 'Weapon', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
     statBonus: '4👊', bonusChip: 'Evade', effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Vera'],
+    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 2, isSpeakingStone: false },
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: "Vanguard's Promise", type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: '1 AP', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Vera'],
+    statBonus: '5👊', bonusChip: '❤︎', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
-      { name: 'Black Diamond', qty: 3, isSpeakingStone: true },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Black Diamond', qty: 3, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Silver Hammer', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 2,
-    statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 18, luxCost: null, prereq: 'Iron Hammer', itemReq: null, limitedTo: ['Pavel'],
+    statBonus: '2👊', bonusChip: null, effect: null,
+    craftCost: 24, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rosewood', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
+      { name: 'Rosewood', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
     name: 'Alloy Driver', type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 34, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Pavel'],
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 34, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Horn', qty: 2, isSpeakingStone: false },
-      { name: 'Autumn Blaze', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
+      { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Autumn Blaze', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
     name: 'Golden Mallet', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 4,
-    statBonus: '3👊', bonusChip: null, effect: null,
-    craftCost: 60, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Pavel'],
+    statBonus: '4👊', bonusChip: null, effect: null,
+    craftCost: 60, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Carapace', qty: 2, isSpeakingStone: false },
-      { name: 'Dogwood', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 2, isSpeakingStone: false },
+      { name: 'Carapace', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Dogwood', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Agate', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
-    name: 'Ground Shaker', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
-    statBonus: '4👊', bonusChip: null, effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Pavel'],
+    name: 'Ground Shaker', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
+    statBonus: '5👊', bonusChip: '⛊⛊', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 8, isSpeakingStone: false },
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Final Wish', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: '🗡️⛊', effect: null,
-    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Pavel'],
+    statBonus: '5👊', bonusChip: '❤︎', effect: null,
+    craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Ancient Oak', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 8, isSpeakingStone: false },
+      { name: 'Ancient Oak', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Gold', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Topaz', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Cerulean Staff', type: 'Weapon', city: 'Silny', isFtIstra: false, stars: 2,
-    statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 20, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Yana'],
+    statBonus: '2👊', bonusChip: null, effect: null,
+    craftCost: 20, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Pine', qty: 4, isSpeakingStone: false },
-      { name: 'Aquamarine', qty: 1, isSpeakingStone: true },
+      { name: 'Pine', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Aquamarine', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Rosewind Staff', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Yana'],
+    statBonus: '3👊', bonusChip: null, effect: null,
+    craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Scales', qty: 4, isSpeakingStone: false },
-      { name: 'Autumn Blaze', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
-      { name: 'Jade', qty: 1, isSpeakingStone: true },
+      { name: 'Scales', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Autumn Blaze', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Jade', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: "Forteller's Staff", type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '3👊', bonusChip: '🗡️🗡️', effect: null,
-    craftCost: 56, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Yana'],
+    statBonus: '4👊', bonusChip: null, effect: null,
+    craftCost: 56, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Dogwood', qty: 4, isSpeakingStone: false },
-      { name: 'Garnet', qty: 1, isSpeakingStone: true },
+      { name: 'Tenebris Shards', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Dogwood', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Garnet', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
-    name: 'Contorted Staff', type: 'Weapon', city: 'Ft. Istra (Blacksmith)', isFtIstra: true, stars: 5,
+    name: 'Contorted Staff', type: 'Weapon', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
     statBonus: '4👊', bonusChip: '❤︎', effect: null,
-    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: ['Yana'],
+    craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Tenebris Shards', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 8, isSpeakingStone: false },
-      { name: 'Black Diamond', qty: 2, isSpeakingStone: true },
+      { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Black Diamond', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -740,9 +745,9 @@ export const RECIPES = [
     statBonus: '5👊', bonusChip: '1 AP', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: ['Yana'],
     materials: [
-      { name: 'Tenebris Skull', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 8, isSpeakingStone: false },
-      { name: 'Carnelian', qty: 2, isSpeakingStone: true },
+      { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 8, qty2R: null, isSpeakingStone: false },
+      { name: 'Carnelian', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
 
@@ -753,9 +758,9 @@ export const RECIPES = [
     effect: 'Each time a ⛊⛊ is drawn by this Guard, add ⛊+1 to bag.',
     craftCost: 50, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Cedar', qty: 2, isSpeakingStone: false },
-      { name: 'Ancient Oak', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
+      { name: 'Cedar', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Ancient Oak', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -764,8 +769,8 @@ export const RECIPES = [
     effect: 'Immune to red stun, and AP may not be exhausted by enemies.',
     craftCost: 28, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Carapace', qty: 1, isSpeakingStone: false },
-      { name: 'Agate', qty: 2, isSpeakingStone: false },
+      { name: 'Carapace', qty: 1, qty2R: 1, isSpeakingStone: false },
+      { name: 'Agate', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -774,9 +779,9 @@ export const RECIPES = [
     effect: 'Look through AI draw deck of 1 enemy, and choose 1 card to place on top.',
     craftCost: 85, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
-      { name: 'Ancient Roots', qty: 2, isSpeakingStone: true },
+      { name: 'Metal Frag.', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Ancient Roots', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -785,8 +790,8 @@ export const RECIPES = [
     effect: 'Each time a 🗡️⛊ chip is drawn, gain Evade.',
     craftCost: 55, luxCost: null, prereq: 'Traveling Boots', itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Animal Hide', qty: 4, isSpeakingStone: false },
-      { name: 'Jade', qty: 2, isSpeakingStone: true },
+      { name: 'Animal Hide', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Jade', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -795,8 +800,8 @@ export const RECIPES = [
     effect: 'Remove 1 Green AP from this Guard to remove 1 negative chip from both bags.',
     craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
-      { name: 'Jade', qty: 2, isSpeakingStone: true },
+      { name: 'Silver', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Jade', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -812,8 +817,8 @@ export const RECIPES = [
     effect: "While equipped, add 1 purple Evasion Chip to Guard's bag.",
     craftCost: 30, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Feathers', qty: 4, isSpeakingStone: false },
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
+      { name: 'Feathers', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -822,27 +827,27 @@ export const RECIPES = [
     effect: 'Once per turn, you may redraw 1 drawn chip.',
     craftCost: 15, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 1, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
     name: 'Leather Gauntlets', type: 'Accessory', city: 'Mir', isFtIstra: false, stars: 1,
     statBonus: null, bonusChip: null,
-    effect: 'At the start of battle, add 1 👊+1 to Guard\'s bag.',
+    effect: "At the start of battle, add 1 👊+1 to Guard's bag.",
     craftCost: 14, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Claw', qty: 2, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Claw', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
     name: 'Leather Gauntlets', type: 'Accessory', city: "Ft. Istra (The Brothers' Anvil)", isFtIstra: true, stars: 5,
     statBonus: null, bonusChip: null,
-    effect: 'At the start of battle, add 1 👊+1 to Guard\'s bag.',
+    effect: "At the start of battle, add 1 👊+1 to Guard's bag.",
     craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Claw', qty: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Claw', qty: 1, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -851,9 +856,9 @@ export const RECIPES = [
     effect: 'After an enemy attacks, that enemy exhausts 1 AP.',
     craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 4, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
@@ -862,42 +867,42 @@ export const RECIPES = [
     effect: 'While equipped gain 3 stone slots.',
     craftCost: 80, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 4, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Agate', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 4, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
     name: 'Power Belt', type: 'Accessory', city: 'Ft. Istra (The Cottage Smith)', isFtIstra: true, stars: 5,
     statBonus: null, bonusChip: null,
-    effect: 'Each time a Yellow Stonebound ability is activated, add 1 👊+1 to Guard\'s bag.',
+    effect: "Each time a Yellow Stonebound ability is activated, add 1 👊+1 to Guard's bag.",
     craftCost: 70, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
-      { name: 'Gold', qty: 2, isSpeakingStone: false },
-      { name: 'Adamant', qty: 2, isSpeakingStone: true },
+      { name: 'Rough Leather', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Gold', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Adamant', qty: 2, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
     name: 'Scale Shield', type: 'Accessory', city: 'Ryba', isFtIstra: false, stars: 3,
     statBonus: null, bonusChip: null,
-    effect: 'At the start of battle, add 3 ⛊+1 to Guard\'s bag.',
+    effect: "At the start of battle, add 3 ⛊+1 to Guard's bag.",
     craftCost: 36, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Scales', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
     name: 'Scale Shield', type: 'Accessory', city: 'Ft. Istra (The Misty Forge)', isFtIstra: true, stars: 5,
     statBonus: null, bonusChip: null,
-    effect: 'At the start of battle, add 3 ⛊+1 to Guard\'s bag.',
+    effect: "At the start of battle, add 3 ⛊+1 to Guard's bag.",
     craftCost: 45, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Scales', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 4, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Scales', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Iron', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -906,9 +911,9 @@ export const RECIPES = [
     effect: 'Whenever this Guard activates a Stonebound ability, heal ally by 1 ❤︎.',
     craftCost: 50, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Gold', qty: 4, isSpeakingStone: false },
-      { name: 'Crystal', qty: 4, isSpeakingStone: false },
-      { name: 'Diamond', qty: 4, isSpeakingStone: false },
+      { name: 'Gold', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Crystal', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Diamond', qty: 4, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -917,8 +922,8 @@ export const RECIPES = [
     effect: 'During the exploration phase, you may mulligan once per node.',
     craftCost: 8, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 1, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -927,8 +932,8 @@ export const RECIPES = [
     effect: 'During the exploration phase, you may mulligan once per node.',
     craftCost: 5, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 2, isSpeakingStone: false },
-      { name: 'Iron', qty: 1, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 2, qty2R: null, isSpeakingStone: false },
+      { name: 'Iron', qty: 1, qty2R: null, isSpeakingStone: false },
     ],
   },
   {
@@ -937,8 +942,8 @@ export const RECIPES = [
     effect: 'Standard attacks heal this Guard by 1 ❤︎.',
     craftCost: 40, luxCost: null, prereq: 'Leather Gauntlets', itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Agate', qty: 4, isSpeakingStone: false },
-      { name: 'Obsidian', qty: 1, isSpeakingStone: true },
+      { name: 'Agate', qty: 4, qty2R: null, isSpeakingStone: false },
+      { name: 'Obsidian', qty: 1, qty2R: null, isSpeakingStone: true },
     ],
   },
   {
@@ -947,7 +952,7 @@ export const RECIPES = [
     effect: "At the start of battle, add 1 Bolster chip to Guard's bag.",
     craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Wolf Pelt', qty: 2, isSpeakingStone: false },
+      { name: 'Wolf Pelt', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -956,8 +961,8 @@ export const RECIPES = [
     effect: 'Negate 2 red chips per battle.',
     craftCost: 8, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
 
@@ -984,7 +989,7 @@ export const RECIPES = [
     effect: 'Equip to satchel slot. Store up to 4 cards underneath this card.',
     craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Rough Leather', qty: 4, isSpeakingStone: false },
+      { name: 'Rough Leather', qty: 4, qty2R: 2, isSpeakingStone: false },
     ],
   },
   {
@@ -1017,8 +1022,8 @@ export const RECIPES = [
     effect: 'Both Guards gain 2 Evasion Chips.',
     craftCost: { Strofa: 10, Silny: 8 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 1, isSpeakingStone: false },
-      { name: 'Iron', qty: 2, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 1, qty2R: 1, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -1027,8 +1032,8 @@ export const RECIPES = [
     effect: 'Create a save point at current node and heal both Guards by 10 ❤︎.',
     craftCost: { Strofa: 15, Silny: 10 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
-      { name: 'Animal Hide', qty: 1, isSpeakingStone: false },
-      { name: 'Rosewood', qty: 2, isSpeakingStone: false },
+      { name: 'Animal Hide', qty: 1, qty2R: 1, isSpeakingStone: false },
+      { name: 'Rosewood', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
   {
@@ -1038,8 +1043,8 @@ export const RECIPES = [
     craftCost: null, luxCost: null, prereq: null,
     itemReq: 'Midnight Hydrangea, Health Potion', limitedTo: [],
     materials: [
-      { name: 'Metal Frag.', qty: 2, isSpeakingStone: false },
-      { name: 'Silver', qty: 2, isSpeakingStone: false },
+      { name: 'Metal Frag.', qty: 2, qty2R: 1, isSpeakingStone: false },
+      { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
     ],
   },
 ];
@@ -1053,6 +1058,13 @@ export function minCraftCost(recipe) {
   return Math.min(...Object.values(recipe.craftCost));
 }
 
+// Sil cost for a specific city (falls back to flat cost or null)
+export function craftCostForCity(recipe, cityName) {
+  if (recipe.craftCost === null) return null;
+  if (typeof recipe.craftCost === 'number') return recipe.craftCost;
+  return recipe.craftCost[cityName] ?? null;
+}
+
 // All city names where a recipe can be crafted
 export function craftCities(recipe) {
   if (!recipe.craftCost && !recipe.luxCost) return [];
@@ -1060,13 +1072,20 @@ export function craftCities(recipe) {
   return cityStr.split(',').map(s => s.trim()).filter(Boolean);
 }
 
-// Craftability check given current stash, sil, and lux
+// Whether a recipe is available in a given city
+export function availableInCity(recipe, cityName) {
+  return craftCities(recipe).some(c => c === cityName);
+}
+
+// Craftability check given current stash, sil, lux, and optional city context.
+// selectedCity: string | null — if set, checks cost for that city only and
+//   applies qty2R quantities when that city has prestige >= 2.
+// cityPrestige: number — prestige of selectedCity (ignored if selectedCity is null).
 // Returns: 'ready' | 'partial' | 'missing'
-// 'ready'   = all materials + cost satisfied
-// 'partial' = have some materials, missing others (or short on currency)
-// 'missing' = have none of the required materials
-export function craftStatus(recipe, stash, sil, lux) {
+export function craftStatus(recipe, stash, sil, lux, selectedCity = null, cityPrestigeLevel = 0) {
+  const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
   const mats = recipe.materials;
+
   if (mats.length === 0 && !recipe.craftCost && !recipe.luxCost) {
     return recipe.itemReq ? 'partial' : 'missing';
   }
@@ -1074,10 +1093,11 @@ export function craftStatus(recipe, stash, sil, lux) {
   let totalNeeded = mats.length;
   let totalHave = 0;
   for (const mat of mats) {
-    if ((stash[mat.name] ?? 0) >= mat.qty) totalHave++;
+    const needed = (useDiscount && mat.qty2R !== null) ? mat.qty2R : mat.qty;
+    if ((stash[mat.name] ?? 0) >= needed) totalHave++;
   }
 
-  const costOk = checkCost(recipe, sil, lux);
+  const costOk = checkCost(recipe, sil, lux, selectedCity);
   const allMatsOk = totalHave === totalNeeded;
 
   if (allMatsOk && costOk) return 'ready';
@@ -1085,24 +1105,29 @@ export function craftStatus(recipe, stash, sil, lux) {
   return 'missing';
 }
 
-function checkCost(recipe, sil, lux) {
+function checkCost(recipe, sil, lux, selectedCity) {
   if (recipe.luxCost !== null && recipe.luxCost !== undefined) {
     return lux >= recipe.luxCost;
   }
   if (recipe.craftCost !== null && recipe.craftCost !== undefined) {
-    const min = minCraftCost(recipe);
-    return sil >= min;
+    const cost = selectedCity !== null
+      ? craftCostForCity(recipe, selectedCity)
+      : minCraftCost(recipe);
+    if (cost === null) return true;
+    return sil >= cost;
   }
   return true;
 }
 
 // Shortage count — number of distinct materials where stash < needed
-export function shortageCount(recipe, stash) {
-  return recipe.materials.filter(m => (stash[m.name] ?? 0) < m.qty).length;
+export function shortageCount(recipe, stash, useDiscount = false) {
+  return recipe.materials.filter(m => {
+    const needed = (useDiscount && m.qty2R !== null) ? m.qty2R : m.qty;
+    return (stash[m.name] ?? 0) < needed;
+  }).length;
 }
+
 // Maps each item name that is a prerequisite to the next recipe it unlocks.
-// Picks the lowest-star recipe when multiple branch from one prereq, on the
-// assumption that's the most immediate next step.
 export const PREREQ_UPGRADES_TO = (() => {
   const map = {};
   for (const r of RECIPES) {

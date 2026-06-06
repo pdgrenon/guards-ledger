@@ -219,6 +219,7 @@ export default function App() {
             lux={state.lux}
             guards={state.guards}
             activeParty={state.activeParty}
+            cities={state.cities}
             onShowSource={setSourceItem}
           />
         )}
