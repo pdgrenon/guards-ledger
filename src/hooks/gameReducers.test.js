@@ -458,10 +458,19 @@ describe('reduceSetStoneboundMax', () => {
 });
 
 describe('reduceAddStoneboundLocation', () => {
-  it('adds a new empty location', () => {
+  it('adds a new empty location with a numeric id', () => {
     const next = reduceAddStoneboundLocation(s);
     expect(next.stonebound.locations).toHaveLength(1);
-    expect(next.stonebound.locations[0]).toEqual({ type: '', selection: '', count: 1 });
+    expect(next.stonebound.locations[0]).toEqual(
+      expect.objectContaining({ type: '', selection: '', count: 1 })
+    );
+    expect(typeof next.stonebound.locations[0].id).toBe('number');
+  });
+
+  it('assigns unique ids to each location', () => {
+    const s1 = reduceAddStoneboundLocation(s);
+    const s2 = reduceAddStoneboundLocation(s1);
+    expect(s2.stonebound.locations[0].id).not.toBe(s2.stonebound.locations[1].id);
   });
 
   it('can add multiple locations', () => {
@@ -477,23 +486,27 @@ describe('reduceAddStoneboundLocation', () => {
 });
 
 describe('reduceRemoveStoneboundLocation', () => {
-  it('removes the location at the given index', () => {
+  it('removes the location with the given id', () => {
     const s1   = reduceAddStoneboundLocation(s);
     const s2   = reduceAddStoneboundLocation(s1);
-    const next = reduceRemoveStoneboundLocation(s2, 0);
+    const id   = s2.stonebound.locations[0].id;
+    const next = reduceRemoveStoneboundLocation(s2, id);
     expect(next.stonebound.locations).toHaveLength(1);
+    expect(next.stonebound.locations[0].id).not.toBe(id);
   });
 
   it('logs removal with the selection name when present', () => {
     const s1   = reduceAddStoneboundLocation(s);
+    const id   = s1.stonebound.locations[0].id;
     const s2   = reduceUpdateStoneboundLocation(s1, 0, 'selection', 'Mir');
-    const next = reduceRemoveStoneboundLocation(s2, 0);
+    const next = reduceRemoveStoneboundLocation(s2, id);
     expect(next.log[0].message).toContain('Mir');
   });
 
   it('logs removal with "empty location" when no selection', () => {
     const s1   = reduceAddStoneboundLocation(s);
-    const next = reduceRemoveStoneboundLocation(s1, 0);
+    const id   = s1.stonebound.locations[0].id;
+    const next = reduceRemoveStoneboundLocation(s1, id);
     expect(next.log[0].message).toContain('empty location');
   });
 });

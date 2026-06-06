@@ -198,17 +198,18 @@ export function reduceSetStoneboundMax(s, delta) {
 }
 
 export function reduceAddStoneboundLocation(s) {
-  const locations = [...s.stonebound.locations, { type: '', selection: '', count: 1 }];
+  const id        = Date.now() + Math.random();
+  const locations = [...s.stonebound.locations, { id, type: '', selection: '', count: 1 }];
   return addLog(
     { ...s, stonebound: { ...s.stonebound, locations } },
     'Stonebound location added'
   );
 }
 
-export function reduceRemoveStoneboundLocation(s, idx) {
-  const loc       = s.stonebound.locations[idx];
-  const locations = s.stonebound.locations.filter((_, i) => i !== idx);
-  const label     = loc.selection || 'empty location';
+export function reduceRemoveStoneboundLocation(s, id) {
+  const loc       = s.stonebound.locations.find(l => l.id === id);
+  const locations = s.stonebound.locations.filter(l => l.id !== id);
+  const label     = loc?.selection || 'empty location';
   return addLog(
     { ...s, stonebound: { ...s.stonebound, locations } },
     `Stonebound removed: ${label}`
