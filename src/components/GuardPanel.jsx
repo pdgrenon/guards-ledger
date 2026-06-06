@@ -189,7 +189,10 @@ export function GuardPanel({ guard, guardIdx, actions }) {
               />
               {slot.item && (
                 <div className="satchel-qty-row">
-                  <button className="satchel-qty-btn minus" onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.max(1, slot.qty - 1))}>−</button>
+                <button className="satchel-qty-btn minus" onClick={() => {
+                    if (slot.qty <= 1) setGuardSatchelItem(guardIdx, si, 'item', '');
+                    else setGuardSatchelItem(guardIdx, si, 'qty', slot.qty - 1);
+                  }}>−</button>
                   <span className="satchel-qty-val">×{slot.qty}</span>
                   <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(4, slot.qty + 1))}>+</button>
                 </div>
