@@ -36,10 +36,12 @@ State is flat at the top level (no nesting by section). Sections are a conceptua
 |---|---|---|
 | `resources` | `sil`, `lux` | `resources` |
 | `cities` | `cities` | `cities` |
-| `guards` | `guards`, `activeParty`, `activeGuardIdx` | `guards` |
+| `guards` | `guards`, `activeParty` | `guards` |
 | `stash` | `stash`, `stonebound` | `stash` |
 | `campaign` | `campaign` | `campaign` |
-| local-only | `log`, `settings` | — not synced — |
+| local-only | `log`, `settings`, `activeGuardIdx` | — not synced — |
+
+`activeGuardIdx` is local-only even though it lives alongside guards in state. It tracks which guard tab each player is viewing — a per-device UI concern, not shared campaign data. `setActiveGuard` passes `null` as the section name so it never triggers a sync upsert. `handleRemoteChange` in `useGameState` and `SECTION_KEYS` in `useSupabaseSync` both exclude it so it is never overwritten by a remote update.
 
 Each action in `useGameState` calls `setState(reducer, sectionName)` where `sectionName` is the section that action modifies. `setState` persists to localStorage and calls `sync.upsertSection(sectionName, nextState)` in one step.
 
@@ -49,6 +51,7 @@ Each action in `useGameState` calls `setState(reducer, sectionName)` where `sect
 - Previous key: `guards_ledger_v1` (flat shape, no section factories)
 - On first load, if `v2` is absent but `v1` is present, `migrateV1()` in `useGameState.js` converts the old save and writes it under the new key. Migration runs once.
 - `importState` also accepts v1-format JSON exports via the same migration path.
+- `activeGuardIdx` is always reset to its initial value on load (regardless of what was saved), since it is local-only UI state that should not persist across sessions.
 
 #### Section factories
 
@@ -71,9 +74,9 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 **Key behaviors:**
 - The Supabase client is `null` when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are absent. All sync calls silently no-op. The app runs as a fully local tool.
-- `sync.upsertSection(sectionName, state)` extracts the relevant keys and does a targeted `UPDATE` on the `campaigns` row — it never writes local-only keys (`log`, `settings`).
+- `sync.upsertSection(sectionName, state)` extracts the relevant keys and does a targeted `UPDATE` on the `campaigns` row — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`).
 - When offline, upserts are queued in a `Map` (keyed by section name, so later writes replace earlier ones for the same section). The queue is flushed automatically on reconnect via the `online` event.
-- On `joinCampaign`, the full remote row is fetched and all five sections are merged into local state. `log` and `settings` are preserved from local.
+- On `joinCampaign`, the full remote row is fetched and all five sections are merged into local state. `log`, `settings`, and `activeGuardIdx` are preserved from local.
 - Realtime subscription uses `postgres_changes` filtered to `id=eq.{campaignId}`. On `UPDATE`, all five remote sections are applied to the current local state; local-only keys are preserved.
 - Campaign IDs are random short alphanumeric codes (e.g. `WOLF42`) stored in `localStorage` under `guards_ledger_campaign_id`.
 
@@ -93,11 +96,11 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 ### Component structure
 
-- **`App.jsx`** — shell: tab nav (`Guards`, `Cities`, `Stash`, `Crafting`, `Campaign`, `Log`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly. Passes `sync={game.sync}` to `SettingsPanel`.
+- **`App.jsx`** — shell: tab nav (`Guards`, `Cities`, `Stash`, `Crafting`, `Campaign`, `Log`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly. Passes `sync={game.sync}` to `SettingsPanel`. When a campaign is active, shows a **campaign pill** in the top bar with the campaign code and a sync-status dot (green/amber/gray/red); tapping it opens Settings scrolled directly to the Multiplayer section. Log messages are colorized via `colorizeLogMessage` — guard names are highlighted in their identity color, "Party" and "Stash" in brand ochre; each log entry also has a colored left border keyed to the same classification.
 - **`GuardPanel.jsx`** — HP number display, combat stats (Atk/Def with equipment bonuses shown), equipment, satchel, chip bag per guard
 - **`CitiesTab.jsx`** — city grid: prestige pips (derived, not stored) + quest checkboxes
-- **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash. Accepts `onShowSource` prop; tapping a material name with source data calls it.
-- **`CraftTab.jsx`** — read-only recipe reference; filters by type/tier/craftability; search matches item names, material names, and cities; shows stash-aware "have/need" quantities per ingredient; hides guard-restricted items unless that guard is in the active party. Accepts `onShowSource` prop; tapping any ingredient name with source data calls it.
+- **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash. Stash items show inline "upgrades into →" hints when they are a prereq for a recipe (from `PREREQ_UPGRADES_TO`). Supports custom items (arbitrary strings not in the predefined list, tracked in a separate "Custom items" category). Accepts `onShowSource` prop; tapping a material name with source data calls it.
+- **`CraftTab.jsx`** — stash-aware recipe reference; filters by type, city, star tier, and craftability; search matches item names, material names, cities, and prereq names; combines stash + active guards' satchel contents for craftability checks; applies prestige 2+ material discounts when a city is selected; shows stash-aware "have/need" quantities per ingredient with strikethrough for discounted amounts; hides guard-restricted items unless that guard is in the active party. Accepts `onShowSource` prop; tapping any ingredient name with source data calls it.
 - **`MaterialSourcePopup.jsx`** — bottom-sheet overlay showing where to acquire or sell a given material/item. Reads from `MATERIAL_SOURCES` in `materials.js`. Rendered at App level via a `fixed` backdrop. Closes on backdrop tap, ✕ button, or Escape key. No state of its own beyond the `item` prop passed from App.
 - **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP and starting chips, multiplayer (create/join/leave campaign + sync status), export/import/reset. Accepts `sync` prop from App.
 - **`Autocomplete.jsx`** — reusable searchable dropdown (no external library); max 12 results, case-insensitive
@@ -106,7 +109,7 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 - **`src/data/constants.js`** — guard names, city names, chip types, `GUARD_COLOR_MAP` (single source of truth for guard identity colors), `FALLBACK_COLOR`, section factories, and `createInitialState()`
 - **`src/data/materials.js`** — crafting material categories, `ALL_MATERIALS`, `ALL_ITEMS_WITH_CATEGORY` (pre-computed `{ item, category }` pairs for the stash UI), `RESOURCE_NODE_ITEMS`, `ENEMIES`, `WEAPONS`, `ARMOR`, `ACCESSORIES`, `ITEMS`, `WEAPON_STATS`, `ARMOR_STATS`, and `MATERIAL_SOURCES`
-- **`src/data/recipes.js`** — all 101 crafting recipes as a static `RECIPES` array, plus helper functions `minCraftCost`, `craftCities`, `craftStatus`, and `shortageCount`. See the shape comment at the top of that file.
+- **`src/data/recipes.js`** — all 101 crafting recipes as a static `RECIPES` array; helper functions `minCraftCost`, `craftCities`, `craftCostForCity`, `availableInCity`, `craftStatus`, and `shortageCount`; and the pre-computed `PREREQ_UPGRADES_TO` map (item name → `{ name, stars, isFtIstra }` of the recipe it unlocks — used by StashTab to show inline upgrade hints). See the shape comment at the top of that file.
 - **`src/data/demoSave.json`** — loaded on first run when no localStorage key exists; uses v1 flat shape and is migrated automatically
 
 ### Guards
@@ -114,6 +117,8 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 8 playable guards: Grigory, Alek, Catherine, Yury, Kharzin, Vera, Pavel, Yana.
 
 Two guards are active at a time (`state.activeParty`, a 2-element name array). The active party is selected in SettingsPanel. The guard tab shows a switcher between the two active guards; `state.activeGuardIdx` tracks which one is currently visible (index into the full 8-guard array, not into activeParty).
+
+**`activeGuardIdx` is local-only and never synced.** It represents which guard tab the local player is viewing — a per-device UI preference. `setActiveGuard` passes `null` as the section name (not `'guards'`). `handleRemoteChange` explicitly preserves the local value, and `SECTION_KEYS` in `useSupabaseSync` does not include it. Do not add it back to the sync section.
 
 Each guard in state has: `name`, `hp`, `maxHp`, `baseAtk`, `baseDef`, `expandedSatchel`, `satchel` (8-slot array of `{ item, qty }`), `equipment` (`{ weapon, armor, accessory, item }`), `chips` (`{ black, green, red, purple }`), `startingBlack`.
 
@@ -133,6 +138,10 @@ City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`.
 
 `state.stash` is a plain object mapping item name → integer count. Keys are omitted when count reaches 0 (cleaned up by `reduceAdjustStash`). All 60+ material names are defined in `MATERIAL_CATEGORIES` in `materials.js`.
 
+Any string that doesn't match a predefined material name can be added as a **custom item**. Custom items are stored in `state.stash` like any other item and rendered under a "Custom items" category. `ALL_KNOWN_ITEMS` (a `Set` exported from `materials.js`) is the predefined-item membership test.
+
+Stash items that appear as a `prereq` in any recipe show an inline **"→ Item Name ★★★"** upgrade hint in the stash UI, sourced from `PREREQ_UPGRADES_TO` in `recipes.js`. The lowest-star recipe matching each prereq is shown.
+
 ### Stonebound
 
 `state.stonebound`: `{ max: number, locations: Array<{ type, selection, count }> }`. `type` is one of `'City'`, `'Resource node'`, `'Enemy node'` and is derived from the selection when set — it is not independently editable in the UI.
@@ -143,7 +152,27 @@ City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`.
 
 ### Craft tab
 
-`CraftTab` is a **read-only** component. It receives `stash`, `sil`, `lux`, `activeParty`, `guards`, and `onShowSource` as props and derives all display state from them. It owns no state beyond local UI state (search string, active filters). Do not add crafting state to `useGameState` — the tab intentionally introduces no new persistence.
+`CraftTab` is a **read-only** component. It receives `stash`, `sil`, `lux`, `activeParty`, `guards`, `cities`, and `onShowSource` as props and derives all display state from them. It owns no state beyond local UI state (search string, active filters). Do not add crafting state to `useGameState` — the tab intentionally introduces no new persistence.
+
+**Combined inventory for craftability:** `buildCombined(stash, activeGuards)` merges the Fort Istra stash with the active guards' satchel contents. All craftability checks (`craftStatus`) and have/need counts run against this combined total — items a guard is carrying count toward the "have" amount.
+
+**Filters:**
+- **Search** — matches recipe names, ingredient names, city names, and prereq item names
+- **Type** — All / Weapon / Armor / Accessory / Item (dropdown)
+- **City** — filters to recipes craftable in a specific city; affects cost display (city-specific Sil prices) and whether the prestige discount applies. Cities with prestige ≥ 2 show a `✦` suffix in the dropdown.
+- **Star tier** — minimum star pill filter (All / ★ / ★★ / ★★★ / ★★★★ / ★★★★★); 5-star tier is styled in red to distinguish Ft. Istra items
+- **Can craft** — hides recipes not currently `'ready'`
+
+Results are grouped by type (Weapon, Armor, Accessory, Item).
+
+**Prestige discount:** When a city with prestige ≥ 2 is selected, material quantities use `qty2R` (the reduced amount) instead of `qty` for standard (non-Ft. Istra) recipes. Discounted ingredients show the original quantity struck through with the reduced quantity beside it. A `2★` badge appears on the card footer when the discount is active.
+
+`craftStatus(recipe, stash, sil, lux, selectedCity, cityPrestigeLevel)` returns `'ready' | 'partial' | 'missing'`:
+- **ready** — all materials satisfied AND currency satisfied (city-specific or minimum Sil price, or Lux for Ft. Istra items)
+- **partial** — at least one material present but not all requirements met
+- **missing** — none of the required materials are in stash
+
+Guard-restricted recipes (`limitedTo` is non-empty) are hidden entirely from the list if no matching guard is in `activeParty`. When a matching guard is active, a restriction note is shown on the card.
 
 Recipe data lives entirely in `src/data/recipes.js`. Each recipe has this shape:
 
@@ -162,14 +191,14 @@ Recipe data lives entirely in `src/data/recipes.js`. Each recipe has this shape:
   prereq: string|null,    // item that must be equipped first
   itemReq: string|null,   // special ingredient (apothecary items)
   limitedTo: string[],    // guard names; empty = available to all
-  materials: Array<{ name: string, qty: number, isSpeakingStone: boolean }>,
+  materials: Array<{
+    name: string,
+    qty: number,          // base quantity required
+    qty2R: number|null,   // reduced quantity at prestige 2+ in a qualifying city; null = no discount (Ft. Istra, speaking-stone items)
+    isSpeakingStone: boolean,
+  }>,
 }
 ```
-
-`craftStatus(recipe, stash, sil, lux)` returns `'ready' | 'partial' | 'missing'`:
-- **ready** — all materials satisfied AND currency satisfied (min city price for multi-city Sil items, or Lux for Ft. Istra items)
-- **partial** — at least one material present but not all requirements met
-- **missing** — none of the required materials are in stash
 
 Guard-restricted recipes (`limitedTo` is non-empty) are hidden entirely from the list if no matching guard is in `activeParty`. When a matching guard is active, a restriction note is shown on the card.
 
@@ -179,12 +208,12 @@ Guard-restricted recipes (`limitedTo` is non-empty) are hidden entirely from the
 
 ```js
 {
-  enemies?: string[],
-  nodes?: string[],
-  ftIstra?: { label: string, luxPer4: number },
-  market?: { city: string, price: number }[],
-  sell?: { city: string, price: number }[],
-  ftIstraSell?: number,
+  enemies?: string[],                         // enemy names that drop this material
+  nodes?: string[],                           // resource node names
+  ftIstra?: { label: string, luxPer4: number }, // Ft. Istra acquisition (shown under nodes if nodes exist, standalone otherwise)
+  market?: { city: string, price: number }[], // cities that sell it and the Sil price
+  sell?: { city: string, price: number }[],   // cities that buy it and the Sil sell price
+  ftIstraSell?: number,                       // Ft. Istra Apothecary sell price in Lux Essence (not Sil)
 }
 ```
 

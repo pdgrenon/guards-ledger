@@ -51,7 +51,9 @@ function migrateV1(v1) {
     cities:         v1.cities         ?? createInitialCities().cities,
     guards:         v1.guards         ?? createInitialGuards().guards,
     activeParty:    v1.activeParty    ?? createInitialGuards().activeParty,
-    activeGuardIdx: v1.activeGuardIdx ?? createInitialGuards().activeGuardIdx,
+    // activeGuardIdx is local-only UI state — always reset to default on load
+    // so each player starts viewing the first guard in their own party.
+    activeGuardIdx: createInitialGuards().activeGuardIdx,
     stash:          v1.stash          ?? createInitialStash().stash,
     stonebound:     v1.stonebound     ?? createInitialStash().stonebound,
     campaign:       v1.campaign       ?? createInitialCampaign().campaign,
@@ -63,7 +65,12 @@ function migrateV1(v1) {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Always reset activeGuardIdx on load — it's local UI nav, not campaign state.
+      // This cleans up any saves that persisted it before this fix.
+      return { ...parsed, activeGuardIdx: createInitialGuards().activeGuardIdx };
+    }
 
     const rawV1 = localStorage.getItem(STORAGE_KEY_V1);
     if (rawV1) {
@@ -110,18 +117,18 @@ export function useGameState() {
     }, [state]);
 
     // ── Remote change handler (called by useSupabaseSync on Realtime event) ──
-    // Merges remote state into local, preserving log and settings.
+    // Merges remote state into local, preserving local-only keys.
     const handleRemoteChange = useCallback((remoteState) => {
-      setRaw(prev => {
-        const merged = {
-          ...remoteState,
-          log:      prev.log,      // log is local-only
-          settings: prev.settings, // settings is local-only
-        };
-        return merged;
-      });
+      setRaw(prev => ({
+        ...remoteState,
+        log:            prev.log,            // local-only: session log
+        settings:       prev.settings,       // local-only: app settings
+        activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
+      }));
     }, []);
+
     const sync = useSupabaseSync(state, handleRemoteChange);
+
     // ── Core setState — persists locally and upserts the changed section ─────
     // sectionName: which Supabase column this change belongs to, or null for local-only.
 
@@ -141,9 +148,11 @@ export function useGameState() {
         }
       }, [sync]);
 
-  // ── Active guard (UI navigation — local only, no sync) ──────────────────
+  // ── Active guard (local-only UI navigation — never synced) ──────────────
+  // Each player independently controls which guard card they're viewing.
+  // Passing null as the section name keeps this out of Supabase entirely.
   const setActiveGuard = useCallback((idx) =>
-    setState(s => ({ ...s, activeGuardIdx: idx }), 'guards'), [setState]);
+    setState(s => ({ ...s, activeGuardIdx: idx }), null), [setState]);
 
   const setPartySlot = useCallback((slotIdx, name) =>
     setState(s => reduceSetPartySlot(s, slotIdx, name), 'guards'), [setState]);

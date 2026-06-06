@@ -45,36 +45,65 @@ Six cities: Mir, Razdor, Ryba, Silny, Strofa, and Vouno. Each city card shows:
 
 **Fort Istra stash** — Inventory for all craftable materials across 7 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Market & misc, and Special ingredients. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
 
+Items in the stash that serve as a prerequisite for a craftable recipe show an inline "→ Item Name ★★★" hint so you know what they upgrade into.
+
+Any string can also be added as a **custom item** if it doesn't match the predefined material list. Custom items appear under a "Custom items" category and are tracked like any other material.
+
 Tapping a material name in the stash opens a source sheet (see Material sources below).
 
 ### Craft tab
 
 A stash-aware recipe reference for all 101 craftable items — weapons, armor, accessories, and consumables.
 
-Each recipe card shows the item name, city, star tier, stat bonuses, materials with have/need quantities colored by availability, and a craft cost. Cards are filtered by type and craftability, and a search bar matches item names, material names, and cities.
+**Craftability** is calculated against both the Fort Istra stash and the active guards' satchel contents combined, so anything a guard is carrying counts toward the "have" total.
+
+**Filters:**
+
+- **Search** — matches item names, ingredient names, cities, and prereq item names
+- **Type** — All / Weapon / Armor / Accessory / Item
+- **City** — narrows to recipes craftable in a specific city; affects cost display and prestige discounts
+- **Star tier** — minimum tier filter (★ through ★★★★★); 5-star Ft. Istra items are styled distinctly in red
+- **Can craft** — hides any recipe that isn't currently ready given your stash, sil, and lux
+
+Results are grouped by type (Weapon, Armor, Accessory, Item) and each card shows:
+
+- Name, type, stat bonus, and bonus chip
+- A **Ready / Partial / Missing** status badge
+- Guard restriction note (for guard-specific items)
+- Prerequisite equipment required (`prereq`)
+- Special ingredient requirement for apothecary items (`itemReq`)
+- Effect text for accessories and consumables
+- Per-ingredient have/need counts; ingredients in the satchel count toward the total
+- City and Sil/Lux cost
+
+**Prestige discount** — when a city with prestige 2 or higher is selected, material quantities for standard recipes are reduced (the `qty2R` value). Discounted quantities are shown with the original struck through and the reduced amount beside it. A `2★` badge on the card confirms the discount is active.
+
+Guard-restricted recipes are hidden entirely unless a matching guard is in the active party.
+
+Tapping an ingredient name opens the material source popup.
 
 ### Campaign tab
 
-Tracks campaign-level state across sessions:
-
-- **Event tokens** — four regions (Mountain, Forest, Plains, Sea), each with a 3-pip tracker. Hitting 3 highlights the region and offers a one-tap resolve button to reset.
-- **Locations** — free-text fields for party location, caravan, main quest, and boat, plus dynamic lists for side quests and bounties.
-- **Plans** — a checklist of next tasks or notes for the session.
-
-### Material sources
-
-Tapping any material or item name in the Stash or Craft tab opens a bottom-sheet showing where to find or sell it. Sources are grouped into up to four sections depending on what applies:
-
-- **Enemy drops** — enemies that drop the material, sourced from the bestiary
-- **Resource nodes** — map node numbers for ores and timber, plus Ft. Istra building options (Lumbermill or Lapidary) with their Lux cost for ×4
-- **Buy at market** — cities that sell the material and their buy price in Sil
-- **Sell at market** — cities that buy the material/item and their sell price in Sil (shown in green). For crafting materials, the Ft. Istra Apothecary sell price is also shown where applicable — this pays out in Lux Essence rather than Sil. Items with no sell value (Ft. Istra gear, some special items) simply omit this section.
-
-Not all materials have source data (speaking stones and special ingredients are excluded). The sheet closes by tapping the backdrop, the ✕ button, or pressing Escape.
+- **Event tokens** — Mountain, Forest, Plains, and Sea token counters (0–3 each). At 3, a "Resolve event" button replaces the +/− controls. Resolving resets the counter to 0.
+- **Locations** — Fixed fields for Party, Caravan, Main quest, and Boat. Dynamic lists for Side quests and Bounties (add, edit, and remove entries freely).
+- **Session plans** — A simple checklist for anything you want to accomplish this session. Add, check off, and delete entries.
 
 ### Session log tab
 
-A reverse-chronological log of all state changes in the current session, capped at 100 entries. Each entry shows a timestamp and a plain-English description of what changed. Guard name entries are color-coded to their identity color; party and stash events use the brand ochre; system events (imports, resets) are gray.
+A reverse-chronological log of all state changes in the current session, capped at 100 entries. Each entry shows a timestamp and a plain-English description of what changed. Guard names in log messages are color-coded to their identity color; "Party" and "Stash" keywords are highlighted in brand ochre; system events (imports, resets) are gray. Each entry has a matching left-border color.
+
+### Material source popup
+
+Tapping any material name in the Stash or Craft tab opens a bottom-sheet with:
+
+- **Enemy drops** — enemies that drop the material
+- **Resource nodes** — nodes where it can be farmed (including Ft. Istra acquisition if applicable)
+- **Buy at market** — cities that sell it and the price in Sil
+- **Sell at market** — cities that buy it and the sell price in Sil; Ft. Istra Apothecary sell prices are shown in Lux Essence
+
+Items with no sell value (Ft. Istra gear, some special items) simply omit the sell section.
+
+Not all materials have source data. The sheet closes by tapping the backdrop, the ✕ button, or pressing Escape.
 
 ### Settings
 
@@ -105,9 +134,11 @@ Two players can share a live campaign using Supabase Realtime. State is split in
 |---|---|---|
 | `resources` | `sil`, `lux` | Player tracking currency |
 | `cities` | `cities` | Player tracking city quests |
-| `guards` | `guards`, `activeParty`, `activeGuardIdx` | Shared |
+| `guards` | `guards`, `activeParty` | Shared |
 | `stash` | `stash`, `stonebound` | Shared |
 | `campaign` | `campaign` | Player tracking campaign state |
+
+`activeGuardIdx` (which guard tab each player is viewing) is intentionally excluded — each player controls their own view independently.
 
 **How it works:**
 
@@ -116,6 +147,8 @@ Two players can share a live campaign using Supabase Realtime. State is split in
 3. From that point, every change is pushed to Supabase and received by all connected devices in real time (~100–300ms)
 4. If a device goes offline, changes are queued in memory and flushed automatically on reconnect
 5. The session log remains local-only on each device — it is not synced
+
+While connected, a campaign pill in the top bar shows the campaign code and a colored dot indicating sync status (green = synced, amber = syncing, gray = offline, red = error). Tapping the pill opens Settings scrolled directly to the Multiplayer section.
 
 Sync is optional. Without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` configured, the app runs as a fully local single-player tool with no errors or degraded functionality.
 
@@ -135,7 +168,7 @@ Sync is optional. Without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` confi
 
 **Guard identity colors** are defined once in `src/data/constants.js` (`GUARD_COLOR_MAP`) and imported wherever needed. There is no duplicate color map in any component file.
 
-**Craft tab is read-only.** `CraftTab` takes `stash`, `sil`, `lux`, and `activeParty` as props and derives everything from them. It introduces no new state, no reducers, and no localStorage keys.
+**Craft tab is read-only.** `CraftTab` takes `stash`, `sil`, `lux`, `activeParty`, `guards`, and `cities` as props and derives everything from them. It introduces no new state, no reducers, and no localStorage keys.
 
 **Tests.** `src/hooks/gameReducers.test.js` covers all pure reducer functions using Vitest. Run with `npm test`.
 
@@ -147,13 +180,13 @@ Sync is optional. Without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` confi
 
 ```
 src/
-  App.jsx                  # Shell: tabs, top bar, party switcher, log view, settings trigger
+  App.jsx                  # Shell: tabs, top bar, campaign pill, log view, settings trigger
   index.css                # Single stylesheet with CSS custom properties (light + dark)
   components/
     GuardPanel.jsx         # Per-guard card: HP, combat stats, equipment, satchel, chips
     CitiesTab.jsx          # City grid: prestige pips + quest checkboxes
-    StashTab.jsx           # Party resources (Sil/Lux), stonebound, Fort Istra stash
-    CraftTab.jsx           # Stash-aware recipe reference: 101 items, filters, craftability
+    StashTab.jsx           # Party resources (Sil/Lux), stonebound, Fort Istra stash, custom items
+    CraftTab.jsx           # Stash-aware recipe reference: 101 items, filters, prestige discounts
     MaterialSourcePopup.jsx  # Bottom-sheet: where to find or sell a given material/item
     SettingsPanel.jsx      # Bottom-sheet: active party, per-guard config, multiplayer, save/load/reset
     Autocomplete.jsx       # Reusable searchable dropdown (no external library)
@@ -165,7 +198,7 @@ src/
   data/
     constants.js           # Guard names, city names, chip types, GUARD_COLOR_MAP, section factories, createInitialState()
     materials.js           # Item lists, MATERIAL_SOURCES (enemy drops, nodes, market buy/sell prices)
-    recipes.js             # All 101 crafting recipes + craftStatus/shortageCount helpers
+    recipes.js             # All 101 crafting recipes + craftStatus/shortageCount/PREREQ_UPGRADES_TO helpers
     demoSave.json          # Shown on first load when no localStorage save exists
 supabase/
   schema.sql               # Campaigns table, RLS policies, Realtime setup — run once in Supabase SQL editor
@@ -192,5 +225,5 @@ To add a new crafting material: add its name to the appropriate category array i
 
 1. Run `supabase/schema.sql` in the Supabase SQL editor
 2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table
-3. Copy `.env.example` to `.env` and fill in your project URL and anon key from **Settings → API**
+3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 4. `npm install @supabase/supabase-js`

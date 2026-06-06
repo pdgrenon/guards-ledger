@@ -14,9 +14,13 @@
  * Section mapping (matches Supabase columns):
  *   resources  ← { sil, lux }
  *   cities     ← { cities }
- *   guards     ← { guards, activeParty, activeGuardIdx }
+ *   guards     ← { guards, activeParty }
  *   stash      ← { stash, stonebound }
  *   campaign   ← { campaign }
+ *
+ * Note: activeGuardIdx is intentionally excluded from all sections. It is
+ * local-only UI state (which guard tab each player is viewing) and must never
+ * be synced — each player controls their own view independently.
  *
  * Usage in useGameState:
  *   const sync = useSupabaseSync(state, onRemoteChange);
@@ -42,11 +46,12 @@ const supabase = supabaseUrl && supabaseKey
 
 const CAMPAIGN_ID_KEY = 'guards_ledger_campaign_id';
 
-// Maps section name → state keys included in that section
+// Maps section name → state keys written to / read from that Supabase column.
+// activeGuardIdx is deliberately absent: it is local-only UI navigation state.
 const SECTION_KEYS = {
   resources: ['sil', 'lux'],
   cities:    ['cities'],
-  guards:    ['guards', 'activeParty', 'activeGuardIdx'],
+  guards:    ['guards', 'activeParty'],
   stash:     ['stash', 'stonebound'],
   campaign:  ['campaign'],
 };
@@ -85,7 +90,10 @@ function buildFullRow(campaignId, state) {
   };
 }
 
-/** Merge a remote section into local state (spread its keys at the top level). */
+/**
+ * Merge a remote section into local state (spread its keys at the top level).
+ * Keys not listed in SECTION_KEYS (e.g. activeGuardIdx) are never touched.
+ */
 function applyRemoteSection(localState, sectionName, remoteSection) {
   if (!remoteSection) return localState;
   return { ...localState, ...remoteSection };
@@ -138,7 +146,8 @@ export function useSupabaseSync(state, onRemoteChange) {
             // Ignore echoes of our own upserts (within a 3s window)
             if (Date.now() - lastUpsertAt.current < 3000) return;
             // Apply each remote section on top of current local state.
-            // Local-only keys (log, settings) are preserved untouched.
+            // Keys outside SECTION_KEYS (log, settings, activeGuardIdx) are
+            // never present in remoteSection and therefore never overwritten.
             let merged = stateRef.current;
             for (const section of Object.keys(SECTION_KEYS)) {
               merged = applyRemoteSection(merged, section, row[section]);
@@ -300,7 +309,9 @@ export function useSupabaseSync(state, onRemoteChange) {
 
   /**
    * Join an existing campaign by code.
-   * Fetches the row and replaces local state, then subscribes.
+   * Fetches the remote row and merges shared sections into local state.
+   * activeGuardIdx is explicitly preserved from local state — each player
+   * independently controls which guard tab they are viewing.
    * Returns { state, error }.
    */
   const joinCampaign = useCallback(async (code) => {
@@ -317,6 +328,9 @@ export function useSupabaseSync(state, onRemoteChange) {
       return { state: null, error: 'Campaign not found. Check the code and try again.' };
     }
 
+    // Apply each synced section from the remote row.
+    // SECTION_KEYS no longer includes activeGuardIdx, so it is never touched
+    // here — the joining player keeps their own guard view.
     let merged = stateRef.current;
     for (const section of Object.keys(SECTION_KEYS)) {
       merged = applyRemoteSection(merged, section, data[section]);
