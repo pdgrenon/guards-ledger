@@ -35,7 +35,7 @@ import {
   reduceTogglePlan,
   reduceDeletePlan,
 } from './gameReducers';
-import { useSupabaseSync } from './useSupabaseSync';
+import { useSupabaseSync, guardColumn } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
 // v1 saves (flat shape) are migrated automatically on first load.
@@ -129,10 +129,13 @@ export function useGameState() {
 
     const sync = useSupabaseSync(state, handleRemoteChange);
 
-    // ── Core setState — persists locally and upserts the changed section ─────
+    // ── Core setState — persists locally and upserts the changed section(s) ──
     // sectionName: which Supabase column this change belongs to, or null for local-only.
+    // Multiple distinct sections may be touched within one debounce window (e.g.
+    // edits to two different guards); each is collected and flushed, so no
+    // pending upsert is dropped.
 
-      const pendingUpsert = useRef({ sectionName: null, state: null });
+      const pendingSections = useRef(new Set());
 
       const setState = useCallback((updater, sectionName = null) => {
         setRaw(prev => {
@@ -140,10 +143,14 @@ export function useGameState() {
           return next;
         });
         if (sectionName) {
-          pendingUpsert.current = { sectionName, updater };
+          pendingSections.current.add(sectionName);
           if (upsertTimer.current) clearTimeout(upsertTimer.current);
           upsertTimer.current = setTimeout(() => {
-            sync.upsertSection(pendingUpsert.current.sectionName, stateRef.current);
+            const sections = Array.from(pendingSections.current);
+            pendingSections.current.clear();
+            for (const section of sections) {
+              sync.upsertSection(section, stateRef.current);
+            }
           }, 400);
         }
       }, [sync]);
@@ -154,8 +161,10 @@ export function useGameState() {
   const setActiveGuard = useCallback((idx) =>
     setState(s => ({ ...s, activeGuardIdx: idx }), null), [setState]);
 
+  // activeParty is shared party-level state in its own `party` section.
+  // (activeGuardIdx is also touched by this reducer but is local-only.)
   const setPartySlot = useCallback((slotIdx, name) =>
-    setState(s => reduceSetPartySlot(s, slotIdx, name), 'guards'), [setState]);
+    setState(s => reduceSetPartySlot(s, slotIdx, name), 'party'), [setState]);
 
   // ── Party resources ──────────────────────────────────────────────────────
   const setSil = useCallback((delta) =>
@@ -165,37 +174,39 @@ export function useGameState() {
     setState(s => reduceSetLux(s, delta), 'resources'), [setState]);
 
   // ── Guard mutations ──────────────────────────────────────────────────────
+  // Each guard syncs to its own column (guard_0 … guard_7), so concurrent edits
+  // to different guards never overwrite each other.
   const adjustGuardHp = useCallback((guardIdx, delta) =>
-    setState(s => reduceAdjustGuardHp(s, guardIdx, delta), 'guards'), [setState]);
+    setState(s => reduceAdjustGuardHp(s, guardIdx, delta), guardColumn(guardIdx)), [setState]);
 
   const adjustGuardMaxHp = useCallback((guardIdx, delta) =>
-    setState(s => reduceAdjustGuardMaxHp(s, guardIdx, delta), 'guards'), [setState]);
+    setState(s => reduceAdjustGuardMaxHp(s, guardIdx, delta), guardColumn(guardIdx)), [setState]);
 
   const setGuardEquipment = useCallback((guardIdx, slot, value) =>
-    setState(s => reduceSetGuardEquipment(s, guardIdx, slot, value), 'guards'), [setState]);
+    setState(s => reduceSetGuardEquipment(s, guardIdx, slot, value), guardColumn(guardIdx)), [setState]);
 
   const setGuardSatchelItem = useCallback((guardIdx, slotIdx, field, value) =>
-    setState(s => reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value), 'guards'), [setState]);
+    setState(s => reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value), guardColumn(guardIdx)), [setState]);
 
   const toggleExpandedSatchel = useCallback((guardIdx) =>
     setState(s => {
       const expanded = !s.guards[guardIdx].expandedSatchel;
       const guards   = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
       return { ...s, guards };
-    }, 'guards'), [setState]);
+    }, guardColumn(guardIdx)), [setState]);
 
   const adjustChip = useCallback((guardIdx, chipType, delta) =>
-    setState(s => reduceAdjustChip(s, guardIdx, chipType, delta), 'guards'), [setState]);
+    setState(s => reduceAdjustChip(s, guardIdx, chipType, delta), guardColumn(guardIdx)), [setState]);
 
   const resetChips = useCallback((guardIdx) =>
-    setState(s => reduceResetChips(s, guardIdx), 'guards'), [setState]);
+    setState(s => reduceResetChips(s, guardIdx), guardColumn(guardIdx)), [setState]);
 
   const setStartingBlack = useCallback((guardIdx, value) =>
     setState(s => {
       const guards = s.guards.map((g, i) => i === guardIdx
         ? { ...g, startingBlack: Math.max(0, value) } : g);
       return { ...s, guards };
-    }, 'guards'), [setState]);
+    }, guardColumn(guardIdx)), [setState]);
 
   // ── Cities ───────────────────────────────────────────────────────────────
   const toggleCityQuest = useCallback((cityIdx, field) =>

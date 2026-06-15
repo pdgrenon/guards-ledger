@@ -36,12 +36,15 @@ State is flat at the top level (no nesting by section). Sections are a conceptua
 |---|---|---|
 | `resources` | `sil`, `lux` | `resources` |
 | `cities` | `cities` | `cities` |
-| `guards` | `guards`, `activeParty` | `guards` |
+| `party` | `activeParty` | `party` |
+| `guard_0` … `guard_7` | one element of `guards` each | `guard_0` … `guard_7` |
 | `stash` | `stash`, `stonebound` | `stash` |
 | `campaign` | `campaign` | `campaign` |
 | local-only | `log`, `settings`, `activeGuardIdx` | — not synced — |
 
-`activeGuardIdx` is local-only even though it lives alongside guards in state. It tracks which guard tab each player is viewing — a per-device UI concern, not shared campaign data. `setActiveGuard` passes `null` as the section name so it never triggers a sync upsert. `handleRemoteChange` in `useGameState` and `SECTION_KEYS` in `useSupabaseSync` both exclude it so it is never overwritten by a remote update.
+**Guards are split into one column per guard (`guard_0` … `guard_7`).** Each guard mutation in `useGameState` syncs to only that guard's column via `guardColumn(idx)`, so two players editing different guards at the same time never overwrite each other (AVE-83). The local state shape is unchanged — `state.guards` is still a flat 8-element array; the split exists only at the sync/column boundary. The shared two-element party selection (`activeParty`) lives in its own `party` section.
+
+`activeGuardIdx` is local-only even though it lives alongside guards in state. It tracks which guard tab each player is viewing — a per-device UI concern, not shared campaign data. `setActiveGuard` passes `null` as the section name so it never triggers a sync upsert. `handleRemoteChange` in `useGameState` and the section maps in `useSupabaseSync` both exclude it so it is never overwritten by a remote update.
 
 Each action in `useGameState` calls `setState(reducer, sectionName)` where `sectionName` is the section that action modifies. `setState` persists to localStorage and calls `sync.upsertSection(sectionName, nextState)` in one step.
 
@@ -74,10 +77,13 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 **Key behaviors:**
 - The Supabase client is `null` when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are absent. All sync calls silently no-op. The app runs as a fully local tool.
-- `sync.upsertSection(sectionName, state)` extracts the relevant keys and does a targeted `UPDATE` on the `campaigns` row — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`).
+- `sync.upsertSection(sectionName, state)` extracts the relevant keys (or, for a `guard_N` column, that one guard object) and does a targeted `UPDATE` on the `campaigns` row — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`).
 - When offline, upserts are queued in a `Map` (keyed by section name, so later writes replace earlier ones for the same section). The queue is flushed automatically on reconnect via the `online` event.
-- On `joinCampaign`, the full remote row is fetched and all five sections are merged into local state. `log`, `settings`, and `activeGuardIdx` are preserved from local.
-- Realtime subscription uses `postgres_changes` filtered to `id=eq.{campaignId}`. On `UPDATE`, all five remote sections are applied to the current local state; local-only keys are preserved.
+- `useGameState`'s debounce collects a **set** of pending sections per window and flushes each — so editing two different guards within one debounce window upserts both columns rather than dropping one.
+- Echo suppression is **per-section**: `lastUpsertAt` is a `Map<section, timestamp>`. A Realtime `UPDATE` skips only the sections we ourselves wrote within the last 3s, so a concurrent edit to a *different* guard/section is still applied.
+- On `joinCampaign`, the full remote row is fetched (and passed through `normalizeRow`) and every section in `ALL_SECTIONS` is merged into local state. `log`, `settings`, and `activeGuardIdx` are preserved from local.
+- Realtime subscription uses `postgres_changes` filtered to `id=eq.{campaignId}`. On `UPDATE`, every remote section in `ALL_SECTIONS` is applied to the current local state (subject to per-section echo suppression); local-only keys are preserved.
+- `normalizeRow` reshapes a pre-AVE-83 row (single `guards` blob `{ guards:[…], activeParty:[…] }`) into per-guard columns + `party` on read, so the client tolerates a database that hasn't yet had the `supabase/migrations/0001_split_guards_per_column.sql` migration applied.
 - Campaign IDs are random short alphanumeric codes (e.g. `WOLF42`) stored in `localStorage` under `guards_ledger_campaign_id`.
 
 **`sync` handle shape** (returned by `useSupabaseSync`, exposed via `useGameState`):
@@ -234,14 +240,14 @@ Key CSS conventions:
 
 ### Testing
 
-`src/hooks/gameReducers.test.js` covers all pure reducer functions. Run with `npm test`. There are no component tests.
+`src/hooks/gameReducers.test.js` covers all pure reducer functions. `src/hooks/useSupabaseSync.helpers.test.js` covers the pure section ↔ column helpers (`extractSection`, `applyRemoteSection`, `normalizeRow`, the `guard_N` column helpers). Run with `npm test`. There are no component tests.
 
 ### Supabase setup
 
 For local development with multiplayer enabled:
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor
-2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table
+1. Run `supabase/schema.sql` in the Supabase SQL editor (fresh installs). For a database created before AVE-83, instead run the one-time `supabase/migrations/0001_split_guards_per_column.sql` to split the old single `guards` column into per-guard columns.
+2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
 3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 4. `npm install @supabase/supabase-js`
 
