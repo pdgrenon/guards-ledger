@@ -160,11 +160,11 @@ export const WEAPON_STATS = {
   'Golden Mallet': 3, 'Golden Scythe': 3, 'Ground Shaker': 4,
   'Guardian Lance': 5, "Hunter's Pride": 3, "Hunter's Spear": 1,
   'Jade Sword': 6, 'Lapis Blade': 4, "Magi's Command": 5,
-  // Quest-reward weapons — TODO: replace placeholders with actual stat bonuses from physical cards
-  'Nadya': 1,           // TODO: verify actual stat bonus (Grigory only, ★ rating)
-  'Sapphire Staff': 1,  // TODO: verify actual stat bonus (Yana only, ★ rating)
-  'Snow Hunter Bow': 1, // TODO: verify actual stat bonus (Vera only, ★ rating)
-  "Squire's Blade": 1,  // TODO: verify actual stat bonus (Alek only, ★ rating)
+  // Quest-reward weapons
+  'Nadya': 2,
+  'Sapphire Staff': 2,
+  'Snow Hunter Bow': 2,
+  "Squire's Blade": 1,
   'Ornate Cleavers': 2, 'Partisan': 2, 'Radiance': 3,
   'Reckoning Tides': 3, 'Relic Glove': 2, 'Revelation': 5,
   'Rosewind Staff': 2, 'Ryban Glaive': 3, 'Scaled Dagger': 2,
