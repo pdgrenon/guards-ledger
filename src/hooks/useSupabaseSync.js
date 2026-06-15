@@ -234,16 +234,36 @@ export function useSupabaseSync(state, onRemoteChange) {
   async function flushQueue() {
     if (!supabase || !campaignIdRef.current || pendingQueue.current.size === 0) return;
 
-    const update = { id: campaignIdRef.current };
-    const now    = new Date().toISOString();
-    for (const [section, data] of pendingQueue.current.entries()) {
+    // Snapshot the queued sections, then write them in a single update. We do
+    // not clear the queue up front: if the write fails the data stays queued
+    // so a later flush can retry it instead of silently dropping the edits.
+    const entries = Array.from(pendingQueue.current.entries());
+    const update  = {};
+    const now     = new Date().toISOString();
+    for (const [section, data] of entries) {
       update[section]                 = data;
       update[`${section}_updated_at`] = now;
     }
-    pendingQueue.current.clear();
 
-    setSyncStatus(error ? 'error' : 'idle');
-    if (error) setSyncError(error.message);
+    // Mark our own write so the Realtime echo of it is ignored (see subscribe).
+    lastUpsertAt.current = Date.now();
+    setSyncStatus('syncing');
+    const { error } = await supabase
+      .from('campaigns')
+      .update(update)
+      .eq('id', campaignIdRef.current);
+
+    if (error) {
+      // Leave the sections queued so the next flush retries them.
+      setSyncError(error.message);
+      setSyncStatus('error');
+    } else {
+      // Remove only the sections we successfully flushed; anything queued
+      // since (e.g. a new offline edit) is preserved.
+      for (const [section] of entries) pendingQueue.current.delete(section);
+      setSyncStatus('idle');
+      setSyncError(null);
+    }
   }
 
   /**
