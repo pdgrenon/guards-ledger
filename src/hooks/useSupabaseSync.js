@@ -12,11 +12,17 @@
  *     (mobile browsers drop websockets silently when a tab is backgrounded)
  *
  * Section mapping (matches Supabase columns):
- *   resources  ← { sil, lux }
- *   cities     ← { cities }
- *   guards     ← { guards, activeParty }
- *   stash      ← { stash, stonebound }
- *   campaign   ← { campaign }
+ *   resources       ← { sil, lux }
+ *   cities          ← { cities }
+ *   party           ← { activeParty }
+ *   guard_0…guard_7 ← one guard object each (state.guards[i])
+ *   stash           ← { stash, stonebound }
+ *   campaign        ← { campaign }
+ *
+ * Guards are split into eight per-guard columns (guard_0 … guard_7) so two
+ * players editing different guards at the same time never collide — each write
+ * touches only that guard's column. The shared two-element party selection
+ * lives in its own `party` column. See AVE-83.
  *
  * Note: activeGuardIdx is intentionally excluded from all sections. It is
  * local-only UI state (which guard tab each player is viewing) and must never
@@ -46,17 +52,38 @@ const supabase = supabaseUrl && supabaseKey
 
 const CAMPAIGN_ID_KEY = 'guards_ledger_campaign_id';
 
-// Maps section name → state keys written to / read from that Supabase column.
+// Number of guards in a campaign (Grigory … Yana). Each gets its own column.
+export const GUARD_COUNT = 8;
+
+// Maps a "simple" section name → state keys written to / read from that
+// Supabase column. Per-guard sections (guard_0 … guard_7) are handled
+// separately by extractSection/applyRemoteSection.
 // activeGuardIdx is deliberately absent: it is local-only UI navigation state.
 const SECTION_KEYS = {
   resources: ['sil', 'lux'],
   cities:    ['cities'],
-  guards:    ['guards', 'activeParty'],
+  party:     ['activeParty'],
   stash:     ['stash', 'stonebound'],
   campaign:  ['campaign'],
 };
 
+// Every synced section/column name, in a stable order. Used to iterate when
+// applying a remote row (join + Realtime) and when building a full row.
+export const ALL_SECTIONS = [
+  'resources', 'cities', 'party', 'stash', 'campaign',
+  ...Array.from({ length: GUARD_COUNT }, (_, i) => `guard_${i}`),
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Column name for a guard index. */
+export function guardColumn(idx) { return `guard_${idx}`; }
+
+/** Whether a section name is a per-guard column. */
+export function isGuardColumn(name) { return /^guard_\d+$/.test(name); }
+
+/** Guard array index for a per-guard column name. */
+export function guardIndexFromColumn(name) { return Number(name.slice('guard_'.length)); }
 
 /** Generate a random short campaign code like 'WOLF42'. */
 function generateCampaignId() {
@@ -66,36 +93,66 @@ function generateCampaignId() {
   return `${word}${digits}`;
 }
 
-/** Extract just the keys belonging to a named section from full state. */
-function extractSection(state, sectionName) {
+/**
+ * Extract the payload for a section/column from full state.
+ * For a per-guard column this is the guard object itself (state.guards[i]).
+ * For a simple section it is an object of that section's keys.
+ */
+export function extractSection(state, sectionName) {
+  if (isGuardColumn(sectionName)) {
+    return state.guards[guardIndexFromColumn(sectionName)];
+  }
   const keys = SECTION_KEYS[sectionName];
   return Object.fromEntries(keys.map(k => [k, state[k]]));
 }
 
-/** Build the full Supabase row payload from state (all five sections). */
+/**
+ * Normalize a raw Supabase row to the per-guard column shape.
+ *
+ * Pre-AVE-83 campaigns store guards as a single `guards` blob
+ * ({ guards: [...8], activeParty: [...] }). If a row still has that shape and
+ * no guard_0 column yet (i.e. the SQL migration hasn't been applied), expand it
+ * into guard_0…guard_7 + party so the client can read either shape. This is the
+ * client-side counterpart to the one-time SQL migration.
+ */
+export function normalizeRow(row) {
+  if (!row || row.guards === undefined || row.guard_0 !== undefined) return row;
+  const out  = { ...row };
+  const blob = row.guards || {};
+  const arr  = Array.isArray(blob.guards) ? blob.guards : [];
+  for (let i = 0; i < GUARD_COUNT; i++) {
+    if (arr[i] !== undefined) out[guardColumn(i)] = arr[i];
+  }
+  if (out.party === undefined && blob.activeParty) {
+    out.party = { activeParty: blob.activeParty };
+  }
+  return out;
+}
+
+/** Build the full Supabase row payload from state (all sections + columns). */
 function buildFullRow(campaignId, state) {
   const now = new Date().toISOString();
-  return {
-    id:                   campaignId,
-    resources:            extractSection(state, 'resources'),
-    cities:               extractSection(state, 'cities'),
-    guards:               extractSection(state, 'guards'),
-    stash:                extractSection(state, 'stash'),
-    campaign:             extractSection(state, 'campaign'),
-    resources_updated_at: now,
-    cities_updated_at:    now,
-    guards_updated_at:    now,
-    stash_updated_at:     now,
-    campaign_updated_at:  now,
-  };
+  const row = { id: campaignId };
+  for (const section of ALL_SECTIONS) {
+    row[section]                 = extractSection(state, section);
+    row[`${section}_updated_at`] = now;
+  }
+  return row;
 }
 
 /**
- * Merge a remote section into local state (spread its keys at the top level).
- * Keys not listed in SECTION_KEYS (e.g. activeGuardIdx) are never touched.
+ * Merge a remote section into local state.
+ * - Per-guard column: replaces only that one guard in the guards array.
+ * - Simple section: spreads its keys at the top level.
+ * Keys not listed in any section (e.g. activeGuardIdx) are never touched.
  */
-function applyRemoteSection(localState, sectionName, remoteSection) {
-  if (!remoteSection) return localState;
+export function applyRemoteSection(localState, sectionName, remoteSection) {
+  if (remoteSection == null) return localState;
+  if (isGuardColumn(sectionName)) {
+    const idx    = guardIndexFromColumn(sectionName);
+    const guards = localState.guards.map((g, i) => i === idx ? remoteSection : g);
+    return { ...localState, guards };
+  }
   return { ...localState, ...remoteSection };
 }
 
@@ -116,7 +173,10 @@ export function useSupabaseSync(state, onRemoteChange) {
   const isOnline      = useRef(navigator.onLine);
   const channelRef    = useRef(null);
   const sessionId     = useRef(`${Date.now()}-${Math.random()}`);
-  const lastUpsertAt  = useRef(0);
+  // Per-section timestamp of our last write, so a Realtime echo of our own
+  // upsert is ignored for that section only. Editing guard_0 must NOT cause us
+  // to drop a concurrent guard_1 update from another player.
+  const lastUpsertAt  = useRef(new Map());
   // Keep a ref to the latest state and campaignId so async callbacks
   // always see current values without stale closure issues.
   const stateRef      = useRef(state);
@@ -141,15 +201,17 @@ export function useSupabaseSync(state, onRemoteChange) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'campaigns', filter: `id=eq.${id}` },
         (payload) => {
-            const row = payload.new;
+            const row = normalizeRow(payload.new);
             if (!row) return;
-            // Ignore echoes of our own upserts (within a 3s window)
-            if (Date.now() - lastUpsertAt.current < 3000) return;
-            // Apply each remote section on top of current local state.
-            // Keys outside SECTION_KEYS (log, settings, activeGuardIdx) are
-            // never present in remoteSection and therefore never overwritten.
+            // Apply each remote section on top of current local state, skipping
+            // any section we ourselves wrote within the last 3s (its echo).
+            // Suppression is per-section so a concurrent edit to a different
+            // guard/section is still applied. Keys outside any section
+            // (log, settings, activeGuardIdx) are never present and never touched.
+            const now = Date.now();
             let merged = stateRef.current;
-            for (const section of Object.keys(SECTION_KEYS)) {
+            for (const section of ALL_SECTIONS) {
+              if (now - (lastUpsertAt.current.get(section) ?? 0) < 3000) continue;
               merged = applyRemoteSection(merged, section, row[section]);
             }
             onRemoteChange(merged);
@@ -245,8 +307,9 @@ export function useSupabaseSync(state, onRemoteChange) {
       update[`${section}_updated_at`] = now;
     }
 
-    // Mark our own write so the Realtime echo of it is ignored (see subscribe).
-    lastUpsertAt.current = Date.now();
+    // Mark each section's own write so its Realtime echo is ignored (see subscribe).
+    const flushedAt = Date.now();
+    for (const [section] of entries) lastUpsertAt.current.set(section, flushedAt);
     setSyncStatus('syncing');
     const { error } = await supabase
       .from('campaigns')
@@ -281,7 +344,7 @@ export function useSupabaseSync(state, onRemoteChange) {
       return;
     }
 
-    lastUpsertAt.current = Date.now();
+    lastUpsertAt.current.set(sectionName, Date.now());
     setSyncStatus('syncing');
     const { error } = await supabase
       .from('campaigns')
@@ -348,12 +411,14 @@ export function useSupabaseSync(state, onRemoteChange) {
       return { state: null, error: 'Campaign not found. Check the code and try again.' };
     }
 
-    // Apply each synced section from the remote row.
-    // SECTION_KEYS no longer includes activeGuardIdx, so it is never touched
-    // here — the joining player keeps their own guard view.
+    // Apply each synced section from the remote row (normalizing any pre-AVE-83
+    // single-`guards`-blob row to per-guard columns first). No section includes
+    // activeGuardIdx, so it is never touched — the joining player keeps their
+    // own guard view.
+    const row = normalizeRow(data);
     let merged = stateRef.current;
-    for (const section of Object.keys(SECTION_KEYS)) {
-      merged = applyRemoteSection(merged, section, data[section]);
+    for (const section of ALL_SECTIONS) {
+      merged = applyRemoteSection(merged, section, row[section]);
     }
 
     localStorage.setItem(CAMPAIGN_ID_KEY, id);
