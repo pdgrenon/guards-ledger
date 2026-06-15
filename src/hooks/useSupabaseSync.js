@@ -338,8 +338,12 @@ export function useSupabaseSync(state, onRemoteChange) {
 
     localStorage.setItem(CAMPAIGN_ID_KEY, id);
     setCampaignId(id);
+    // Push the joined campaign state into local React state immediately.
+    // Without this, the joining player keeps seeing their old local state
+    // until the host's next Realtime UPDATE happens to trigger a re-render.
+    onRemoteChange(merged);
     return { state: merged, error: null };
-  }, []);
+  }, [onRemoteChange]);
 
   /**
    * Leave the current campaign.
