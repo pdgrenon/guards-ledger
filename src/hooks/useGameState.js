@@ -434,17 +434,20 @@ export function useGameState() {
   }, [state]);
 
   const importState = useCallback((file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(e.target.result);
-        // Accept both v1 (flat) and v2 saves
-        setState(addLog(migrateV1(imported), 'Save file imported'), null);
-      } catch {
-        alert('Invalid save file.');
-      }
-    };
-    reader.readAsText(file);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          setState(addLog(migrateV1(imported), 'Save file imported'), null);
+          resolve({ success: true });
+        } catch {
+          resolve({ success: false, error: 'Invalid save file.' });
+        }
+      };
+      reader.onerror = () => resolve({ success: false, error: 'Failed to read file.' });
+      reader.readAsText(file);
+    });
   }, [setState]);
 
   const resetState = useCallback(() => {

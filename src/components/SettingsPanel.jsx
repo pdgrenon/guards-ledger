@@ -51,9 +51,18 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
     }
   }, [scrollToMultiplayer]);
 
-  function handleImport(e) {
+  const [importError, setImportError] = useState(null);
+
+  async function handleImport(e) {
     const file = e.target.files[0];
-    if (file) { importState(file); onClose(); }
+    if (!file) return;
+    const result = await importState(file);
+    if (result.success) {
+      setImportError(null);
+      onClose();
+    } else {
+      setImportError(result.error);
+    }
   }
 
   const activeGuards = activeParty.map(name => ({
@@ -340,7 +349,12 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           </div>
 
           <div className="settings-row">
-            <div className="settings-label">Import save file</div>
+            <div>
+              <div className="settings-label">Import save file</div>
+              {importError && (
+                <div className="settings-sub" style={{ color: 'var(--c-red)' }}>{importError}</div>
+              )}
+            </div>
             <label style={{ cursor: 'pointer' }}>
               <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
               <div className="settings-action-btn">Import JSON</div>

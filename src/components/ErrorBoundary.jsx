@@ -14,7 +14,7 @@
  * Must be a class component — React's getDerivedStateFromError / componentDidCatch
  * API is not supported in function components.
  */
-import { Component } from 'react';
+import { Component, useState } from 'react';
 import * as Sentry from '@sentry/react';
 
 function readSaveBlob() {
@@ -38,11 +38,11 @@ function ReloadButton() {
   );
 }
 
-function ExportSaveButton() {
+function ExportSaveButton({ onNoData }) {
   function handleExport() {
     const blob = readSaveBlob();
     if (!blob) {
-      alert('No saved game data was found in localStorage.');
+      onNoData();
       return;
     }
     const url  = URL.createObjectURL(blob);
@@ -63,6 +63,7 @@ function ExportSaveButton() {
 }
 
 function AppLevelFallback({ error }) {
+  const [noSaveMsg, setNoSaveMsg] = useState(false);
   return (
     <div className="err-boundary err-boundary--app">
       <div className="err-boundary-card">
@@ -71,6 +72,11 @@ function AppLevelFallback({ error }) {
           The app hit an unexpected error and the current view can't be rendered.
           Your saved data is still safe — you can export it below before reloading.
         </p>
+        {noSaveMsg && (
+          <p className="err-boundary-message" style={{ color: 'var(--c-text2)', marginTop: 8 }}>
+            No saved game data was found in localStorage.
+          </p>
+        )}
         {error && (
           <details className="err-boundary-details">
             <summary>Technical details</summary>
@@ -78,7 +84,7 @@ function AppLevelFallback({ error }) {
           </details>
         )}
         <div className="err-boundary-actions">
-          <ExportSaveButton />
+          <ExportSaveButton onNoData={() => setNoSaveMsg(true)} />
           <ReloadButton />
         </div>
       </div>
