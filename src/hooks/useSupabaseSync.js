@@ -42,6 +42,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import deepEqual from 'fast-deep-equal';
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
@@ -186,10 +187,6 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const pendingQueue  = useRef(new Map());
   const isOnline      = useRef(navigator.onLine);
   const channelRef    = useRef(null);
-  // Per-section timestamp of our last write, so a Realtime echo of our own
-  // upsert is ignored for that section only. Editing guard_0 must NOT cause us
-  // to drop a concurrent guard_1 update from another player.
-  const lastUpsertAt  = useRef(new Map());
   // Keep a ref to the latest state and campaignId so async callbacks
   // always see current values without stale closure issues.
   const stateRef      = useRef(state);
@@ -216,16 +213,21 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         (payload) => {
             const row = normalizeRow(payload.new);
             if (!row) return;
-            // Apply each remote section on top of current local state, skipping
-            // any section we ourselves wrote within the last 3s (its echo).
-            // Suppression is per-section so a concurrent edit to a different
-            // guard/section is still applied. Keys outside any section
-            // (log, settings, activeGuardIdx) are never present and never touched.
-            const now = Date.now();
+            // Apply each remote section on top of current local state, but
+            // skip sections whose incoming value already matches the local
+            // value — those are echoes of our own writes (or of concurrent
+            // writes that happened to converge). The earlier 3-second
+            // wall-clock window was the wrong tool: a legitimate remote
+            // change to a section we just wrote would be silently dropped
+            // (the symptom in AVE-82). Value-equality is timing-independent
+            // and correctly distinguishes "echo" from "real change."
             let merged = stateRef.current;
             for (const section of ALL_SECTIONS) {
-              if (now - (lastUpsertAt.current.get(section) ?? 0) < 3000) continue;
-              merged = applyRemoteSection(merged, section, row[section]);
+              const incoming = row[section];
+              if (incoming == null) continue;
+              const local = extractSection(stateRef.current, section);
+              if (deepEqual(incoming, local)) continue;
+              merged = applyRemoteSection(merged, section, incoming);
             }
             onRemoteChange(merged);
           }
@@ -255,9 +257,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       update[`${section}_updated_at`] = now;
     }
 
-    // Mark each section's own write so its Realtime echo is ignored (see subscribe).
-    const flushedAt = Date.now();
-    for (const [section] of entries) lastUpsertAt.current.set(section, flushedAt);
+    // Mark each section as having been written so any subsequent inbound
+    // UPDATE for the same section with the same value is recognized as an
+    // echo (see subscribe — value-based suppression).
     setSyncStatus('syncing');
     const { error } = await client
       .from('campaigns')
@@ -352,7 +354,6 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       return;
     }
 
-    lastUpsertAt.current.set(sectionName, Date.now());
     setSyncStatus('syncing');
     const { error } = await client
       .from('campaigns')
