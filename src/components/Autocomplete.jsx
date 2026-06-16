@@ -3,9 +3,13 @@ import { useState, useRef, useEffect } from 'react';
 export function Autocomplete({ value, onChange, options, placeholder, className }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value || '');
+  const [prevValue, setPrevValue] = useState(value);
   const ref = useRef(null);
 
-  useEffect(() => { setQuery(value || ''); }, [value]);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setQuery(value || '');
+  }
 
   useEffect(() => {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }

@@ -1,6 +1,6 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo } from 'react';
-import { RECIPES, craftStatus, shortageCount, minCraftCost, craftCostForCity, availableInCity, craftCities } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity } from '../data/recipes';
 import { MATERIAL_SOURCES } from '../data/materials';
 import { cityPrestige } from '../hooks/gameReducers';
 
@@ -211,13 +211,15 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowS
   const [canCraftOnly, setCanCraftOnly] = useState(false);
   const [selectedCity, setSelectedCity] = useState(null);
 
-  const activePartyNames = activeParty ?? [];
+  const activePartyNames = useMemo(() => activeParty ?? [], [activeParty]);
 
-  const activeGuards = (guards ?? []).filter(g => activePartyNames.includes(g.name));
+  const activeGuards = useMemo(
+    () => (guards ?? []).filter(g => activePartyNames.includes(g.name)),
+    [guards, activePartyNames]
+  );
   const combined = useMemo(
     () => buildCombined(stash, activeGuards),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stash, guards, activePartyNames.join(',')]
+    [stash, activeGuards]
   );
 
   // Build prestige map from cities prop

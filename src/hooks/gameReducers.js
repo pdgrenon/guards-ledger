@@ -18,7 +18,7 @@
  * conceptual and persistence boundary, not a nesting change.
  */
 
-import { createInitialState, SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { SATCHEL_EXPANDED_SIZE } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
 
 export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
