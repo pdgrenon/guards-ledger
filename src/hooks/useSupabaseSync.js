@@ -91,12 +91,16 @@ export function isGuardColumn(name) { return /^guard_\d+$/.test(name); }
 /** Guard array index for a per-guard column name. */
 export function guardIndexFromColumn(name) { return Number(name.slice('guard_'.length)); }
 
-/** Generate a random short campaign code like 'WOLF42'. */
-function generateCampaignId() {
+/** Generate a campaign code like 'WOLF-7F3K9Q' — word prefix + 6 random alphanumeric chars (~2.2B combinations). */
+export function generateCampaignId() {
   const words  = ['WOLF','BEAR','HAWK','IRON','GOLD','SNOW','DARK','FIRE','VALE','DUSK'];
   const word   = words[Math.floor(Math.random() * words.length)];
-  const digits = Math.floor(10 + Math.random() * 90); // 10–99
-  return `${word}${digits}`;
+  const chars  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let suffix = '';
+  for (let i = 0; i < 6; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `${word}-${suffix}`;
 }
 
 /**

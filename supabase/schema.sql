@@ -53,8 +53,21 @@ create table if not exists public.campaigns (
 );
 
 -- Row Level Security: campaigns are shared by anyone holding the short code,
--- so the anon role is allowed to read and write rows. (The code itself is the
--- only access control, matching how the app is used.)
+-- so the anon role is allowed to read and write rows. The code itself is the
+-- only access control, matching how the app is used.
+--
+-- THREAT MODEL:
+--   The anon key is shipped in the client bundle and visible to end users.
+--   With that key, anyone who knows (or guesses) a campaign code can read or
+--   overwrite every row in this table. The following mitigations are in place:
+--     1. Campaign codes now use ~2.2 billion combinations (word + 6 random
+--        alphanumeric chars) instead of the previous 900 combinations, making
+--        brute-force enumeration impractical.
+--     2. Rate-limiting or an Edge Function for create/join could further
+--        restrict enumeration at the cost of mobile-offline complexity; this
+--        is a known tradeoff accepted for the current tableside-use profile.
+--   In a future iteration, consider moving create/join behind a Supabase Edge
+--   Function that validates a session or adds a proof-of-work step.
 alter table public.campaigns enable row level security;
 
 drop policy if exists "anon can read campaigns"   on public.campaigns;

@@ -268,7 +268,7 @@ describe('useSupabaseSync — createCampaign', () => {
 
     expect(ret.error).toBe(null);
     expect(typeof ret.id).toBe('string');
-    expect(ret.id).toMatch(/^[A-Z]+\d{2}$/); // matches generateCampaignId pattern
+    expect(ret.id).toMatch(/^[A-Z]+-[A-Z0-9]{6}$/); // matches generateCampaignId pattern
     expect(result.current.campaignId).toBe(ret.id);
     expect(localStorage.getItem('guards_ledger_campaign_id')).toBe(ret.id);
     expect(client.calls.insert).toHaveLength(1);
