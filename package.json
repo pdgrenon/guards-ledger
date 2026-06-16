@@ -36,6 +36,7 @@
     "globals": "^17.5.0",
     "jsdom": "^26.1.0",
     "vite": "^8.0.10",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^3.2.4"
   },
   "homepage": "https://pdgrenon.github.io/guards-ledger"
