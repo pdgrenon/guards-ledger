@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a18"/>
+  <path d="M80 64 L432 64 L432 288 Q432 384 256 480 Q80 384 80 288 Z"
+    fill="none" stroke="#d4a853" stroke-width="24"/>
+  <text x="256" y="336" text-anchor="middle"
+    font-family="Cinzel, Georgia, 'Times New Roman', serif"
+    font-size="256" font-weight="600" fill="#d4a853">L</text>
+</svg>
