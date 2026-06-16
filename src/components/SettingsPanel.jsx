@@ -302,11 +302,11 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     className="settings-select"
                     style={{ width: '100%', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                     type="text"
-                    placeholder="Enter code e.g. WOLF42"
+                    placeholder="Enter code e.g. WOLF-7F3K9Q"
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value.toUpperCase())}
                     onKeyDown={e => { if (e.key === 'Enter') handleJoinCampaign(); }}
-                    maxLength={8}
+                    maxLength={13}
                   />
                 </div>
                 <button

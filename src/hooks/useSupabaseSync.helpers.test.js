@@ -14,8 +14,33 @@ import {
   extractSection,
   applyRemoteSection,
   normalizeRow,
+  generateCampaignId,
 } from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
+
+describe('generateCampaignId', () => {
+  it('returns a code matching WORD-XXXXXX format', () => {
+    const id = generateCampaignId();
+    expect(id).toMatch(/^[A-Z]+-[A-Z0-9]{6}$/);
+  });
+
+  it('uses one of the known word prefixes', () => {
+    const words = ['WOLF','BEAR','HAWK','IRON','GOLD','SNOW','DARK','FIRE','VALE','DUSK'];
+    for (let i = 0; i < 50; i++) {
+      const prefix = generateCampaignId().split('-')[0];
+      expect(words).toContain(prefix);
+    }
+  });
+
+  it('produces distinct codes across multiple calls', () => {
+    const seen = new Set();
+    for (let i = 0; i < 100; i++) {
+      seen.add(generateCampaignId());
+    }
+    // With 2.2B combinations, 100 distinct codes should be trivially guaranteed
+    expect(seen.size).toBe(100);
+  });
+});
 
 function sampleState() {
   const s = createInitialState();
