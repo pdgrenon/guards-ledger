@@ -7,6 +7,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { CampaignTab } from './components/CampaignTab';
 import { CraftTab } from './components/CraftTab';
 import { MaterialSourcePopup } from './components/MaterialSourcePopup';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
@@ -104,201 +105,217 @@ export default function App() {
   const dotColor = SYNC_DOT_COLOR[syncStatus] ?? 'var(--c-text2)';
 
   return (
-    <div>
-      {/* Top bar */}
-      <div className="top-bar">
-        <div className="top-bar-brand">
-          <div className="wordmark-the">The</div>
-          <div className="wordmark-title">Guard's Ledger</div>
-          <div className="wordmark-rule" aria-hidden="true" />
+    <ErrorBoundary level="app">
+      <div>
+        {/* Top bar */}
+        <div className="top-bar">
+          <div className="top-bar-brand">
+            <div className="wordmark-the">The</div>
+            <div className="wordmark-title">Guard's Ledger</div>
+            <div className="wordmark-rule" aria-hidden="true" />
+          </div>
+
+          {/* Campaign pill — only shown when connected to a campaign */}
+          {campaignId && (
+            <button
+              className="campaign-pill"
+              onClick={openSettingsAtMultiplayer}
+              aria-label={`Connected to campaign ${campaignId}. Tap to open multiplayer settings.`}
+            >
+              <span
+                className="campaign-pill-dot"
+                style={{ background: dotColor }}
+                aria-hidden="true"
+              />
+              {campaignId}
+            </button>
+          )}
+
+          <button className="icon-btn" onClick={openSettings} aria-label="Settings">
+            <SettingsIcon />
+          </button>
         </div>
 
-        {/* Campaign pill — only shown when connected to a campaign */}
-        {campaignId && (
-          <button
-            className="campaign-pill"
-            onClick={openSettingsAtMultiplayer}
-            aria-label={`Connected to campaign ${campaignId}. Tap to open multiplayer settings.`}
-          >
-            <span
-              className="campaign-pill-dot"
-              style={{ background: dotColor }}
-              aria-hidden="true"
-            />
-            {campaignId}
-          </button>
-        )}
+        {/* Tabs */}
+        <div className="tabs" role="tablist">
+          {TABS.map(t => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              className={`tab${tab === t ? ' tab--active' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
 
-        <button className="icon-btn" onClick={openSettings} aria-label="Settings">
-          <SettingsIcon />
-        </button>
-      </div>
+        {/* Tab content */}
+        <div className="tab-content">
 
-      {/* Tabs */}
-      <div className="tabs" role="tablist">
-        {TABS.map(t => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            className={`tab${tab === t ? ' tab--active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+          {/* ── Guards tab ── */}
+          {tab === 'Guards' && (
+            <ErrorBoundary level="tab" tabName="Guards">
+              <>
+                <div className="guard-switcher">
+                  {activeParty.map(name => {
+                    const guardIdx = state.guards.findIndex(g => g.name === name);
+                    const c        = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
+                    const isActive = activeIdx === guardIdx;
+                    return (
+                      <button
+                        key={name}
+                        className={`guard-switch-btn${isActive ? ' active' : ''}`}
+                        onClick={() => game.setActiveGuard(guardIdx)}
+                        style={isActive ? { '--switch-color': c.border, '--switch-bg': c.bg } : {}}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
 
-      {/* Tab content */}
-      <div className="tab-content">
-
-        {/* ── Guards tab ── */}
-        {tab === 'Guards' && (
-          <>
-            <div className="guard-switcher">
-              {activeParty.map(name => {
-                const guardIdx = state.guards.findIndex(g => g.name === name);
-                const c        = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
-                const isActive = activeIdx === guardIdx;
-                return (
-                  <button
-                    key={name}
-                    className={`guard-switch-btn${isActive ? ' active' : ''}`}
-                    onClick={() => game.setActiveGuard(guardIdx)}
-                    style={isActive ? { '--switch-color': c.border, '--switch-bg': c.bg } : {}}
+                {activeGuard && (
+                  <div
+                    className="guard-card-wrapper"
+                    style={{ '--guard-color': activeColor.border }}
                   >
-                    {name}
-                  </button>
-                );
-              })}
-            </div>
-
-            {activeGuard && (
-              <div
-                className="guard-card-wrapper"
-                style={{ '--guard-color': activeColor.border }}
-              >
-                <GuardPanel
-                  guard={activeGuard}
-                  guardIdx={activeIdx}
-                  actions={guardActions}
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Cities tab ── */}
-        {tab === 'Cities' && (
-          <CitiesTab
-            cities={state.cities}
-            toggleCityQuest={game.toggleCityQuest}
-          />
-        )}
-
-        {/* ── Stash tab ── */}
-        {tab === 'Stash' && (
-          <StashTab
-            sil={state.sil} lux={state.lux}
-            setSil={game.setSil} setLux={game.setLux}
-            stash={state.stash} adjustStash={game.adjustStash}
-            stonebound={state.stonebound}
-            setStoneboundMax={game.setStoneboundMax}
-            addStoneboundLocation={game.addStoneboundLocation}
-            removeStoneboundLocation={game.removeStoneboundLocation}
-            updateStoneboundLocation={game.updateStoneboundLocation}
-            onShowSource={setSourceItem}
-          />
-        )}
-
-        {/* ── Crafting tab ── */}
-        {tab === 'Crafting' && (
-          <CraftTab
-            stash={state.stash}
-            sil={state.sil}
-            lux={state.lux}
-            guards={state.guards}
-            activeParty={state.activeParty}
-            cities={state.cities}
-            onShowSource={setSourceItem}
-          />
-        )}
-
-        {/* ── Campaign tab ── */}
-        {tab === 'Campaign' && (
-          <CampaignTab
-            campaign={state.campaign}
-            onSetEventToken={game.setEventToken}
-            onResetEventToken={game.resetEventToken}
-            onSetCampaignLocation={game.setCampaignLocation}
-            onAddDynamicLocation={game.addDynamicLocation}
-            onUpdateDynamicLocation={game.updateDynamicLocation}
-            onRemoveDynamicLocation={game.removeDynamicLocation}
-            onAddPlan={game.addPlan}
-            onTogglePlan={game.togglePlan}
-            onDeletePlan={game.deletePlan}
-          />
-        )}
-
-        {/* ── Log tab ── */}
-        {tab === 'Log' && (
-          <div className="card log-card">
-            <div className="flex items-center justify-between mb-2">
-              <div className="card-title">Log</div>
-              <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
-            </div>
-
-            {state.log.length === 0 ? (
-              <div className="log-empty">
-                <div className="log-empty-title">No events yet</div>
-                <div className="log-empty-sub">Actions will appear here as you play</div>
-              </div>
-            ) : (
-              <div className="log-list">
-                {state.log.map((entry) => {
-                  const cls = classifyEntry(entry.message);
-                  const borderColor =
-                    cls.type === 'guard'  ? `var(--c-guard-${cls.guardKey}-border)` :
-                    cls.type === 'party'  ? 'var(--c-brand)' :
-                                            'var(--c-border2)';
-                  return (
-                    <div
-                      key={entry.id}
-                      className="log-entry"
-                      style={{ '--log-border': borderColor }}
-                    >
-                      <span className="log-time">{entry.time}</span>
-                      <span
-                        className="log-text"
-                        dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
+                    <ErrorBoundary level="guard" guardName={activeGuard.name}>
+                      <GuardPanel
+                        guard={activeGuard}
+                        guardIdx={activeIdx}
+                        actions={guardActions}
                       />
-                    </div>
-                  );
-                })}
+                    </ErrorBoundary>
+                  </div>
+                )}
+              </>
+            </ErrorBoundary>
+          )}
+
+          {/* ── Cities tab ── */}
+          {tab === 'Cities' && (
+            <ErrorBoundary level="tab" tabName="Cities">
+              <CitiesTab
+                cities={state.cities}
+                toggleCityQuest={game.toggleCityQuest}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* ── Stash tab ── */}
+          {tab === 'Stash' && (
+            <ErrorBoundary level="tab" tabName="Stash">
+              <StashTab
+                sil={state.sil} lux={state.lux}
+                setSil={game.setSil} setLux={game.setLux}
+                stash={state.stash} adjustStash={game.adjustStash}
+                stonebound={state.stonebound}
+                setStoneboundMax={game.setStoneboundMax}
+                addStoneboundLocation={game.addStoneboundLocation}
+                removeStoneboundLocation={game.removeStoneboundLocation}
+                updateStoneboundLocation={game.updateStoneboundLocation}
+                onShowSource={setSourceItem}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* ── Crafting tab ── */}
+          {tab === 'Crafting' && (
+            <ErrorBoundary level="tab" tabName="Crafting">
+              <CraftTab
+                stash={state.stash}
+                sil={state.sil}
+                lux={state.lux}
+                guards={state.guards}
+                activeParty={state.activeParty}
+                cities={state.cities}
+                onShowSource={setSourceItem}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* ── Campaign tab ── */}
+          {tab === 'Campaign' && (
+            <ErrorBoundary level="tab" tabName="Campaign">
+              <CampaignTab
+                campaign={state.campaign}
+                onSetEventToken={game.setEventToken}
+                onResetEventToken={game.resetEventToken}
+                onSetCampaignLocation={game.setCampaignLocation}
+                onAddDynamicLocation={game.addDynamicLocation}
+                onUpdateDynamicLocation={game.updateDynamicLocation}
+                onRemoveDynamicLocation={game.removeDynamicLocation}
+                onAddPlan={game.addPlan}
+                onTogglePlan={game.togglePlan}
+                onDeletePlan={game.deletePlan}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* ── Log tab ── */}
+          {tab === 'Log' && (
+            <ErrorBoundary level="tab" tabName="Log">
+              <div className="card log-card">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="card-title">Log</div>
+                  <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {state.log.length === 0 ? (
+                  <div className="log-empty">
+                    <div className="log-empty-title">No events yet</div>
+                    <div className="log-empty-sub">Actions will appear here as you play</div>
+                  </div>
+                ) : (
+                  <div className="log-list">
+                    {state.log.map((entry) => {
+                      const cls = classifyEntry(entry.message);
+                      const borderColor =
+                        cls.type === 'guard'  ? `var(--c-guard-${cls.guardKey}-border)` :
+                        cls.type === 'party'  ? 'var(--c-brand)' :
+                                                'var(--c-border2)';
+                      return (
+                        <div
+                          key={entry.id}
+                          className="log-entry"
+                          style={{ '--log-border': borderColor }}
+                        >
+                          <span className="log-time">{entry.time}</span>
+                          <span
+                            className="log-text"
+                            dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </ErrorBoundary>
+          )}
+        </div>
+
+        {/* Settings overlay */}
+        {settingsOpen && (
+          <SettingsPanel
+            state={state}
+            actions={settingsActions}
+            sync={game.sync}
+            guardColorMap={GUARD_COLOR_MAP}
+            allGuards={GUARDS}
+            scrollToMultiplayer={settingsScrollToMultiplayer}
+            onClose={closeSettings}
+          />
         )}
-      </div>
 
-      {/* Settings overlay */}
-      {settingsOpen && (
-        <SettingsPanel
-          state={state}
-          actions={settingsActions}
-          sync={game.sync}
-          guardColorMap={GUARD_COLOR_MAP}
-          allGuards={GUARDS}
-          scrollToMultiplayer={settingsScrollToMultiplayer}
-          onClose={closeSettings}
+        {/* Material source popup */}
+        <MaterialSourcePopup
+          item={sourceItem}
+          onClose={() => setSourceItem(null)}
         />
-      )}
-
-      {/* Material source popup */}
-      <MaterialSourcePopup
-        item={sourceItem}
-        onClose={() => setSourceItem(null)}
-      />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
