@@ -2178,6 +2178,85 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-red);
 }
 
+/* ─── ONBOARDING OVERLAY ────────────────────────────────────────────────────
+   First-run bottom-sheet that introduces the app to new visitors.
+   Follows the same bottom-sheet pattern as confirm-modal and source-popup. */
+
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 400;
+  display: flex;
+  align-items: flex-end;
+}
+
+.onboarding-modal {
+  background: var(--c-surface);
+  border-radius: 16px 16px 0 0;
+  border-top: 0.5px solid var(--c-border2);
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.onboarding-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--c-border2);
+  border-radius: 2px;
+  margin: 10px auto 0;
+}
+
+.onboarding-body {
+  padding: 16px 20px 8px;
+}
+
+.onboarding-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--c-text);
+  margin-bottom: 14px;
+}
+
+.onboarding-line {
+  font-size: 14px;
+  color: var(--c-text2);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.onboarding-line strong {
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+.onboarding-actions {
+  padding: 4px 20px 24px;
+}
+
+.onboarding-btn {
+  width: 100%;
+  height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  border-radius: var(--radius-md);
+  border: 0.5px solid var(--c-brand);
+  background: var(--c-brand);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  touch-action: manipulation;
+  transition: opacity 0.15s;
+}
+.onboarding-btn:active { opacity: 0.8; }
+
 /* ── Source trigger — tappable material name, no visual decoration ───────────
    Resets all browser button defaults so it is visually identical to the
    <span> it replaces. font-size and color are NOT set here — they come

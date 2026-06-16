@@ -66,6 +66,10 @@ export default function App() {
   const game = useGameState();
   const { state } = game;
 
+  function dismissOnboarding() {
+    game.setState(s => ({ ...s, settings: { ...s.settings, hasSeenOnboarding: true } }), null);
+  }
+
   const activeParty = state.activeParty ?? ['Alek', 'Grigory'];
   const activeIdx   = state.activeGuardIdx ?? 0;
   const activeGuard = state.guards[activeIdx];
@@ -326,6 +330,41 @@ export default function App() {
           item={sourceItem}
           onClose={() => setSourceItem(null)}
         />
+
+        {/* Onboarding overlay — first-run only */}
+        {!state.settings.hasSeenOnboarding && (
+          <div className="onboarding-backdrop" onClick={dismissOnboarding}>
+            <div
+              className="onboarding-modal"
+              onClick={e => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Welcome to The Guard's Ledger"
+            >
+              <div className="onboarding-handle" />
+              <div className="onboarding-body">
+                <div className="onboarding-title">Welcome to The Guard's Ledger</div>
+                <p className="onboarding-line">
+                  A campaign companion for <strong>The Isofarian Guard</strong>.
+                </p>
+                <p className="onboarding-line">
+                  Track your guards, cities, stash, crafting, and campaign state — all in one place.
+                </p>
+                <p className="onboarding-line">
+                  Everything saves automatically to your browser.
+                </p>
+                <p className="onboarding-line">
+                  For multiplayer, open Settings and connect to a campaign.
+                </p>
+              </div>
+              <div className="onboarding-actions">
+                <button className="onboarding-btn" onClick={dismissOnboarding}>
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ErrorBoundary>
   );

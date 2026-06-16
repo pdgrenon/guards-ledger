@@ -453,6 +453,6 @@ export function useGameState() {
     setCampaignLocation,
     addDynamicLocation, updateDynamicLocation, removeDynamicLocation,
     addPlan, togglePlan, deletePlan,
-    exportState, importState, resetState,
+    setState, exportState, importState, resetState,
   };
 }
