@@ -146,6 +146,6 @@ export function createInitialState() {
     ...createInitialStash(),
     ...createInitialCampaign(),
     log:      [],
-    settings: { initialized: true },
+    settings: { initialized: true, hasSeenOnboarding: false },
   };
 }
