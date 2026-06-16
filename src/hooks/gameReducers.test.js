@@ -35,6 +35,7 @@ import {
   reduceRemoveStoneboundLocation,
   reduceUpdateStoneboundLocation,
 } from '../hooks/gameReducers';
+import { colorizeLogMessage } from '../App';
 
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
@@ -537,5 +538,65 @@ describe('reduceUpdateStoneboundLocation', () => {
     const s2   = reduceAddStoneboundLocation(s1);
     const next = reduceUpdateStoneboundLocation(s2, 0, 'selection', 'Mir');
     expect(next.stonebound.locations[1].selection).toBe('');
+  });
+});
+
+// ─── colorizeLogMessage (XSS prevention) ─────────────────────────────────────
+
+describe('colorizeLogMessage', () => {
+  it('returns a single string when no names match', () => {
+    const result = colorizeLogMessage('some random text');
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBe('some random text');
+    expect(typeof result[0]).toBe('string');
+  });
+
+  it('wraps guard names in colored spans', () => {
+    const result = colorizeLogMessage('Alek gained 5 HP');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toBe('');
+    expect(result[1].type).toBe('span');
+    expect(result[1].props.className).toBe('log-name-gold');
+    expect(result[1].props.children).toBe('Alek');
+    expect(result[2]).toBe(' gained 5 HP');
+  });
+
+  it('wraps Party and Stash in strong tags', () => {
+    const result = colorizeLogMessage('Party sold item to Stash');
+    expect(result).toHaveLength(5);
+    expect(result[0]).toBe('');
+    expect(result[1].type).toBe('strong');
+    expect(result[1].props.children).toBe('Party');
+    expect(result[2]).toBe(' sold item to ');
+    expect(result[3].type).toBe('strong');
+    expect(result[3].props.children).toBe('Stash');
+    expect(result[4]).toBe('');
+  });
+
+  it('highlights all guard names in a message', () => {
+    const result = colorizeLogMessage('Alek and Grigory fought');
+    expect(result).toHaveLength(5);
+    expect(result[1].props.children).toBe('Alek');
+    expect(result[1].props.className).toBe('log-name-gold');
+    expect(result[3].props.children).toBe('Grigory');
+    expect(result[3].props.className).toBe('log-name-amber');
+  });
+
+  it('returns untampered user input as plain strings (XSS prevention)', () => {
+    const xss = '<img src=x onerror=alert(1)>';
+    const result = colorizeLogMessage(xss);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBe(xss);
+    expect(typeof result[0]).toBe('string');
+  });
+
+  it('leaves HTML-looking user text as plain strings when next to a name', () => {
+    const result = colorizeLogMessage('Alek found <script>bad()</script>');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toBe('');
+    expect(result[1].props.children).toBe('Alek');
+    expect(result[2]).toBe(' found <script>bad()</script>');
+    expect(typeof result[2]).toBe('string');
   });
 });

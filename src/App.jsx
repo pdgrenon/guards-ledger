@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, createElement } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
@@ -25,13 +25,16 @@ function classifyEntry(message) {
 }
 
 const ALL_GUARD_NAMES  = Object.keys(GUARD_COLOR_MAP);
-const GUARD_NAME_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
+const GUARD_NAME_SPLIT_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
 
-function colorizeLogMessage(message) {
-  return message.replace(GUARD_NAME_REGEX, (match) => {
-    const color = GUARD_COLOR_MAP[match];
-    if (!color) return `<strong>${match}</strong>`;
-    return `<span class="log-name-${color.key}">${match}</span>`;
+// eslint-disable-next-line react-refresh/only-export-components
+export function colorizeLogMessage(message) {
+  const parts = message.split(GUARD_NAME_SPLIT_REGEX);
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return part;
+    const color = GUARD_COLOR_MAP[part];
+    if (!color) return createElement('strong', { key: i }, part);
+    return createElement('span', { key: i, className: `log-name-${color.key}` }, part);
   });
 }
 
@@ -292,10 +295,9 @@ export default function App() {
                           style={{ '--log-border': borderColor }}
                         >
                           <span className="log-time">{entry.time}</span>
-                          <span
-                            className="log-text"
-                            dangerouslySetInnerHTML={{ __html: colorizeLogMessage(entry.message) }}
-                          />
+                          <span className="log-text">
+                            {colorizeLogMessage(entry.message)}
+                          </span>
                         </div>
                       );
                     })}
