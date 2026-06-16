@@ -33,6 +33,11 @@
  *   // Call sync.upsertSection('resources', state) after any resources change.
  *   // sync.campaignId, sync.syncStatus, sync.createCampaign,
  *   // sync.joinCampaign, sync.leaveCampaign are exposed for SettingsPanel.
+ *
+ * Testability: the third argument accepts an injected Supabase client so unit
+ * tests can pass a mock. Production callers (useGameState) leave it null and
+ * the module-level client (built from VITE_SUPABASE_URL/ANON_KEY env vars) is
+ * used.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -44,7 +49,7 @@ const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Client is null when env vars are missing (solo/portfolio mode — sync is disabled).
-const supabase = supabaseUrl && supabaseKey
+const defaultSupabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
@@ -159,10 +164,19 @@ export function applyRemoteSection(localState, sectionName, remoteSection) {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * @param {object}   state          Current full game state (from useGameState)
- * @param {function} onRemoteChange Called with new full state when a remote update arrives
+ * @param {object}    state            Current full game state (from useGameState)
+ * @param {function}  onRemoteChange   Called with new full state when a remote update arrives
+ * @param {object?}   injectedClient   Optional Supabase client (for tests). When undefined,
+ *                                     uses the module-level default built from env vars.
+ *                                     Pass an explicit value (including null) to override.
  */
-export function useSupabaseSync(state, onRemoteChange) {
+export function useSupabaseSync(state, onRemoteChange, injectedClient) {
+  // Resolve which Supabase client to use. Default is `defaultSupabase` (from
+  // env vars). In tests, an injected mock is passed via the third argument.
+  // The `arguments.length > 2` check distinguishes "not passed" from
+  // "explicitly passed as null/false" — the latter overrides the default.
+  const client = arguments.length > 2 ? injectedClient : defaultSupabase;
+
   const [campaignId,  setCampaignId]  = useState(() => localStorage.getItem(CAMPAIGN_ID_KEY));
   const [syncStatus,  setSyncStatus]  = useState('idle'); // 'idle' | 'syncing' | 'error' | 'offline'
   const [syncError,   setSyncError]   = useState(null);
@@ -186,15 +200,15 @@ export function useSupabaseSync(state, onRemoteChange) {
   // ── Core subscribe / unsubscribe ─────────────────────────────────────────
 
   const subscribe = useCallback((id) => {
-    if (!supabase || !id) return;
+    if (!client || !id) return;
 
     // Clean up any existing channel first
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+      client.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    const channel = supabase
+    const channel = client
       .channel(`campaign:${id}`)
       .on(
         'postgres_changes',
@@ -222,13 +236,13 @@ export function useSupabaseSync(state, onRemoteChange) {
       });
 
     channelRef.current = channel;
-  }, [onRemoteChange]);
+  }, [client, onRemoteChange]);
 
   // ── Upsert helpers ────────────────────────────────────────────────────────
 
   /** Flush all queued section upserts. Called on reconnect / visibility restore. */
   const flushQueue = useCallback(async () => {
-    if (!supabase || !campaignIdRef.current || pendingQueue.current.size === 0) return;
+    if (!client || !campaignIdRef.current || pendingQueue.current.size === 0) return;
 
     // Snapshot the queued sections, then write them in a single update. We do
     // not clear the queue up front: if the write fails the data stays queued
@@ -245,7 +259,7 @@ export function useSupabaseSync(state, onRemoteChange) {
     const flushedAt = Date.now();
     for (const [section] of entries) lastUpsertAt.current.set(section, flushedAt);
     setSyncStatus('syncing');
-    const { error } = await supabase
+    const { error } = await client
       .from('campaigns')
       .update(update)
       .eq('id', campaignIdRef.current);
@@ -261,7 +275,7 @@ export function useSupabaseSync(state, onRemoteChange) {
       setSyncStatus('idle');
       setSyncError(null);
     }
-  }, []);
+  }, [client]);
 
   // ── Online / offline detection ────────────────────────────────────────────
 
@@ -295,7 +309,7 @@ export function useSupabaseSync(state, onRemoteChange) {
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
         const id = campaignIdRef.current;
-        if (id && supabase) {
+        if (id && client) {
           subscribe(id);
           // Also flush any queued upserts that accumulated while hidden
           flushQueue();
@@ -304,7 +318,7 @@ export function useSupabaseSync(state, onRemoteChange) {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [subscribe, flushQueue]);
+  }, [client, subscribe, flushQueue]);
 
   // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
 
@@ -312,23 +326,23 @@ export function useSupabaseSync(state, onRemoteChange) {
     if (campaignId) {
       subscribe(campaignId);
     } else if (channelRef.current) {
-      supabase?.removeChannel(channelRef.current);
+      client?.removeChannel(channelRef.current);
       channelRef.current = null;
     }
     return () => {
       if (channelRef.current) {
-        supabase?.removeChannel(channelRef.current);
+        client?.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [campaignId, subscribe]);
+  }, [campaignId, client, subscribe]);
 
   /**
    * Upsert a single section to Supabase.
    * If offline, queues it for later.
    */
   const upsertSection = useCallback(async (sectionName, currentState) => {
-    if (!supabase || !campaignId) return;
+    if (!client || !campaignId) return;
 
     const sectionData = extractSection(currentState, sectionName);
 
@@ -340,7 +354,7 @@ export function useSupabaseSync(state, onRemoteChange) {
 
     lastUpsertAt.current.set(sectionName, Date.now());
     setSyncStatus('syncing');
-    const { error } = await supabase
+    const { error } = await client
       .from('campaigns')
       .update({
         [sectionName]:                 sectionData,
@@ -356,7 +370,7 @@ export function useSupabaseSync(state, onRemoteChange) {
       setSyncStatus('idle');
       setSyncError(null);
     }
-  }, [campaignId]);
+  }, [client, campaignId]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 
@@ -365,13 +379,13 @@ export function useSupabaseSync(state, onRemoteChange) {
    * Returns { id, error }.
    */
   const createCampaign = useCallback(async () => {
-    if (!supabase) return { id: null, error: 'Supabase not configured' };
+    if (!client) return { id: null, error: 'Supabase not configured' };
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const id  = generateCampaignId();
       const row = buildFullRow(id, stateRef.current);
 
-      const { error } = await supabase.from('campaigns').insert(row);
+      const { error } = await client.from('campaigns').insert(row);
       if (!error) {
         localStorage.setItem(CAMPAIGN_ID_KEY, id);
         setCampaignId(id);
@@ -382,7 +396,7 @@ export function useSupabaseSync(state, onRemoteChange) {
       }
     }
     return { id: null, error: 'Could not generate a unique campaign ID. Try again.' };
-  }, []);
+  }, [client]);
 
   /**
    * Join an existing campaign by code.
@@ -392,10 +406,10 @@ export function useSupabaseSync(state, onRemoteChange) {
    * Returns { state, error }.
    */
   const joinCampaign = useCallback(async (code) => {
-    if (!supabase) return { state: null, error: 'Supabase not configured' };
+    if (!client) return { state: null, error: 'Supabase not configured' };
 
     const id = code.trim().toUpperCase();
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('campaigns')
       .select('*')
       .eq('id', id)
@@ -422,7 +436,7 @@ export function useSupabaseSync(state, onRemoteChange) {
     // until the host's next Realtime UPDATE happens to trigger a re-render.
     onRemoteChange(merged);
     return { state: merged, error: null };
-  }, [onRemoteChange]);
+  }, [client, onRemoteChange]);
 
   /**
    * Leave the current campaign.
@@ -445,6 +459,6 @@ export function useSupabaseSync(state, onRemoteChange) {
     createCampaign,
     joinCampaign,
     leaveCampaign,
-    isConfigured: !!supabase,
+    isConfigured: !!client,
   };
 }
