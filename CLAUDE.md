@@ -77,12 +77,12 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 **Key behaviors:**
 - The Supabase client is `null` when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are absent. All sync calls silently no-op. The app runs as a fully local tool.
-- `sync.upsertSection(sectionName, state)` extracts the relevant keys (or, for a `guard_N` column, that one guard object) and does a targeted `UPDATE` on the `campaigns` row — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`).
-- When offline, upserts are queued in a `Map` (keyed by section name, so later writes replace earlier ones for the same section). The queue is flushed automatically on reconnect via the `online` event.
+- `sync.upsertSection(sectionName, state)` extracts the relevant keys (or, for a `guard_N` column, that one guard object) and calls the **`merge_section` RPC** (not a raw `UPDATE`) — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`). The server-side RPC performs a **field-level deep merge** of the incoming payload into the existing column, so two players editing different keys in the same section concurrently don't lose each other's writes. See `supabase/migrations/0002_field_level_merge.sql` for the merge function. (AVE-94.)
+- When offline, upserts are queued in a `Map` (keyed by section name, so later writes replace earlier ones for the same section). The queue is flushed automatically on reconnect via the `online` event. Each queued section is sent through `merge_section` independently on flush.
 - `useGameState`'s debounce collects a **set** of pending sections per window and flushes each — so editing two different guards within one debounce window upserts both columns rather than dropping one.
-- Echo suppression is **per-section**: `lastUpsertAt` is a `Map<section, timestamp>`. A Realtime `UPDATE` skips only the sections we ourselves wrote within the last 3s, so a concurrent edit to a *different* guard/section is still applied.
+- Echo suppression on inbound Realtime updates is **value-based**: a section is skipped only if the incoming value deeply equals the current local value. This replaced the older 3-second wall-clock window, which was dropping legitimate concurrent changes (AVE-82, AVE-84).
 - On `joinCampaign`, the full remote row is fetched (and passed through `normalizeRow`) and every section in `ALL_SECTIONS` is merged into local state. `log`, `settings`, and `activeGuardIdx` are preserved from local.
-- Realtime subscription uses `postgres_changes` filtered to `id=eq.{campaignId}`. On `UPDATE`, every remote section in `ALL_SECTIONS` is applied to the current local state (subject to per-section echo suppression); local-only keys are preserved.
+- Realtime subscription uses `postgres_changes` filtered to `id=eq.{campaignId}`. On `UPDATE`, every remote section in `ALL_SECTIONS` is applied to the current local state (subject to value-based echo suppression); local-only keys are preserved.
 - `normalizeRow` reshapes a pre-AVE-83 row (single `guards` blob `{ guards:[…], activeParty:[…] }`) into per-guard columns + `party` on read, so the client tolerates a database that hasn't yet had the `supabase/migrations/0001_split_guards_per_column.sql` migration applied.
 - Campaign IDs are random short alphanumeric codes (e.g. `WOLF42`) stored in `localStorage` under `guards_ledger_campaign_id`.
 
@@ -247,9 +247,10 @@ Key CSS conventions:
 For local development with multiplayer enabled:
 
 1. Run `supabase/schema.sql` in the Supabase SQL editor (fresh installs). For a database created before AVE-83, instead run the one-time `supabase/migrations/0001_split_guards_per_column.sql` to split the old single `guards` column into per-guard columns.
-2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
-3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-4. `npm install @supabase/supabase-js`
+2. Run `supabase/migrations/0002_field_level_merge.sql` to install the `merge_section` RPC and `deep_merge_jsonb` helper. (Idempotent `CREATE OR REPLACE` — safe to re-run.)
+3. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
+4. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+5. `npm install @supabase/supabase-js`
 
 Without these env vars the app runs as a local-only tool — no errors, sync is simply disabled.
 

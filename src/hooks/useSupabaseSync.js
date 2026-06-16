@@ -103,12 +103,20 @@ function generateCampaignId() {
  * Extract the payload for a section/column from full state.
  * For a per-guard column this is the guard object itself (state.guards[i]).
  * For a simple section it is an object of that section's keys.
+ *
+ * Throws on an unknown section name. Section names are tightly controlled
+ * by the SECTION_KEYS map and the isGuardColumn helper, so a missing key
+ * is always a programmer error (typo, refactor leftover). The server
+ * also validates the name in merge_section as a defense-in-depth check.
  */
 export function extractSection(state, sectionName) {
   if (isGuardColumn(sectionName)) {
     return state.guards[guardIndexFromColumn(sectionName)];
   }
   const keys = SECTION_KEYS[sectionName];
+  if (!keys) {
+    throw new Error(`extractSection: unknown section name "${sectionName}"`);
+  }
   return Object.fromEntries(keys.map(k => [k, state[k]]));
 }
 
@@ -160,6 +168,26 @@ export function applyRemoteSection(localState, sectionName, remoteSection) {
     return { ...localState, guards };
   }
   return { ...localState, ...remoteSection };
+}
+
+// ─── Runtime helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Send queued section writes through the merge_section RPC. Calls happen
+ * sequentially so a failure on one section doesn't roll back others. The
+ * first error (if any) is returned and short-circuits the remaining calls;
+ * unprocessed sections stay in the queue for the next flush.
+ */
+async function mergeSections(client, campaignId, entries) {
+  for (const [sectionName, payload] of entries) {
+    const { error } = await client.rpc('merge_section', {
+      campaign_id:  campaignId,
+      section_name: sectionName,
+      payload:      payload,
+    });
+    if (error) return { error };
+  }
+  return { error: null };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -246,25 +274,18 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const flushQueue = useCallback(async () => {
     if (!client || !campaignIdRef.current || pendingQueue.current.size === 0) return;
 
-    // Snapshot the queued sections, then write them in a single update. We do
-    // not clear the queue up front: if the write fails the data stays queued
-    // so a later flush can retry it instead of silently dropping the edits.
+    // Snapshot the queued sections. Each is sent through merge_section
+    // individually (rather than a single multi-column update) because the
+    // RPC's per-section deep-merge is exactly the concurrent-write safety
+    // we want — if the server has fresher state in some keys than we do,
+    // those keys are preserved while ours are applied.
+    //
+    // We do not clear the queue up front: if a write fails the data stays
+    // queued so a later flush can retry it instead of silently dropping
+    // the edits.
     const entries = Array.from(pendingQueue.current.entries());
-    const update  = {};
-    const now     = new Date().toISOString();
-    for (const [section, data] of entries) {
-      update[section]                 = data;
-      update[`${section}_updated_at`] = now;
-    }
-
-    // Mark each section as having been written so any subsequent inbound
-    // UPDATE for the same section with the same value is recognized as an
-    // echo (see subscribe — value-based suppression).
     setSyncStatus('syncing');
-    const { error } = await client
-      .from('campaigns')
-      .update(update)
-      .eq('id', campaignIdRef.current);
+    const { error } = await mergeSections(client, campaignIdRef.current, entries);
 
     if (error) {
       // Leave the sections queued so the next flush retries them.
@@ -346,7 +367,17 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const upsertSection = useCallback(async (sectionName, currentState) => {
     if (!client || !campaignId) return;
 
-    const sectionData = extractSection(currentState, sectionName);
+    let sectionData;
+    try {
+      sectionData = extractSection(currentState, sectionName);
+    } catch (err) {
+      // extractSection throws on unknown section names. Surface as a sync
+      // error so the user sees a clear message instead of an unhandled
+      // exception in the debounce timer.
+      setSyncError(err.message);
+      setSyncStatus('error');
+      return;
+    }
 
     if (!isOnline.current) {
       pendingQueue.current.set(sectionName, sectionData);
@@ -355,13 +386,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     }
 
     setSyncStatus('syncing');
-    const { error } = await client
-      .from('campaigns')
-      .update({
-        [sectionName]:                 sectionData,
-        [`${sectionName}_updated_at`]: new Date().toISOString(),
-      })
-      .eq('id', campaignId);
+    const { error } = await client.rpc('merge_section', {
+      campaign_id:  campaignId,
+      section_name: sectionName,
+      payload:      sectionData,
+    });
 
     if (error) {
       setSyncError(error.message);
