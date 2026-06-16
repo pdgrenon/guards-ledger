@@ -1485,11 +1485,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .fi-step-selector {
   margin-bottom: 8px;
 }
-.step-btn--disabled {
-  opacity: 0.3;
-  cursor: default;
-  pointer-events: none;
-}
 .fi-cost-section {
   margin-bottom: 6px;
 }
