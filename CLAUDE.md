@@ -252,3 +252,9 @@ For local development with multiplayer enabled:
 4. `npm install @supabase/supabase-js`
 
 Without these env vars the app runs as a local-only tool — no errors, sync is simply disabled.
+
+### Deployment
+
+The live app is deployed to **Cloudflare Pages** at `https://isofarian.averageideas.dev` (the canonical production URL).
+
+There is also a GitHub Pages deploy workflow (`.github/workflows/deploy.yml`) that triggers on pushes to the **`first-draft`** branch. **This is intentional and must not be "fixed" or cleaned up.** The `first-draft` branch deliberately holds an early-draft snapshot of the codebase so it can be deployed and compared side-by-side against the current version — it exists to showcase the difference between the first draft and the latest code. The workflow targeting `first-draft` (rather than `main`) is therefore correct by design. Do not assume it is dead config, and do not point it at `main`.
