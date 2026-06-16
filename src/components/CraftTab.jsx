@@ -1,22 +1,10 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo } from 'react';
-import { RECIPES, craftStatus, craftCostForCity, availableInCity } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined } from '../data/recipes';
 import { MATERIAL_SOURCES } from '../data/materials';
 import { cityPrestige } from '../hooks/gameReducers';
 
 const CITY_NAMES = ['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno'];
-
-function buildCombined(stash, activeGuards) {
-  const combined = { ...stash };
-  for (const guard of activeGuards) {
-    for (const slot of (guard.satchel ?? [])) {
-      if (slot.item) {
-        combined[slot.item] = (combined[slot.item] ?? 0) + slot.qty;
-      }
-    }
-  }
-  return combined;
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -11,7 +11,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/hooks/gameReducers.js'],
+      include: ['src/hooks/gameReducers.js', 'src/data/recipes.js'],
     },
   },
 });

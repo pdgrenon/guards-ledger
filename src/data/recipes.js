@@ -1127,6 +1127,24 @@ export function shortageCount(recipe, stash, useDiscount = false) {
   }).length;
 }
 
+/**
+ * Combine Fort Istra stash with active guards' satchel contents for
+ * craftability checks. The returned object's keys are item names and values
+ * are the summed quantities across stash and the given guards' satchels.
+ * Empty satchel slots (item === '') are skipped.
+ */
+export function buildCombined(stash, activeGuards) {
+  const combined = { ...stash };
+  for (const guard of activeGuards) {
+    for (const slot of (guard.satchel ?? [])) {
+      if (slot.item) {
+        combined[slot.item] = (combined[slot.item] ?? 0) + slot.qty;
+      }
+    }
+  }
+  return combined;
+}
+
 // Maps each item name that is a prerequisite to the next recipe it unlocks.
 export const PREREQ_UPGRADES_TO = (() => {
   const map = {};
