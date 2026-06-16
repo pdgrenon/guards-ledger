@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ConfirmModal } from './ConfirmModal';
 
 // ─── Sync status indicator ────────────────────────────────────────────────────
 
@@ -32,6 +33,9 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   const [mpWorking, setMpWorking] = useState(false);
   const [mpError,   setMpError]   = useState(null);
   const [copied,    setCopied]    = useState(false);
+
+  // Confirmation modal state
+  const [confirmAction, setConfirmAction] = useState(null);
 
   // Ref for the multiplayer section header — used to scroll into view
   const multiplayerRef = useRef(null);
@@ -69,13 +73,11 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
 
   async function handleJoinCampaign() {
     if (!joinCode.trim()) return;
+    setConfirmAction('join');
+  }
 
-    // Warn that joining replaces local state
-    const confirmed = window.confirm(
-      'Joining will replace your local game state with the campaign\'s current state.\n\nExport a save file first if you want to keep your current data.'
-    );
-    if (!confirmed) return;
-
+  async function execJoinCampaign() {
+    setConfirmAction(null);
     setMpWorking(true);
     setMpError(null);
     const { error } = await sync.joinCampaign(joinCode);
@@ -88,9 +90,12 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   }
 
   function handleLeaveCampaign() {
-    if (window.confirm('Leave this campaign? Your local data is kept, but you will stop syncing.')) {
-      sync.leaveCampaign();
-    }
+    setConfirmAction('leave');
+  }
+
+  function execLeaveCampaign() {
+    setConfirmAction(null);
+    sync.leaveCampaign();
   }
 
   async function handleCopyCode() {
@@ -349,7 +354,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
             </div>
             <button
               className="settings-action-btn settings-action-btn--danger"
-              onClick={() => { resetState(); onClose(); }}
+              onClick={() => setConfirmAction('reset')}
             >
               Reset
             </button>
@@ -357,6 +362,55 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
 
         </div>
       </div>
+
+      {confirmAction === 'join' && (
+        <ConfirmModal
+          title="Join campaign"
+          confirmLabel="Join"
+          onConfirm={execJoinCampaign}
+          onCancel={() => setConfirmAction(null)}
+          danger
+        >
+          <p className="confirm-modal-message">
+            Joining will replace your local game state with the campaign's current state.
+          </p>
+          <button
+            className="settings-action-btn"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 4 }}
+            onClick={exportState}
+          >
+            Export save file first
+          </button>
+        </ConfirmModal>
+      )}
+
+      {confirmAction === 'leave' && (
+        <ConfirmModal
+          title="Leave campaign"
+          confirmLabel="Leave"
+          onConfirm={execLeaveCampaign}
+          onCancel={() => setConfirmAction(null)}
+          danger
+        >
+          <p className="confirm-modal-message">
+            Your local data is kept, but you will stop syncing with this campaign.
+          </p>
+        </ConfirmModal>
+      )}
+
+      {confirmAction === 'reset' && (
+        <ConfirmModal
+          title="Reset all data"
+          confirmLabel="Reset"
+          onConfirm={() => { setConfirmAction(null); resetState(); onClose(); }}
+          onCancel={() => setConfirmAction(null)}
+          danger
+        >
+          <p className="confirm-modal-message">
+            This wipes all game state — cannot be undone. Export a save file first if you want to keep your current data.
+          </p>
+        </ConfirmModal>
+      )}
     </div>
   );
 }
