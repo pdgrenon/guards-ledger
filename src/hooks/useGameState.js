@@ -2,10 +2,12 @@ import demoSave from '../data/demoSave.json';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   createInitialState,
+  createInitialResources,
   createInitialCities,
   createInitialGuards,
   createInitialStash,
   createInitialCampaign,
+  SATCHEL_EXPANDED_SIZE,
 } from '../data/constants';
 import {
   addLog,
@@ -38,8 +40,9 @@ import { useSupabaseSync, guardColumn } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
 // v1 saves (flat shape) are migrated automatically on first load.
-const STORAGE_KEY    = 'guards_ledger_v2';
-const STORAGE_KEY_V1 = 'guards_ledger_v1';
+const STORAGE_KEY             = 'guards_ledger_v2';
+const STORAGE_KEY_V1          = 'guards_ledger_v1';
+const CORRUPTED_BACKUP_KEY    = 'guards_ledger_corrupted_backup';
 
 // ─── Migration ────────────────────────────────────────────────────────────────
 
@@ -61,26 +64,167 @@ function migrateV1(v1) {
   };
 }
 
+// ─── Shape normalization ─────────────────────────────────────────────────────
+//
+// A save can parse as valid JSON but still be structurally incomplete — e.g. a
+// guard object missing its `chips` or `satchel`, or state.guards not being an
+// 8-element array. Loading such a state would crash at render time. Here we
+// walk the parsed state and fill in any missing/typed fields from the section
+// factories, preserving as much valid data as possible.
+
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function healNumber(v, fallback) {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+function healString(v, fallback = '') {
+  return typeof v === 'string' ? v : fallback;
+}
+
+function healGuard(raw) {
+  const fresh = createInitialGuards().guards[0];
+  if (!isPlainObject(raw)) return fresh;
+  return {
+    ...fresh,
+    ...raw,
+    name:              healString(raw.name, fresh.name),
+    hp:                healNumber(raw.hp, fresh.hp),
+    maxHp:             Math.max(1, healNumber(raw.maxHp, fresh.maxHp)),
+    baseAtk:           healNumber(raw.baseAtk, fresh.baseAtk),
+    baseDef:           healNumber(raw.baseDef, fresh.baseDef),
+    expandedSatchel:   !!raw.expandedSatchel,
+    satchel:           Array.isArray(raw.satchel) && raw.satchel.length === SATCHEL_EXPANDED_SIZE
+                         ? raw.satchel.map(s => isPlainObject(s)
+                             ? { item: healString(s.item), qty: healNumber(s.qty, 1) }
+                             : { item: '', qty: 1 })
+                         : fresh.satchel,
+    equipment:         isPlainObject(raw.equipment)
+                         ? { weapon:    healString(raw.equipment.weapon),
+                             armor:     healString(raw.equipment.armor),
+                             accessory: healString(raw.equipment.accessory),
+                             item:      healString(raw.equipment.item) }
+                         : fresh.equipment,
+    chips:             isPlainObject(raw.chips)
+                         ? { black:  healNumber(raw.chips.black,  0),
+                             green:  healNumber(raw.chips.green,  0),
+                             red:    healNumber(raw.chips.red,    0),
+                             purple: healNumber(raw.chips.purple, 0) }
+                         : fresh.chips,
+    startingBlack:     healNumber(raw.startingBlack, fresh.startingBlack),
+  };
+}
+
+function healState(parsed) {
+  if (!isPlainObject(parsed)) return null;
+
+  const resInit    = createInitialResources();
+  const citiesInit = createInitialCities();
+  const guardsInit = createInitialGuards();
+  const stashInit  = createInitialStash();
+  const campInit   = createInitialCampaign();
+
+  const guardsArr = Array.isArray(parsed.guards) ? parsed.guards : [];
+  const guards = Array.from({ length: 8 }, (_, i) => healGuard(guardsArr[i]));
+
+  return {
+    sil:            healNumber(parsed.sil, resInit.sil),
+    lux:            healNumber(parsed.lux, resInit.lux),
+    cities:         Array.isArray(parsed.cities) && parsed.cities.length > 0
+                       ? parsed.cities.map(c => isPlainObject(c)
+                           ? { ...citiesInit.cities[0], ...c,
+                               name: healString(c.name, citiesInit.cities[0].name) }
+                           : citiesInit.cities[0])
+                       : citiesInit.cities,
+    guards,
+    activeParty:    Array.isArray(parsed.activeParty) && parsed.activeParty.length === 2
+                       ? parsed.activeParty.map(healString)
+                       : guardsInit.activeParty,
+    // activeGuardIdx is local UI nav — always reset.
+    activeGuardIdx: guardsInit.activeGuardIdx,
+    stash:          isPlainObject(parsed.stash) ? parsed.stash : stashInit.stash,
+    stonebound:     isPlainObject(parsed.stonebound)
+                       ? { max: Math.max(0, healNumber(parsed.stonebound.max, stashInit.stonebound.max)),
+                           locations: Array.isArray(parsed.stonebound.locations)
+                             ? parsed.stonebound.locations.filter(isPlainObject)
+                             : [] }
+                       : stashInit.stonebound,
+    campaign:       isPlainObject(parsed.campaign)
+                       ? { ...campInit.campaign, ...parsed.campaign,
+                           eventTokens: isPlainObject(parsed.campaign.eventTokens)
+                             ? { mountain: healNumber(parsed.campaign.eventTokens.mountain, 0),
+                                 forest:   healNumber(parsed.campaign.eventTokens.forest, 0),
+                                 plains:   healNumber(parsed.campaign.eventTokens.plains, 0),
+                                 sea:      healNumber(parsed.campaign.eventTokens.sea, 0) }
+                             : campInit.campaign.eventTokens,
+                           locations: isPlainObject(parsed.campaign.locations)
+                             ? parsed.campaign.locations
+                             : campInit.campaign.locations,
+                           plans:     Array.isArray(parsed.campaign.plans)
+                             ? parsed.campaign.plans.filter(isPlainObject)
+                             : [] }
+                       : campInit.campaign,
+    log:            Array.isArray(parsed.log) ? parsed.log : [],
+    settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
+  };
+}
+
+// ─── Load + corruption handling ──────────────────────────────────────────────
+//
+// Returns the (possibly healed) state to boot the app with. If the saved data
+// is unrecoverable, the corrupted raw string is written to
+// `guards_ledger_corrupted_backup` and the returned object includes a
+// `corruption` field so the UI can surface a banner.
+
 function loadState() {
+  // No save at all — first run, nothing to surface.
+  const rawV2 = (() => { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } })();
+  if (rawV2) {
+    try {
+      const parsed  = JSON.parse(rawV2);
+      const healed  = healState(parsed);
+      if (healed) return { state: healed, corruption: null };
+    } catch {
+      // Parse failure — unrecoverable, surface to user.
+      backupCorruptedRaw(rawV2, 'parse-failure');
+      return { state: createInitialState(), corruption: { reason: 'parse-failure', raw: rawV2 } };
+    }
+    // Parsed but healState returned null — unrecoverable shape.
+    backupCorruptedRaw(rawV2, 'invalid-shape');
+    return { state: createInitialState(), corruption: { reason: 'invalid-shape', raw: rawV2 } };
+  }
+
+  // No v2 save — try v1 migration.
+  const rawV1 = (() => { try { return localStorage.getItem(STORAGE_KEY_V1); } catch { return null; } })();
+  if (rawV1) {
+    try {
+      const migrated = healState(migrateV1(JSON.parse(rawV1)));
+      if (migrated) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)); } catch { /* ignore */ }
+        return { state: migrated, corruption: null };
+      }
+    } catch {
+      backupCorruptedRaw(rawV1, 'v1-parse-failure');
+      return { state: createInitialState(), corruption: { reason: 'v1-parse-failure', raw: rawV1 } };
+    }
+    backupCorruptedRaw(rawV1, 'v1-invalid-shape');
+    return { state: createInitialState(), corruption: { reason: 'v1-invalid-shape', raw: rawV1 } };
+  }
+
+  // First run, no save at all.
+  return { state: migrateV1(demoSave), corruption: null };
+}
+
+function backupCorruptedRaw(raw, reason) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // Always reset activeGuardIdx on load — it's local UI nav, not campaign state.
-      // This cleans up any saves that persisted it before this fix.
-      return { ...parsed, activeGuardIdx: createInitialGuards().activeGuardIdx };
-    }
-
-    const rawV1 = localStorage.getItem(STORAGE_KEY_V1);
-    if (rawV1) {
-      const migrated = migrateV1(JSON.parse(rawV1));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
-    }
-
-    return migrateV1(demoSave);
+    const payload = JSON.stringify({ reason, raw, backedUpAt: new Date().toISOString() });
+    localStorage.setItem(CORRUPTED_BACKUP_KEY, payload);
   } catch {
-    return createInitialState();
+    // If even the backup write fails (quota exhausted), the only thing we can
+    // do is swallow — the corruption banner still surfaces the issue to the
+    // user, they just won't be able to recover the raw string.
   }
 }
 
@@ -95,11 +239,17 @@ function saveState(state) {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGameState() {
-    const [state, setRaw] = useState(loadState);
+    const [state, setRaw]     = useState(() => loadState().state);
+    const [corruption, setCorruption] = useState(() => loadState().corruption);
     const saveTimer = useRef(null);
     const upsertTimer = useRef(null);
     const stateRef = useRef(state);
     useEffect(() => { stateRef.current = state; }, [state]);
+
+    function dismissCorruption() {
+      setCorruption(null);
+      try { localStorage.removeItem(CORRUPTED_BACKUP_KEY); } catch { /* ignore */ }
+    }
 
     useEffect(() => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -289,6 +439,8 @@ export function useGameState() {
 
   return {
     state,
+    corruption,             // { reason, raw } | null — drives the corruption banner
+    dismissCorruption,      // hide the banner and clear the backed-up raw string
     sync, // expose sync handle so SettingsPanel can call createCampaign / joinCampaign / leaveCampaign
     setActiveGuard,
     setPartySlot,
