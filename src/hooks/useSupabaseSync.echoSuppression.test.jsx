@@ -29,7 +29,7 @@ import { createInitialState } from '../data/constants';
 // ─── Mock client (inline; only what these tests need) ────────────────────────
 
 function makeMockClient() {
-  const calls = { update: [], insert: [], select: [], channels: [], removed: [] };
+  const calls = { update: [], insert: [], select: [], rpc: [], channels: [], removed: [] };
 
   function makeBuilder(table) {
     const call = { table };
@@ -67,6 +67,10 @@ function makeMockClient() {
     from:  (table) => makeBuilder(table),
     channel,
     removeChannel(ch) { calls.removed.push(ch); },
+    rpc(name, params) {
+      calls.rpc.push({ name, params });
+      return Promise.resolve({ data: null, error: null });
+    },
     calls,
   };
 }

@@ -30,20 +30,26 @@ import { createInitialState } from '../data/constants';
  *   - update(payload).eq(col, val)               → Promise<{ data, error }>
  *   - insert(payload)                              → Promise<{ data, error }>
  *   - select('*').eq(col, val).single()            → Promise<{ data, error }>
+ *   - rpc(name, params)                             → Promise<{ data, error }>
  *
  * Each terminal call resolves with the override passed to makeMockClient, or
  * { data: null, error: null } by default.
  */
-function makeMockClient({ upsertResult, insertResult, selectResult } = {}) {
+function makeMockClient({ upsertResult, insertResult, selectResult, rpcResult, rpcResults } = {}) {
   const overrides = { upsertResult, insertResult, selectResult };
 
   const calls = {
     update:  [],  // [{ table, payload, eq }]
     insert:  [],  // [{ table, payload }]
     select:  [],  // [{ table, eq }]
+    rpc:     [],  // [{ name, params }]
     channels: [],
     removed:  [],
   };
+
+  // Per-RPC overrides keyed by RPC name. Falls back to `rpcResult` if the
+  // name isn't in the map, then to { data: null, error: null }.
+  const rpcOverrideMap = rpcResults ?? {};
 
   function makeBuilder(table) {
     const call = { table };
@@ -107,6 +113,11 @@ function makeMockClient({ upsertResult, insertResult, selectResult } = {}) {
     from:  (table) => makeBuilder(table),
     channel,
     removeChannel(ch) { calls.removed.push(ch); },
+    rpc(name, params) {
+      calls.rpc.push({ name, params });
+      const override = rpcOverrideMap[name] ?? rpcResult ?? { data: null, error: null };
+      return Promise.resolve(override);
+    },
     calls,
     overrides,
   };
@@ -177,7 +188,7 @@ describe('useSupabaseSync — configuration', () => {
 // ─── upsertSection ───────────────────────────────────────────────────────────
 
 describe('useSupabaseSync — upsertSection', () => {
-  it('writes a simple-section update to the campaigns table when a campaign is active', async () => {
+  it('sends a merge_section RPC with the section payload when a campaign is active', async () => {
     const client = makeMockClient();
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
 
@@ -185,11 +196,15 @@ describe('useSupabaseSync — upsertSection', () => {
       await result.current.upsertSection('resources', { ...createInitialState(), sil: 7 });
     });
 
-    expect(client.calls.update).toHaveLength(1);
-    const u = client.calls.update[0];
-    expect(u.payload.resources).toEqual({ sil: 7, lux: 0 });
-    expect(u.payload.resources_updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(u.eq).toEqual({ col: 'id', val: 'WOLF42' });
+    // Writes now go through the merge_section RPC, not a raw .update() on
+    // the campaigns table. The server does the deep-merge.
+    expect(client.calls.update).toHaveLength(0);
+    expect(client.calls.rpc).toHaveLength(1);
+    const r = client.calls.rpc[0];
+    expect(r.name).toBe('merge_section');
+    expect(r.params.campaign_id).toBe('WOLF42');
+    expect(r.params.section_name).toBe('resources');
+    expect(r.params.payload).toEqual({ sil: 7, lux: 0 });
   });
 
   it('does nothing when no campaign is active', async () => {
@@ -200,8 +215,8 @@ describe('useSupabaseSync — upsertSection', () => {
       await result.current.upsertSection('resources', { ...createInitialState(), sil: 7 });
     });
 
-    // No campaignId → upsertSection returns early, no calls made.
-    expect(client.calls.update).toHaveLength(0);
+    // No campaignId → upsertSection returns early, no RPC made.
+    expect(client.calls.rpc).toHaveLength(0);
   });
 
   it('updates syncStatus to syncing then idle on success', async () => {
@@ -216,9 +231,9 @@ describe('useSupabaseSync — upsertSection', () => {
     expect(result.current.syncError).toBe(null);
   });
 
-  it('sets syncError and syncStatus=error on a failed upsert', async () => {
+  it('sets syncError and syncStatus=error on a failed RPC', async () => {
     const client = makeMockClient({
-      upsertResult: { data: null, error: { message: 'network down', code: 'NETWORK' } },
+      rpcResult: { data: null, error: { message: 'network down', code: 'NETWORK' } },
     });
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
 
@@ -432,13 +447,13 @@ describe('useSupabaseSync — offline queue', () => {
       await result.current.upsertSection('resources', { ...createInitialState(), sil: 99 });
     });
 
-    expect(client.calls.update).toHaveLength(0); // nothing written
+    expect(client.calls.rpc).toHaveLength(0); // nothing written
     expect(result.current.syncStatus).toBe('offline');
   });
 
   it('re-queues a section on a failed upsert (so it can be retried)', async () => {
     const client = makeMockClient({
-      upsertResult: { data: null, error: { message: 'oops', code: 'OOPS' } },
+      rpcResult: { data: null, error: { message: 'oops', code: 'OOPS' } },
     });
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
 
