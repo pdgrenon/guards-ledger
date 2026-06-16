@@ -15,6 +15,7 @@
  * API is not supported in function components.
  */
 import { Component } from 'react';
+import * as Sentry from '@sentry/react';
 
 function readSaveBlob() {
   try {
@@ -140,9 +141,10 @@ export class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // Log to console for debugging in production. Server-side error reporting
-    // (e.g. Sentry) can be added here later without changing the boundary API.
     console.error('ErrorBoundary caught:', error, info?.componentStack);
+    if (typeof Sentry.captureException === 'function') {
+      Sentry.captureException(error, { extra: { componentStack: info?.componentStack } });
+    }
   }
 
   reset() {
