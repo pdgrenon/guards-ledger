@@ -1,5 +1,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--c-interact);
+  outline-offset: 2px;
+}
+
 /* ─── SCHEME A: SLATE & IRON ─────────────────────────────────────────────── */
 :root {
   /* Backgrounds — warm off-white page, white cards, light gray fills */
@@ -628,6 +636,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: inherit;
   padding: 0;
 }
+.autocomplete-input:focus-visible {
+  outline: 2px solid var(--c-interact);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 .autocomplete-input::placeholder { color: var(--c-text3); font-style: italic; }
 .autocomplete-dropdown {
   position: absolute;
@@ -651,7 +664,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .autocomplete-option:last-child { border-bottom: none; }
 .autocomplete-option:active,
-.autocomplete-option.highlighted { background: var(--c-surface2); }
+.autocomplete-option.highlighted,
+.autocomplete-option.active { background: var(--c-surface2); }
 
 /* ─── SATCHEL ────────────────────────────────────────────────────────────── */
 .satchel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -1437,6 +1451,10 @@ button, input, select, textarea { font-family: var(--font-ui); }
   outline: none;
   border-color: var(--c-interact);
 }
+.settings-select:focus-visible {
+  outline: 2px solid var(--c-interact);
+  outline-offset: 2px;
+}
 
 /* ── Ft. Istra Buildings ── */
 .fi-building-card {
@@ -1702,6 +1720,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-color: var(--c-interact);
   background: var(--c-surface);
 }
+.campaign-location-input:focus-visible {
+  outline: 2px solid var(--c-interact);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 .campaign-location-input::placeholder { color: var(--c-text3); }
 
 /* ── Dynamic location rows (side quests, bounties) ── */
@@ -1851,6 +1874,10 @@ button, input, select, textarea { font-family: var(--font-ui); }
   transition: border-color 0.15s;
 }
 .craft-search:focus { border-color: var(--c-border2); }
+.craft-search:focus-visible {
+  outline: 2px solid var(--c-interact);
+  outline-offset: 1px;
+}
 
 /* ── Filters ── */
 .craft-filters { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
@@ -1874,6 +1901,10 @@ button, input, select, textarea { font-family: var(--font-ui); }
   -webkit-appearance: none;
   cursor: pointer;
   outline: none;
+}
+.craft-type-select:focus-visible {
+  outline: 2px solid var(--c-interact);
+  outline-offset: 1px;
 }
 .craft-select-chevron {
   position: absolute;

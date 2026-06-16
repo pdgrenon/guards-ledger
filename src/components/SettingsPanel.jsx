@@ -195,9 +195,9 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     <div className="settings-sub">Adjust if an effect permanently changes max health</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, -1)}>−</button>
+                    <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, -1)} aria-label={`Decrease ${guard.name} max HP`}>−</button>
                     <span className="adj-val">{guard.maxHp}</span>
-                    <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, 1)}>+</button>
+                    <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, 1)} aria-label={`Increase ${guard.name} max HP`}>+</button>
                   </div>
                 </div>
 
@@ -207,9 +207,9 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     <div className="settings-sub">Value black resets to when "Reset chips" is tapped</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack - 1)}>−</button>
+                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack - 1)} aria-label={`Decrease ${guard.name} starting black chips`}>−</button>
                     <span className="adj-val">{guard.startingBlack}</span>
-                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack + 1)}>+</button>
+                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack + 1)} aria-label={`Increase ${guard.name} starting black chips`}>+</button>
                   </div>
                 </div>
               </div>
