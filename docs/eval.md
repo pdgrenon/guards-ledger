@@ -18,6 +18,8 @@ You have a well-scoped Linear ticket and want to know whether a cheaper or free 
 
 Clean up `eval/` after you have your answer.
 
+**Linear issue eval:** Keep the winning implementation's worktree until the user decides what to do with it. At the end, ask the user whether to discard the worktree or migrate it for a commit — do not delete both without asking.
+
 ---
 
 ## Eval agent system prompt
@@ -46,3 +48,5 @@ Output format:
 ## What to do with the result
 
 If B (cheaper model) wins or ties: update the model routing table in `AGENTS.md` and your `.opencode.json` default. If A (more expensive model) wins by a meaningful margin: keep your current default and note what task type the cheaper model struggled with.
+
+If the eval was against a Linear ticket, the winning implementation is already in a worktree. Ask the user whether to discard the worktree or migrate it for a commit rather than silently cleaning up. If the user chooses to keep it, push the branch and open a PR.
