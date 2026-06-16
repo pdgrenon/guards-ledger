@@ -23,8 +23,6 @@ export function StashTab({
   const cubesAvailable = stonebound.max - cubesUsed;
   const overBudget = cubesAvailable < 0;
 
-  const activeItems = ALL_ITEMS_WITH_CATEGORY.filter(({ item }) => (stash[item] ?? 0) > 0);
-
   const predefinedAddResults = addSearch.length > 0
     ? ALL_ITEMS_WITH_CATEGORY.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&

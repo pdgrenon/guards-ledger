@@ -25,8 +25,6 @@ import {
   reduceSetLux,
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
-  reduceSetGuardEquipment,
-  reduceSetGuardSatchelItem,
   reduceAdjustChip,
   reduceResetChips,
   cityPrestige,

@@ -2,7 +2,6 @@ import demoSave from '../data/demoSave.json';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   createInitialState,
-  createInitialResources,
   createInitialCities,
   createInitialGuards,
   createInitialStash,

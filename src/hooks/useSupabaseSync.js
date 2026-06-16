@@ -172,7 +172,6 @@ export function useSupabaseSync(state, onRemoteChange) {
   const pendingQueue  = useRef(new Map());
   const isOnline      = useRef(navigator.onLine);
   const channelRef    = useRef(null);
-  const sessionId     = useRef(`${Date.now()}-${Math.random()}`);
   // Per-section timestamp of our last write, so a Realtime echo of our own
   // upsert is ignored for that section only. Editing guard_0 must NOT cause us
   // to drop a concurrent guard_1 update from another player.
@@ -225,75 +224,10 @@ export function useSupabaseSync(state, onRemoteChange) {
     channelRef.current = channel;
   }, [onRemoteChange]);
 
-  // ── Online / offline detection ────────────────────────────────────────────
-
-  useEffect(() => {
-    function handleOnline() {
-      isOnline.current = true;
-      const id = campaignIdRef.current;
-      if (id) {
-        subscribe(id);   // resubscribe in case the socket dropped while offline
-        flushQueue();
-      }
-    }
-    function handleOffline() {
-      isOnline.current = false;
-      setSyncStatus('offline');
-    }
-    window.addEventListener('online',  handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online',  handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscribe]);
-
-  // ── Visibility-based resubscription ──────────────────────────────────────
-  // Mobile browsers silently drop WebSocket connections when a tab is
-  // backgrounded. When the page becomes visible again we tear down the
-  // existing channel and resubscribe to ensure we're receiving updates.
-
-  useEffect(() => {
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        const id = campaignIdRef.current;
-        if (id && supabase) {
-          subscribe(id);
-          // Also flush any queued upserts that accumulated while hidden
-          flushQueue();
-        }
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscribe]);
-
-  // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
-
-  useEffect(() => {
-    if (campaignId) {
-      subscribe(campaignId);
-    } else {
-      if (channelRef.current) {
-        supabase?.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-      setSyncStatus('idle');
-    }
-    return () => {
-      if (channelRef.current) {
-        supabase?.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [campaignId, subscribe]);
-
   // ── Upsert helpers ────────────────────────────────────────────────────────
 
   /** Flush all queued section upserts. Called on reconnect / visibility restore. */
-  async function flushQueue() {
+  const flushQueue = useCallback(async () => {
     if (!supabase || !campaignIdRef.current || pendingQueue.current.size === 0) return;
 
     // Snapshot the queued sections, then write them in a single update. We do
@@ -327,7 +261,67 @@ export function useSupabaseSync(state, onRemoteChange) {
       setSyncStatus('idle');
       setSyncError(null);
     }
-  }
+  }, []);
+
+  // ── Online / offline detection ────────────────────────────────────────────
+
+  useEffect(() => {
+    function handleOnline() {
+      isOnline.current = true;
+      const id = campaignIdRef.current;
+      if (id) {
+        subscribe(id);   // resubscribe in case the socket dropped while offline
+        flushQueue();
+      }
+    }
+    function handleOffline() {
+      isOnline.current = false;
+      setSyncStatus('offline');
+    }
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [subscribe, flushQueue]);
+
+  // ── Visibility-based resubscription ──────────────────────────────────────
+  // Mobile browsers silently drop WebSocket connections when a tab is
+  // backgrounded. When the page becomes visible again we tear down the
+  // existing channel and resubscribe to ensure we're receiving updates.
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        const id = campaignIdRef.current;
+        if (id && supabase) {
+          subscribe(id);
+          // Also flush any queued upserts that accumulated while hidden
+          flushQueue();
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [subscribe, flushQueue]);
+
+  // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
+
+  useEffect(() => {
+    if (campaignId) {
+      subscribe(campaignId);
+    } else if (channelRef.current) {
+      supabase?.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    return () => {
+      if (channelRef.current) {
+        supabase?.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [campaignId, subscribe]);
 
   /**
    * Upsert a single section to Supabase.
