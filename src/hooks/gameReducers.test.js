@@ -121,6 +121,77 @@ describe('createInitialCampaign', () => {
   it('returns campaign with empty plans', () => {
     expect(createInitialCampaign().campaign.plans).toEqual([]);
   });
+
+  it('returns campaign with empty ftIstraBuildings map', () => {
+    expect(createInitialCampaign().campaign.ftIstraBuildings).toEqual({});
+  });
+});
+
+// ─── Ft. Istra building state ─────────────────────────────────────────────────
+
+describe('ftIstraBuildings', () => {
+  it('starts with empty map in initial state', () => {
+    expect(s.campaign.ftIstraBuildings).toEqual({});
+  });
+
+  it('defaults unknown building to not_owned', () => {
+    expect(s.campaign.ftIstraBuildings['Lumbermill'] ?? 'not_owned').toBe('not_owned');
+  });
+
+  it('transitions from not_owned to built via inline setState pattern', () => {
+    const next = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        ftIstraBuildings: {
+          ...s.campaign.ftIstraBuildings,
+          Lumbermill: 'built',
+        },
+      },
+    };
+    expect(next.campaign.ftIstraBuildings['Lumbermill']).toBe('built');
+  });
+
+  it('transitions from built to upgraded', () => {
+    const mid = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        ftIstraBuildings: { ...s.campaign.ftIstraBuildings, Lapidary: 'built' },
+      },
+    };
+    const next = {
+      ...mid,
+      campaign: {
+        ...mid.campaign,
+        ftIstraBuildings: { ...mid.campaign.ftIstraBuildings, Lapidary: 'upgraded' },
+      },
+    };
+    expect(next.campaign.ftIstraBuildings['Lapidary']).toBe('upgraded');
+  });
+
+  it('preserves other buildings when updating one', () => {
+    const mid = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        ftIstraBuildings: {
+          ...s.campaign.ftIstraBuildings,
+          Lumbermill: 'built',
+          Lapidary: 'built',
+        },
+      },
+    };
+    const next = {
+      ...mid,
+      campaign: {
+        ...mid.campaign,
+        ftIstraBuildings: { ...mid.campaign.ftIstraBuildings, Lapidary: 'upgraded' },
+      },
+    };
+    expect(next.campaign.ftIstraBuildings['Lumbermill']).toBe('built');
+    expect(next.campaign.ftIstraBuildings['Lapidary']).toBe('upgraded');
+  });
 });
 
 // ─── addLog ───────────────────────────────────────────────────────────────────

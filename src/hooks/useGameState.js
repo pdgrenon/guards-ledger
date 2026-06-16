@@ -162,10 +162,13 @@ function healState(parsed) {
                            locations: isPlainObject(parsed.campaign.locations)
                              ? parsed.campaign.locations
                              : campInit.campaign.locations,
-                           plans:     Array.isArray(parsed.campaign.plans)
-                             ? parsed.campaign.plans.filter(isPlainObject)
-                             : [] }
-                       : campInit.campaign,
+                            plans:     Array.isArray(parsed.campaign.plans)
+                              ? parsed.campaign.plans.filter(isPlainObject)
+                              : [],
+                            ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
+                              ? parsed.campaign.ftIstraBuildings
+                              : {} }
+                        : campInit.campaign,
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
   };
@@ -406,6 +409,19 @@ export function useGameState() {
   const deletePlan = useCallback((id) =>
     setState(s => reduceDeletePlan(s, id), 'campaign'), [setState]);
 
+  const setFtIstraBuilding = useCallback((buildingName, state) => {
+    setState(s => ({
+      ...s,
+      campaign: {
+        ...s.campaign,
+        ftIstraBuildings: {
+          ...s.campaign.ftIstraBuildings,
+          [buildingName]: state,
+        },
+      },
+    }), 'campaign');
+  }, [setState]);
+
   // ── Save data ────────────────────────────────────────────────────────────
   const exportState = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
@@ -453,6 +469,7 @@ export function useGameState() {
     setCampaignLocation,
     addDynamicLocation, updateDynamicLocation, removeDynamicLocation,
     addPlan, togglePlan, deletePlan,
+    setFtIstraBuilding,
     setState, exportState, importState, resetState,
   };
 }

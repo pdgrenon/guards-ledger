@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FT_ISTRA_BUILDINGS } from '../data/buildings';
 
 // ─── Event token regions ──────────────────────────────────────────────────────
 const REGIONS = [
@@ -264,9 +265,152 @@ function PlanRow({ plan, onToggle, onDelete }) {
   );
 }
 
+// ─── Ft. Istra Buildings card ────────────────────────────────────────────────
+function ResourceCost({ cost, stash }) {
+  if (!cost) return null;
+  const entries = Object.entries(cost);
+  return (
+    <div className="fi-cost-rows">
+      {entries.map(([name, qty]) => {
+        const have = stash[name] ?? 0;
+        const ok = have >= qty;
+        return (
+          <div key={name} className="fi-cost-row">
+            <span className="fi-cost-name">{name}</span>
+            <span className={`fi-cost-qty ${ok ? 'fi-cost-qty--have' : 'fi-cost-qty--short'}`}>
+              {have} / {qty}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExchangeList({ exchange }) {
+  const [open, setOpen] = useState(false);
+  if (!exchange || exchange.length === 0) return null;
+  return (
+    <div className="fi-exchange-wrap">
+      <button
+        className="fi-exchange-toggle"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+      >
+        <span>Exchange{open ? '' : ` (${exchange.length})`}</span>
+        <span className={`fi-chevron${open ? ' fi-chevron--open' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <div className="fi-exchange-list">
+          {exchange.map((ex, i) => (
+            <div key={i} className="fi-exchange-row">
+              <span className="fi-exchange-give">{ex.give}</span>
+              <span className="fi-exchange-arrow">→</span>
+              <span className="fi-exchange-receive">
+                {ex.receive === 'courier'
+                  ? 'Transfer any equipped cards to Fort Istra Stash'
+                  : ex.receive}
+              </span>
+              {ex.location && (
+                <span className="fi-exchange-location">{ex.location}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const BUILDING_STATES = ['not_owned', 'built', 'upgraded'];
+const STATE_LABELS = ['Not Owned', 'Built', 'Upgraded'];
+
+function BuildingCard({ building, state, stash, onSetState }) {
+  const currentIdx = BUILDING_STATES.indexOf(state ?? 'not_owned');
+  const isBuilt = currentIdx >= 1;
+  const showCost = currentIdx === 0 ? building.buildCost : (currentIdx === 1 && building.hasUpgrade ? building.upgradeCost : null);
+  const description = currentIdx >= 1 && building.upgradeDescription
+    ? building.upgradeDescription
+    : building.description;
+  const showExchange = currentIdx === 0
+    ? null
+    : (currentIdx >= 2 ? building.upgradeExchange : building.exchange);
+
+  return (
+    <div className={`fi-building-card${isBuilt ? ' fi-building-card--built' : ''}`}>
+      <div className="fi-building-header">
+        <div className="fi-building-name">{building.name}</div>
+        {building.hasUpgrade && (
+          <span className={`fi-upgrade-dot${currentIdx >= 2 ? ' fi-upgrade-dot--active' : ''}`}
+            title="Has upgrade"
+            aria-hidden="true"
+          />
+        )}
+      </div>
+      <div className="fi-building-desc">{description}</div>
+
+      {building.specialReq && currentIdx === 0 && (
+        <div className="fi-special-req">Requires: {building.specialReq}</div>
+      )}
+
+      <div className="step-selector fi-step-selector" role="group" aria-label={`${building.name} state`}>
+        {BUILDING_STATES.map((st, i) => {
+          const show = i < 2 || building.hasUpgrade;
+          if (!show) return null;
+          return (
+            <button
+              key={st}
+              className={`step-btn${currentIdx === i ? ' active' : ''}`}
+              onClick={() => onSetState(building.name, st)}
+              aria-pressed={currentIdx === i}
+            >
+              {STATE_LABELS[i]}
+            </button>
+          );
+        })}
+      </div>
+
+      {showCost && (
+        <div className="fi-cost-section">
+          <div className="fi-cost-label">
+            {currentIdx === 0 ? 'Build cost' : 'Upgrade cost'}
+          </div>
+          <ResourceCost cost={showCost} stash={stash} />
+        </div>
+      )}
+
+      <ExchangeList exchange={showExchange} />
+    </div>
+  );
+}
+
+function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding }) {
+  const buildings = FT_ISTRA_BUILDINGS;
+
+  return (
+    <div className="card mb-3 stash-card">
+      <div className="card-title mb-3">Ft. Istra Buildings</div>
+      {buildings.map(building => (
+        <div key={building.name}>
+          <BuildingCard
+            building={building}
+            state={ftIstraBuildings[building.name] ?? 'not_owned'}
+            stash={stash}
+            onSetState={onSetFtIstraBuilding}
+          />
+          {building.hasUpgrade && (
+            <div className="fi-upgrade-divider" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 export function CampaignTab({
   campaign,
+  stash,
   onSetEventToken,
   onResetEventToken,
   onSetCampaignLocation,
@@ -276,8 +420,9 @@ export function CampaignTab({
   onAddPlan,
   onTogglePlan,
   onDeletePlan,
+  onSetFtIstraBuilding,
 }) {
-  const { eventTokens, locations, plans } = campaign;
+  const { eventTokens, locations, plans, ftIstraBuildings } = campaign;
 
   return (
     <>
@@ -285,6 +430,11 @@ export function CampaignTab({
         eventTokens={eventTokens}
         onAdjust={onSetEventToken}
         onReset={onResetEventToken}
+      />
+      <FtIstraBuildingsCard
+        ftIstraBuildings={ftIstraBuildings}
+        stash={stash}
+        onSetFtIstraBuilding={onSetFtIstraBuilding}
       />
       <LocationsCard
         locations={locations}
