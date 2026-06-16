@@ -78,12 +78,12 @@ export function StashTab({
             <div className="resource-value">{sil}</div>
             <div className="step-selector">
               {[1, 5, 10].map(s => (
-                <button key={s} className={`step-btn${silStep === s ? ' active' : ''}`} onClick={() => setSilStep(s)}>{s}</button>
+                <button key={s} className={`step-btn${silStep === s ? ' active' : ''}`} onClick={() => setSilStep(s)} aria-label={`Set Sil step to ${s}`}>{s}</button>
               ))}
             </div>
             <div className="counter-actions">
-              <button className="counter-btn" onClick={() => setSil(-silStep)}>−</button>
-              <button className="counter-btn" onClick={() => setSil(silStep)}>+</button>
+              <button className="counter-btn" onClick={() => setSil(-silStep)} aria-label="Decrease Sil">−</button>
+              <button className="counter-btn" onClick={() => setSil(silStep)} aria-label="Increase Sil">+</button>
             </div>
           </div>
 
@@ -92,12 +92,12 @@ export function StashTab({
             <div className="resource-value">{lux}</div>
             <div className="step-selector">
               {[1, 5, 10].map(s => (
-                <button key={s} className={`step-btn${luxStep === s ? ' active' : ''}`} onClick={() => setLuxStep(s)}>{s}</button>
+                <button key={s} className={`step-btn${luxStep === s ? ' active' : ''}`} onClick={() => setLuxStep(s)} aria-label={`Set Lux Essence step to ${s}`}>{s}</button>
               ))}
             </div>
             <div className="counter-actions">
-              <button className="counter-btn" onClick={() => setLux(-luxStep)}>−</button>
-              <button className="counter-btn" onClick={() => setLux(luxStep)}>+</button>
+              <button className="counter-btn" onClick={() => setLux(-luxStep)} aria-label="Decrease Lux Essence">−</button>
+              <button className="counter-btn" onClick={() => setLux(luxStep)} aria-label="Increase Lux Essence">+</button>
             </div>
           </div>
         </div>
@@ -113,8 +113,8 @@ export function StashTab({
           >
             {cubesUsed} / {stonebound.max} cubes
           </div>
-          <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(-1)}>−</button>
-          <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(1)}>+</button>
+          <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(-1)} aria-label="Decrease stonebound max cubes">−</button>
+          <button className="adj-btn sb-max-btn" onClick={() => setStoneboundMax(1)} aria-label="Increase stonebound max cubes">+</button>
         </div>
 
         <div className="sb-locations">
@@ -123,7 +123,7 @@ export function StashTab({
             return (
               <div key={loc.id} className="sb-location">
                 <div className="sb-loc-row">
-                  <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(loc.id)}>✕</button>
+                  <button className="sb-remove-btn" onClick={() => removeStoneboundLocation(loc.id)} aria-label="Remove stonebound location">✕</button>
                   <select
                     className="sb-select"
                     value={loc.selection}
@@ -145,12 +145,14 @@ export function StashTab({
                     <button
                       className="adj-btn sb-count-btn"
                       onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
+                      aria-label={`Decrease ${loc.selection || 'location'} count`}
                     >−</button>
                     <span className="sb-count-val">{loc.count}</span>
                     <button
                       className="adj-btn sb-count-btn"
                       disabled={loc.count >= maxCount}
                       onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
+                      aria-label={`Increase ${loc.selection || 'location'} count`}
                     >+</button>
                   </div>
                 </div>
@@ -218,9 +220,9 @@ export function StashTab({
                     )}
                   </div>
                   <div className="stash-row-controls">
-                    <button className="stash-row-btn" onClick={() => adjustStash(item, -1)}>−</button>
+                    <button className="stash-row-btn" onClick={() => adjustStash(item, -1)} aria-label={`Decrease ${item}`}>−</button>
                     <span className="stash-row-val">{stash[item] ?? 0}</span>
-                    <button className="stash-row-btn" onClick={() => adjustStash(item, 1)}>+</button>
+                    <button className="stash-row-btn" onClick={() => adjustStash(item, 1)} aria-label={`Increase ${item}`}>+</button>
                   </div>
                 </div>
               );

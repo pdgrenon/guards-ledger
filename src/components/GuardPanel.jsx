@@ -107,8 +107,8 @@ export function GuardPanel({ guard, guardIdx, actions }) {
           <span className="hp-max">{guard.maxHp}</span>
         </div>
         <div className="adj-pair">
-          <button className="stat-adj-btn adj-btn-sm minus" onClick={() => adjustGuardHp(guardIdx, -1)}>−</button>
-          <button className="stat-adj-btn adj-btn-sm plus"  onClick={() => adjustGuardHp(guardIdx, 1)}>+</button>
+          <button className="stat-adj-btn adj-btn-sm minus" onClick={() => adjustGuardHp(guardIdx, -1)} aria-label={`Decrease ${guard.name} HP`}>−</button>
+          <button className="stat-adj-btn adj-btn-sm plus"  onClick={() => adjustGuardHp(guardIdx, 1)} aria-label={`Increase ${guard.name} HP`}>+</button>
         </div>
       </div>
 
@@ -192,9 +192,9 @@ export function GuardPanel({ guard, guardIdx, actions }) {
                 <button className="satchel-qty-btn minus" onClick={() => {
                     if (slot.qty <= 1) setGuardSatchelItem(guardIdx, si, 'item', '');
                     else setGuardSatchelItem(guardIdx, si, 'qty', slot.qty - 1);
-                  }}>−</button>
+                  }} aria-label={`Decrease ${slot.item || 'satchel item'} quantity`}>−</button>
                   <span className="satchel-qty-val">×{slot.qty}</span>
-                  <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(4, slot.qty + 1))}>+</button>
+                  <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(4, slot.qty + 1))} aria-label={`Increase ${slot.item || 'satchel item'} quantity`}>+</button>
                 </div>
               )}
             </div>
@@ -222,14 +222,14 @@ export function GuardPanel({ guard, guardIdx, actions }) {
               {label}
             </span>
             <div className="chip-controls">
-              <button className="chip-btn minus" onClick={() => adjustChip(guardIdx, id, -1)}>−</button>
+              <button className="chip-btn minus" onClick={() => adjustChip(guardIdx, id, -1)} aria-label={`Decrease ${label} chips`}>−</button>
               <span className="chip-count">{guard.chips[id] ?? 0}</span>
-              <button className="chip-btn plus"  onClick={() => adjustChip(guardIdx, id, 1)}>+</button>
+              <button className="chip-btn plus"  onClick={() => adjustChip(guardIdx, id, 1)} aria-label={`Increase ${label} chips`}>+</button>
             </div>
           </div>
         ))}
       </div>
-      <button className="reset-chips-btn" onClick={() => resetChips(guardIdx)}>
+      <button className="reset-chips-btn" onClick={() => resetChips(guardIdx)} aria-label={`Reset chips for ${guard.name}`}>
         Reset chips · black → {guard.startingBlack}
       </button>
     </div>
