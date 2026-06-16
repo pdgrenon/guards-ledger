@@ -432,9 +432,7 @@ export function useGameState() {
   }, [setState]);
 
   const resetState = useCallback(() => {
-    if (window.confirm('Reset all game data? This cannot be undone.')) {
-      setState(createInitialState(), null);
-    }
+    setState(createInitialState(), null);
   }, [setState]);
 
   return {
