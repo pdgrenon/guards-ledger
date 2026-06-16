@@ -22,6 +22,14 @@ Guards Ledger is a mobile-first campaign companion app for the board game *The I
 
 **Default is always `opencode/deepseek-v4-flash-free`.** Escalation is a conscious decision, not a fallback.
 
+### Cost-efficient workflow: implement with Flash Free, audit with Pro
+
+Flash Free gets core logic right but can miss peripheral concerns (e.g. updating a UI component when its data format changes). Pro catches those gaps. The token cost of a Pro audit is far less than a full Pro implementation.
+
+**When to use:** any non-trivial, multi-file task where Flash Free is the default. Run the implementation with Flash Free, then have Pro review the diff against the ticket spec. Pro spots the misses, and we apply surgical fixes.
+
+**Do NOT use when:** the task is architecturally novel, involves data-migration decisions, or requires judgment calls that Flash Free has shown weakness on. Those go straight to Pro.
+
 ### Subagent scope limit
 
 If a subagent encounters ambiguity or a decision requiring judgment, it stops and reports back. It does not resolve the ambiguity itself.
