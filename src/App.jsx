@@ -8,6 +8,7 @@ import { CampaignTab } from './components/CampaignTab';
 import { CraftTab } from './components/CraftTab';
 import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CorruptionBanner } from './components/CorruptionBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import './index.css';
 
@@ -107,6 +108,14 @@ export default function App() {
   return (
     <ErrorBoundary level="app">
       <div>
+        {game.corruption && (
+          <CorruptionBanner
+            corruption={game.corruption}
+            onDismiss={game.dismissCorruption}
+            onImport={game.importState}
+          />
+        )}
+
         {/* Top bar */}
         <div className="top-bar">
           <div className="top-bar-brand">
