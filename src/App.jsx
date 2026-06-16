@@ -257,6 +257,7 @@ export default function App() {
             <ErrorBoundary level="tab" tabName="Campaign">
               <CampaignTab
                 campaign={state.campaign}
+                stash={state.stash}
                 onSetEventToken={game.setEventToken}
                 onResetEventToken={game.resetEventToken}
                 onSetCampaignLocation={game.setCampaignLocation}
@@ -266,6 +267,7 @@ export default function App() {
                 onAddPlan={game.addPlan}
                 onTogglePlan={game.togglePlan}
                 onDeletePlan={game.deletePlan}
+                onSetFtIstraBuilding={game.setFtIstraBuilding}
               />
             </ErrorBoundary>
           )}

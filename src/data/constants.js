@@ -134,6 +134,7 @@ export function createInitialCampaign() {
         bounties:   [],
       },
       plans: [],
+      ftIstraBuildings: {},
     },
   };
 }

@@ -1438,6 +1438,159 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-color: var(--c-interact);
 }
 
+/* ── Ft. Istra Buildings ── */
+.fi-building-card {
+  border: 0.5px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: var(--c-surface2);
+  transition: border-color 0.15s;
+}
+.fi-building-card--built {
+  border-left: 3px solid var(--c-green);
+}
+.fi-building-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+.fi-building-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text);
+}
+.fi-upgrade-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-border2);
+  flex-shrink: 0;
+}
+.fi-upgrade-dot--active {
+  background: var(--c-brand);
+}
+.fi-building-desc {
+  font-size: 11px;
+  color: var(--c-text2);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.fi-special-req {
+  font-size: 11px;
+  color: var(--c-amber);
+  margin-bottom: 8px;
+}
+.fi-step-selector {
+  margin-bottom: 8px;
+}
+.step-btn--disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+.fi-cost-section {
+  margin-bottom: 6px;
+}
+.fi-cost-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--c-text3);
+  margin-bottom: 4px;
+}
+.fi-cost-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fi-cost-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fi-cost-name {
+  font-size: 12px;
+  color: var(--c-text2);
+  flex: 1;
+}
+.fi-cost-qty {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.fi-cost-qty--have { background: var(--c-green-bg); color: var(--c-green-text); }
+.fi-cost-qty--short { background: var(--c-red-bg); color: var(--c-red-text); }
+.fi-exchange-wrap {
+  border-top: 0.5px solid var(--c-border);
+  padding-top: 6px;
+  margin-top: 4px;
+}
+.fi-exchange-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--c-interact);
+  cursor: pointer;
+  padding: 4px 0;
+  font-family: inherit;
+  touch-action: manipulation;
+}
+.fi-exchange-toggle:active { opacity: 0.7; }
+.fi-chevron {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.fi-chevron--open {
+  transform: rotate(180deg);
+}
+.fi-exchange-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 4px;
+}
+.fi-exchange-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--c-text2);
+  flex-wrap: wrap;
+}
+.fi-exchange-give {
+  font-weight: 500;
+  color: var(--c-text);
+  white-space: nowrap;
+}
+.fi-exchange-arrow {
+  color: var(--c-text3);
+  flex-shrink: 0;
+}
+.fi-exchange-receive {
+  color: var(--c-text);
+}
+.fi-exchange-location {
+  font-size: 10px;
+  color: var(--c-text3);
+  width: 100%;
+  padding-left: 8px;
+}
+.fi-upgrade-divider {
+  height: 1px;
+  background: var(--c-border);
+  margin: 2px 0 8px 24px;
+}
+
 /* ── Event tokens ── */
 .campaign-tokens-grid {
   display: grid;
