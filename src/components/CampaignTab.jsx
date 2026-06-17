@@ -389,7 +389,7 @@ function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding })
 
   return (
     <div className="card mb-3 stash-card">
-      <div className="card-title mb-3">Ft. Istra Buildings</div>
+      <div className="card-title mb-3">Fort Istra Buildings</div>
       {buildings.map(building => (
         <div key={building.name}>
           <BuildingCard
@@ -431,11 +431,6 @@ export function CampaignTab({
         onAdjust={onSetEventToken}
         onReset={onResetEventToken}
       />
-      <FtIstraBuildingsCard
-        ftIstraBuildings={ftIstraBuildings}
-        stash={stash}
-        onSetFtIstraBuilding={onSetFtIstraBuilding}
-      />
       <LocationsCard
         locations={locations}
         onSetFixed={onSetCampaignLocation}
@@ -448,6 +443,11 @@ export function CampaignTab({
         onAdd={onAddPlan}
         onToggle={onTogglePlan}
         onDelete={onDeletePlan}
+      />
+      <FtIstraBuildingsCard
+        ftIstraBuildings={ftIstraBuildings}
+        stash={stash}
+        onSetFtIstraBuilding={onSetFtIstraBuilding}
       />
     </>
   );
