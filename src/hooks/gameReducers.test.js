@@ -34,6 +34,8 @@ import {
   reduceRemoveStoneboundLocation,
   reduceUpdateStoneboundLocation,
   reduceToggleEncounterComplete,
+  reduceSetCampaign,
+  reduceSetChapter,
 } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
 
@@ -364,6 +366,37 @@ describe('reduceAdjustGuardMaxHp', () => {
   it('reduces current HP to new max when max drops below current', () => {
     const next = reduceAdjustGuardMaxHp(s, 0, -5);
     expect(next.guards[0].hp).toBeLessThanOrEqual(next.guards[0].maxHp);
+  });
+});
+
+// ─── Campaign / Chapter ────────────────────────────────────────────────────────
+
+describe('reduceSetCampaign', () => {
+  it('sets the campaign and resets the chapter', () => {
+    const next = reduceSetCampaign(s, 2);
+    expect(next.campaign.campaignId).toBe(2);
+    expect(next.campaign.chapterId).toBe(0);
+  });
+
+  it('allows setting back to 0 (Any)', () => {
+    const withC = reduceSetCampaign(s, 3);
+    const back  = reduceSetCampaign(withC, 0);
+    expect(back.campaign.campaignId).toBe(0);
+  });
+});
+
+describe('reduceSetChapter', () => {
+  it('sets the chapter within a campaign', () => {
+    const withC = reduceSetCampaign(s, 1);
+    const next  = reduceSetChapter(withC, 3);
+    expect(next.campaign.chapterId).toBe(3);
+  });
+
+  it('allows setting chapter to 0 (Any)', () => {
+    const withC  = reduceSetCampaign(s, 1);
+    const withCh = reduceSetChapter(withC, 3);
+    const back   = reduceSetChapter(withCh, 0);
+    expect(back.campaign.chapterId).toBe(0);
   });
 });
 

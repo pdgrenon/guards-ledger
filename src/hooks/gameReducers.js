@@ -290,3 +290,13 @@ export function reduceToggleEncounterComplete(s, encounterId) {
     : [...completed, encounterId];
   return { ...s, campaign: { ...s.campaign, completedEncounters: next } };
 }
+
+export function reduceSetCampaign(s, campaignId) {
+  const campaign = { ...s.campaign, campaignId, chapterId: 0 };
+  return { ...s, campaign };
+}
+
+export function reduceSetChapter(s, chapterId) {
+  const campaign = { ...s.campaign, chapterId };
+  return { ...s, campaign };
+}
