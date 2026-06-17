@@ -247,6 +247,8 @@
     ]
   },
   "campaign": {
+    "campaignId": 1,
+    "chapterId": 3,
     "eventTokens": { "mountain": 1, "forest": 0, "plains": 2, "sea": 0 },
     "locations": {
       "party": "Razdor outskirts",

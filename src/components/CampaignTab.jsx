@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CAMPAIGNS, CHAPTERS } from '../data/constants';
 import { FT_ISTRA_BUILDINGS } from '../data/buildings';
 
 // ─── Event token regions ──────────────────────────────────────────────────────
@@ -384,6 +385,60 @@ function BuildingCard({ building, state, stash, onSetState }) {
   );
 }
 
+// ─── Campaign / Chapter tracker ────────────────────────────────────────────────
+function CampaignProgressCard({ campaign, onSetCampaign, onSetChapter }) {
+  const { campaignId, chapterId } = campaign;
+  const chapterOptions = campaignId > 0
+    ? CHAPTERS.filter(ch => ch.campaign === campaignId)
+    : [];
+
+  return (
+    <div className="card mb-3">
+      <div className="card-title mb-3">Campaign Progress</div>
+      <div className="step-selector mb-2" role="group" aria-label="Campaign">
+        <button
+          className={`step-btn${campaignId === 0 ? ' active' : ''}`}
+          onClick={() => onSetCampaign(0)}
+          aria-pressed={campaignId === 0}
+        >
+          Any
+        </button>
+        {CAMPAIGNS.map(c => (
+          <button
+            key={c.id}
+            className={`step-btn${campaignId === c.id ? ' active' : ''}`}
+            onClick={() => onSetCampaign(c.id)}
+            aria-pressed={campaignId === c.id}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      {chapterOptions.length > 0 && (
+        <div className="step-selector" role="group" aria-label="Chapter">
+          <button
+            className={`step-btn${chapterId === 0 ? ' active' : ''}`}
+            onClick={() => onSetChapter(0)}
+            aria-pressed={chapterId === 0}
+          >
+            Any
+          </button>
+          {chapterOptions.map(ch => (
+            <button
+              key={ch.id}
+              className={`step-btn${chapterId === ch.id ? ' active' : ''}`}
+              onClick={() => onSetChapter(ch.id)}
+              aria-pressed={chapterId === ch.id}
+            >
+              {ch.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding }) {
   const buildings = FT_ISTRA_BUILDINGS;
 
@@ -420,12 +475,19 @@ export function CampaignTab({
   onAddPlan,
   onTogglePlan,
   onDeletePlan,
+  onSetCampaign,
+  onSetChapter,
   onSetFtIstraBuilding,
 }) {
   const { eventTokens, locations, plans, ftIstraBuildings } = campaign;
 
   return (
     <>
+      <CampaignProgressCard
+        campaign={campaign}
+        onSetCampaign={onSetCampaign}
+        onSetChapter={onSetChapter}
+      />
       <EventTokensCard
         eventTokens={eventTokens}
         onAdjust={onSetEventToken}
