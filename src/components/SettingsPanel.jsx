@@ -120,7 +120,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
 
   return (
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="settings-panel">
+      <div className="settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
 
         {/* Sticky header */}
         <div className="settings-panel-header">

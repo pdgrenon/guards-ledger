@@ -1,15 +1,8 @@
 import { cityPrestige } from '../hooks/gameReducers';
+import { Checkmark } from './Checkmark';
 
 // Cities use a dedicated stone-ochre accent — distinct from all 8 guard colors.
 const CITY_COLOR = 'var(--c-city)';
-
-function Checkmark() {
-  return (
-    <svg className="quest-check" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.5">
-      <polyline points="1.5,5 4,7.5 8.5,2.5" />
-    </svg>
-  );
-}
 
 const QUESTS = [
   { field: 'puzzleQuestDone', label: 'Puzzle quest' },

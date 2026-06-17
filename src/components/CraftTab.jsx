@@ -2,9 +2,10 @@
 import { useState, useMemo } from 'react';
 import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined } from '../data/recipes';
 import { MATERIAL_SOURCES } from '../data/materials';
+import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 
-const CITY_NAMES = ['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno'];
+const CITY_NAMES = CITIES.map(c => c.name);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
