@@ -104,6 +104,23 @@ a:focus-visible {
   /* Shadows */
   --shadow-card:     0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 20px;
+
+  /* Backdrop overlay */
+  --c-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Z-index scale */
+  --z-autocomplete: 100;
+  --z-overlay:      200;
+  --z-modal:        300;
+  --z-onboarding:   400;
+  --z-top:          1000;
 }
 
 /* ─── DARK MODE ──────────────────────────────────────────────────────────── */
@@ -313,7 +330,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   gap: 5px;
   padding: 5px 10px;
   border: 0.5px solid var(--c-border2);
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   background: var(--c-surface2);
   font-family: var(--font-display);
   font-size: 12px;
@@ -602,7 +619,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-surface);
   border: 0.5px solid var(--c-border2);
   border-radius: var(--radius-md);
-  z-index: 100;
+  z-index: var(--z-autocomplete);
   max-height: 180px;
   overflow-y: auto;
   box-shadow: var(--shadow-elevated);
@@ -623,7 +640,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 /* ─── SATCHEL ────────────────────────────────────────────────────────────── */
 .satchel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.satchel-grid.satchel-expanded { border: 1px solid var(--c-border); border-radius: 8px; padding: 8px; }
+.satchel-grid.satchel-expanded { border: 1px solid var(--c-border); border-radius: var(--radius-md); padding: 8px; }
 .satchel-slot {
   border: 0.5px dashed var(--c-border2);
   border-radius: var(--radius-sm);
@@ -1155,8 +1172,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .encounter-detail-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.4);
+  z-index: var(--z-top);
+  background: var(--c-overlay);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1319,8 +1336,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 /* ─── SETTINGS PANEL ─────────────────────────────────────────────────────── */
 .settings-overlay {
   position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 200;
+  background: var(--c-overlay);
+  z-index: var(--z-overlay);
   display: flex; align-items: flex-end;
   padding: 0;
 }
@@ -1619,7 +1636,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 11px;
   font-weight: 500;
   padding: 1px 7px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .fi-cost-qty--have { background: var(--c-green-bg); color: var(--c-green-text); }
@@ -2118,7 +2135,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 10px;
   font-weight: 500;
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
 }
 .craft-status-ready   { background: var(--c-green-bg); color: var(--c-green-text); }
 .craft-status-partial { background: var(--c-amber-bg); color: var(--c-amber-text); }
@@ -2175,7 +2192,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 12px;
   font-weight: 500;
   padding: 1px 7px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .craft-mat-qty--have { background: var(--c-green-bg); color: var(--c-green-text); }
@@ -2199,7 +2216,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-brand);
   background: var(--c-brand-bg);
   padding: 1px 7px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 /* Prestige discount badge — appears in city footer when 2★ discount is active */
@@ -2209,7 +2226,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-city);
   background: var(--c-brand-bg);
   padding: 1px 6px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
@@ -2237,15 +2254,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .source-popup-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 200;
+  background: var(--c-overlay);
+  z-index: var(--z-overlay);
   display: flex;
   align-items: flex-end;
 }
 
 .source-popup {
   background: var(--c-surface);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-top: 0.5px solid var(--c-border2);
   width: 100%;
   max-height: 70vh;
@@ -2330,7 +2347,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .source-chip {
   font-size: 12px;
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   border: 0.5px solid var(--c-border2);
   background: var(--c-surface2);
   color: var(--c-text);
@@ -2350,15 +2367,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .confirm-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 300;
+  background: var(--c-overlay);
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
 }
 
 .confirm-modal {
   background: var(--c-surface);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-top: 0.5px solid var(--c-border2);
   width: 100%;
   max-height: 70vh;
@@ -2449,15 +2466,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .onboarding-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 400;
+  background: var(--c-overlay);
+  z-index: var(--z-onboarding);
   display: flex;
   align-items: flex-end;
 }
 
 .onboarding-modal {
   background: var(--c-surface);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-top: 0.5px solid var(--c-border2);
   width: 100%;
   max-height: 80vh;
@@ -2580,13 +2597,13 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 12px;
   background: var(--c-surface2);
   border: 0.5px solid var(--c-red);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .err-boundary-card {
   background: var(--c-bg);
   border: 0.5px solid var(--c-border2);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 20px 22px;
   max-width: 520px;
   width: 100%;
@@ -2663,7 +2680,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 13px;
   font-weight: 500;
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 0.5px solid var(--c-border2);
   background: var(--c-bg);
   color: var(--c-text);
@@ -2696,7 +2713,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   margin: 8px 12px 0;
   background: var(--c-red-bg);
   border: 0.5px solid var(--c-red);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--c-red-text);
   font-size: 13px;
   line-height: 1.4;
