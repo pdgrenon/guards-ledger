@@ -291,14 +291,14 @@ function ExchangeList({ exchange }) {
   const [open, setOpen] = useState(false);
   if (!exchange || exchange.length === 0) return null;
   return (
-    <div className="fi-exchange-wrap">
+    <div className={`fi-exchange-wrap${open ? ' fi-exchange-wrap--open' : ''}`}>
       <button
         className="fi-exchange-toggle"
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
       >
-        <span>Exchange{open ? '' : ` (${exchange.length})`}</span>
-        <span className={`fi-chevron${open ? ' fi-chevron--open' : ''}`}>▾</span>
+        {open ? 'Hide' : 'Show'} exchange ({exchange.length})
+        <span className={`fi-chevron${open ? ' fi-chevron--open' : ''}`} aria-hidden="true">▾</span>
       </button>
       {open && (
         <div className="fi-exchange-list">
