@@ -1,6 +1,6 @@
 {
-  "sil": 340,
-  "lux": 12,
+  "sil": 1480,
+  "lux": 27,
   "activeGuardIdx": 0,
   "activeParty": ["Alek", "Grigory"],
   "guards": [
@@ -19,18 +19,18 @@
       },
       "satchel": [
         { "item": "Health Potion",   "qty": 2 },
+        { "item": "Tent",            "qty": 1 },
         { "item": "Iron",            "qty": 3 },
         { "item": "Wolf Pelt",       "qty": 1 },
         { "item": "Tenebris Shards", "qty": 2 },
-        { "item": "",                "qty": 1 },
-        { "item": "",                "qty": 1 },
-        { "item": "",                "qty": 1 },
+        { "item": "Carapace",        "qty": 1 },
+        { "item": "Midnight Hydrangea", "qty": 1 },
         { "item": "",                "qty": 1 }
       ]
     },
     {
       "name": "Alek",
-      "hp": 14,
+      "hp": 12,
       "maxHp": 20,
       "baseAtk": 2,
       "baseDef": 1,
@@ -45,27 +45,31 @@
         { "item": "Health Potion", "qty": 1 },
         { "item": "Pine",          "qty": 2 },
         { "item": "Bone Frag.",    "qty": 3 },
-        { "item": "",              "qty": 1 }
+        { "item": "Tenebris Essence", "qty": 1 }
       ]
     },
     {
       "name": "Catherine",
-      "hp": 20,
+      "hp": 18,
       "maxHp": 20,
       "baseAtk": 2,
       "baseDef": 1,
-      "expandedSatchel": false,
+      "expandedSatchel": true,
       "equipment": {
         "weapon": "Cerulean Pike",
         "armor": "Tunic of the Wild",
         "accessory": "Feathered Mantle",
-        "item": ""
+        "item": "Health Potion"
       },
       "satchel": [
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 }
+        { "item": "Iron",          "qty": 2 },
+        { "item": "Silver",        "qty": 1 },
+        { "item": "Dusk Tuna",     "qty": 2 },
+        { "item": "Scales",        "qty": 1 },
+        { "item": "Claw",          "qty": 2 },
+        { "item": "",              "qty": 1 },
+        { "item": "",              "qty": 1 },
+        { "item": "",              "qty": 1 }
       ]
     },
     {
@@ -82,10 +86,10 @@
         "item": ""
       },
       "satchel": [
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 }
+        { "item": "Mir Bread",     "qty": 2 },
+        { "item": "Rough Leather", "qty": 2 },
+        { "item": "Horn",          "qty": 1 },
+        { "item": "",              "qty": 1 }
       ]
     },
     {
@@ -102,10 +106,10 @@
         "item": ""
       },
       "satchel": [
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 }
+        { "item": "Health Potion", "qty": 1 },
+        { "item": "Cherry",        "qty": 3 },
+        { "item": "Agate",         "qty": 2 },
+        { "item": "",              "qty": 1 }
       ]
     },
     {
@@ -122,10 +126,10 @@
         "item": ""
       },
       "satchel": [
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 }
+        { "item": "Animal Hide",   "qty": 2 },
+        { "item": "Rosewood",      "qty": 1 },
+        { "item": "",              "qty": 1 },
+        { "item": "",              "qty": 1 }
       ]
     },
     {
@@ -142,10 +146,10 @@
         "item": ""
       },
       "satchel": [
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 }
+        { "item": "Jade",          "qty": 1 },
+        { "item": "Crystal",       "qty": 1 },
+        { "item": "Gold",          "qty": 2 },
+        { "item": "",              "qty": 1 }
       ]
     },
     {
@@ -162,10 +166,10 @@
         "item": ""
       },
       "satchel": [
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 },
-        { "item": "", "qty": 1 }
+        { "item": "Diamond",       "qty": 1 },
+        { "item": "Ancient Oak",   "qty": 2 },
+        { "item": "",              "qty": 1 },
+        { "item": "",              "qty": 1 }
       ]
     }
   ],
@@ -181,10 +185,10 @@
     {
       "id": "razdor",
       "name": "Razdor",
-      "prestige": 2,
+      "prestige": 3,
       "puzzleQuestDone": true,
       "bounty1Done": true,
-      "bounty2Done": false
+      "bounty2Done": true
     },
     {
       "id": "ryba",
@@ -220,22 +224,36 @@
     }
   ],
   "stash": {
-    "Iron": 4,
-    "Silver": 2,
-    "Agate": 1,
-    "Pine": 3,
-    "Rosewood": 2,
-    "Wolf Pelt": 2,
-    "Rough Leather": 3,
-    "Scales": 1,
-    "Tenebris Shards": 3,
-    "Tenebris Essence": 1,
-    "Dusk Tuna": 2,
-    "Mir Bread": 4,
-    "Health Potion": 3,
-    "Tent": 1,
+    "Iron": 8,
+    "Silver": 5,
+    "Gold": 3,
+    "Agate": 4,
+    "Pine": 6,
+    "Rosewood": 4,
+    "Cherry": 2,
+    "Ancient Oak": 3,
+    "Crystal": 2,
+    "Diamond": 1,
+    "Wolf Pelt": 3,
+    "Rough Leather": 5,
+    "Scales": 2,
+    "Carapace": 1,
+    "Claw": 2,
+    "Horn": 1,
+    "Spines": 1,
+    "Bone Frag.": 6,
+    "Animal Hide": 3,
+    "Bear Pelt": 1,
+    "Feathers": 2,
+    "Tenebris Shards": 5,
+    "Tenebris Essence": 2,
+    "Tenebris Skull": 1,
+    "Dusk Tuna": 3,
+    "Mir Bread": 6,
+    "Health Potion": 5,
+    "Tent": 2,
     "Jade": 1,
-    "Midnight Hydrangea": 2
+    "Midnight Hydrangea": 3
   },
   "stonebound": {
     "max": 6,
@@ -243,31 +261,63 @@
       { "id": "loc-1", "type": "City",          "selection": "Mir",             "count": 1 },
       { "id": "loc-2", "type": "City",          "selection": "Razdor",          "count": 1 },
       { "id": "loc-3", "type": "Resource node", "selection": "Iron",            "count": 2 },
-      { "id": "loc-4", "type": "Enemy drop",    "selection": "Wolf Pelt",       "count": 1 }
+      { "id": "loc-4", "type": "Resource node", "selection": "Pine",            "count": 1 },
+      { "id": "loc-5", "type": "Enemy drop",    "selection": "Wolf Pelt",       "count": 1 }
     ]
   },
   "campaign": {
-    "campaignId": 1,
-    "chapterId": 3,
-    "eventTokens": { "mountain": 1, "forest": 0, "plains": 2, "sea": 0 },
+    "campaignId": 2,
+    "chapterId": 8,
+    "eventTokens": { "mountain": 2, "forest": 1, "plains": 3, "sea": 0 },
     "locations": {
-      "party": "Razdor outskirts",
+      "party": "Ryba outskirts",
       "caravan": "Fort Istra",
-      "mainQuest": "Vouno mountain pass",
+      "mainQuest": "The Mad Alchemist's lair",
       "boat": "Ryba docks",
       "sideQuests": [
-        { "id": 1, "label": "The missing merchant — Silny" }
+        { "id": 1, "label": "The missing merchant — Silny" },
+        { "id": 6, "label": "Razdor's ancient aqueduct" }
       ],
       "bounties": [
-        { "id": 2, "label": "Wolf pack — Forest near Mir" }
+        { "id": 2, "label": "Wolf pack — Forest near Mir" },
+        { "id": 7, "label": "Bandit camp — Ryba trade route" }
       ]
     },
     "plans": [
-      { "id": 3, "text": "Craft the Ryban Glaive upgrade for Grigory", "done": false },
-      { "id": 4, "text": "Visit Razdor to complete puzzle quest", "done": false },
-      { "id": 5, "text": "Gather Iron and Pine before heading to Vouno", "done": true }
+      { "id": 3, "text": "Craft the Ryban Glaive upgrade for Grigory", "done": true },
+      { "id": 4, "text": "Complete Razdor puzzle quest for prestige", "done": true },
+      { "id": 5, "text": "Gather Iron and Ancient Oak for next city upgrade", "done": false },
+      { "id": 8, "text": "Research the Mad Alchemist before assaulting the lair", "done": false },
+      { "id": 9, "text": "Craft Health Potions — party is low after last fight", "done": false },
+      { "id": 10, "text": "Visit Fort Istra to upgrade Apothecary", "done": false }
+    ],
+    "ftIstraBuildings": {
+      "Lumbermill": "built",
+      "Boat Dock": "built",
+      "Blacksmith": "built",
+      "Apothecary": "built",
+      "Training Yard": "built",
+      "Barracks": "not_owned",
+      "Lapidary": "not_owned"
+    },
+    "completedEncounters": [
+      "for-the-king",
+      "formation-breaker",
+      "taste-of-your-own-medicine",
+      "going-green"
     ]
   },
-  "log": [],
+  "log": [
+    { "id": 101, "time": "Campaign 1",  "message": "Alek set main quest to The Mad Alchemist's lair" },
+    { "id": 102, "time": "Campaign 1",  "message": "Grigory defeated For the King! — Training Yard" },
+    { "id": 103, "time": "Campaign 1",  "message": "Alek set party location to Ryba outskirts" },
+    { "id": 104, "time": "Campaign 1",  "message": "Stash +5 Sil from bounty completion" },
+    { "id": 105, "time": "Campaign 2",  "message": "Catherine joined the active party" },
+    { "id": 106, "time": "Campaign 2",  "message": "Razdor puzzle quest completed — prestige increased" },
+    { "id": 107, "time": "Campaign 2",  "message": "Grigory crafted Ryban Glaive upgrade" },
+    { "id": 108, "time": "Campaign 2",  "message": "Alek −5 HP from trap damage" },
+    { "id": 109, "time": "Campaign 2",  "message": "Party discovered a new side quest in Ryba" },
+    { "id": 110, "time": "Campaign 2",  "message": "Grigory +3 Iron from gathering" }
+  ],
   "settings": { "initialized": true }
 }
