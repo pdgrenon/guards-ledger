@@ -304,3 +304,11 @@ export function reduceDeletePlan(s, id) {
   const campaign = { ...s.campaign, plans };
   return { ...s, campaign };
 }
+
+export function reduceToggleEncounterComplete(s, encounterId) {
+  const completed = s.campaign.completedEncounters;
+  const next = completed.includes(encounterId)
+    ? completed.filter(id => id !== encounterId)
+    : [...completed, encounterId];
+  return { ...s, campaign: { ...s.campaign, completedEncounters: next } };
+}

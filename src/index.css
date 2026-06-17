@@ -1149,6 +1149,250 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .stash-add-result--custom .stash-add-cat { color: var(--c-brand); font-style: normal; }
 
 
+/* ─── MORE TAB (Encounters + Log) ────────────────────────────────────────── */
+.more-section { margin-bottom: 8px; }
+
+.more-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.more-section-header:hover {
+  background: var(--c-surface2);
+}
+
+.more-section-chevron {
+  font-size: 10px;
+  color: var(--c-text3);
+  transition: transform 0.15s;
+}
+
+.more-section-chevron.open {
+  transform: rotate(0deg);
+}
+
+.more-section-chevron:not(.open) {
+  transform: rotate(-90deg);
+}
+
+.more-section-title {
+  flex: 1;
+}
+
+.more-section-count {
+  font-size: 11px;
+  color: var(--c-text3);
+  font-weight: 400;
+}
+
+.encounter-pills {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  margin-bottom: 8px;
+}
+
+.encounter-pill {
+  flex: 1;
+  padding: 6px 10px;
+  border: 0.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text2);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.encounter-pill.active {
+  background: var(--c-interact);
+  color: #fff;
+  border-color: var(--c-interact);
+}
+
+.encounter-list {
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.encounter-card {
+  border: 0.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--c-surface);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.encounter-card:hover {
+  background: var(--c-surface2);
+}
+
+.encounter-card.completed {
+  opacity: 0.5;
+}
+
+.encounter-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.encounter-check {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: transparent;
+}
+
+.encounter-check.done {
+  color: var(--c-green);
+}
+
+.encounter-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.encounter-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.encounter-meta {
+  font-size: 11px;
+  color: var(--c-text3);
+}
+
+/* ── Encounter detail modal ── */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.encounter-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.encounter-detail {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 0 16px 24px;
+  animation: slide-up 0.2s ease-out;
+}
+
+.encounter-detail-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c-border2);
+  margin: 8px auto 12px;
+}
+
+.encounter-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.encounter-detail-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.encounter-toggle-btn {
+  padding: 6px 12px;
+  border: 0.5px solid var(--c-interact);
+  border-radius: var(--radius-sm);
+  background: var(--c-interact);
+  color: #fff;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.encounter-toggle-btn.done {
+  background: transparent;
+  color: var(--c-green);
+  border-color: var(--c-green);
+}
+
+.encounter-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.encounter-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.encounter-detail-sect-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--c-text3);
+  margin-bottom: 2px;
+}
+
+.encounter-detail-line {
+  font-size: 12px;
+  color: var(--c-text2);
+  line-height: 1.5;
+}
+
+.encounter-detail-line strong {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+.encounter-detail-text {
+  font-size: 12px;
+  color: var(--c-text2);
+  line-height: 1.6;
+}
+
 /* ─── SESSION LOG ────────────────────────────────────────────────────────── */
 .log-card { padding-bottom: 4px; }
 

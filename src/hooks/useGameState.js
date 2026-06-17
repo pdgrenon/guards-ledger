@@ -35,6 +35,7 @@ import {
   reduceAddPlan,
   reduceTogglePlan,
   reduceDeletePlan,
+  reduceToggleEncounterComplete,
 } from './gameReducers';
 import { useSupabaseSync, guardColumn } from './useSupabaseSync';
 
@@ -165,9 +166,12 @@ function healState(parsed) {
                             plans:     Array.isArray(parsed.campaign.plans)
                               ? parsed.campaign.plans.filter(isPlainObject)
                               : [],
-                            ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
-                              ? parsed.campaign.ftIstraBuildings
-                              : {} }
+                             ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
+                               ? parsed.campaign.ftIstraBuildings
+                               : {},
+                             completedEncounters: Array.isArray(parsed.campaign.completedEncounters)
+                               ? parsed.campaign.completedEncounters
+                               : [] }
                         : campInit.campaign,
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
@@ -409,6 +413,9 @@ export function useGameState() {
   const deletePlan = useCallback((id) =>
     setState(s => reduceDeletePlan(s, id), 'campaign'), [setState]);
 
+  const toggleEncounterComplete = useCallback((encounterId) =>
+    setState(s => reduceToggleEncounterComplete(s, encounterId), 'campaign'), [setState]);
+
   const setFtIstraBuilding = useCallback((buildingName, state) => {
     setState(s => ({
       ...s,
@@ -472,6 +479,7 @@ export function useGameState() {
     setCampaignLocation,
     addDynamicLocation, updateDynamicLocation, removeDynamicLocation,
     addPlan, togglePlan, deletePlan,
+    toggleEncounterComplete,
     setFtIstraBuilding,
     setState, exportState, importState, resetState,
   };
