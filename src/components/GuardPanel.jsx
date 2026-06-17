@@ -1,4 +1,4 @@
-import { CHIP_TYPES, SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
+import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_STATS } from '../data/materials';
 import { Autocomplete } from './Autocomplete';
 
@@ -18,15 +18,6 @@ const GUARD_ROLES = {
   Vera:      'The Vanguard',
   Pavel:     'The Watchman',
   Yana:      'The Prophet',
-};
-
-// Chip identity colors — dot beside each chip label so color is communicated visually.
-// Black uses a contrasting ring instead of a filled dot so it reads on dark backgrounds.
-const CHIP_COLORS = {
-  black:  null, // handled separately with ring treatment
-  green:  'var(--c-green)',
-  red:    'var(--c-red)',
-  purple: 'var(--c-guard-indigo-border)',
 };
 
 // Place portrait files in public/guards/ named exactly as below (e.g. grigory.webp).
@@ -71,8 +62,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
     setGuardEquipment,
     setGuardSatchelItem,
     toggleExpandedSatchel,
-    adjustChip,
-    resetChips,
+
   } = actions;
 
   const satchelSize = guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE;
@@ -202,36 +192,6 @@ export function GuardPanel({ guard, guardIdx, actions }) {
         })}
       </div>
 
-      <div className="divider" />
-
-      {/* Chip Bag */}
-      <div className="sec-label-primary">Chip bag</div>
-      <div className="chips-list">
-        {CHIP_TYPES.map(({ id, label }) => (
-          <div key={id} className="chip-row">
-            <span className="chip-name">
-              {id === 'black' ? (
-                <span className="chip-dot chip-dot--black" aria-hidden="true" />
-              ) : (
-                <span
-                  className="chip-dot"
-                  style={{ background: CHIP_COLORS[id] }}
-                  aria-hidden="true"
-                />
-              )}
-              {label}
-            </span>
-            <div className="chip-controls">
-              <button className="chip-btn minus" onClick={() => adjustChip(guardIdx, id, -1)} aria-label={`Decrease ${label} chips`}>−</button>
-              <span className="chip-count">{guard.chips[id] ?? 0}</span>
-              <button className="chip-btn plus"  onClick={() => adjustChip(guardIdx, id, 1)} aria-label={`Increase ${label} chips`}>+</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button className="reset-chips-btn" onClick={() => resetChips(guardIdx)} aria-label={`Reset chips for ${guard.name}`}>
-        Reset chips · black → {guard.startingBlack}
-      </button>
     </div>
   );
 }

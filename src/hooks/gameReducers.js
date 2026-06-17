@@ -133,28 +133,6 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
   return newState;
 }
 
-// ─── Guard chips ──────────────────────────────────────────────────────────────
-
-export function reduceAdjustChip(s, guardIdx, chipType, delta) {
-  const g      = s.guards[guardIdx];
-  const newVal = Math.max(0, (g.chips[chipType] ?? 0) + delta);
-  const guards = s.guards.map((g2, i) =>
-    i === guardIdx ? { ...g2, chips: { ...g2.chips, [chipType]: newVal } } : g2
-  );
-  const msg = delta > 0
-    ? `${g.name} +${delta} ${chipType} chip (×${newVal})`
-    : `${g.name} −${Math.abs(delta)} ${chipType} chip (×${newVal})`;
-  return addLog({ ...s, guards }, msg);
-}
-
-export function reduceResetChips(s, guardIdx) {
-  const g      = s.guards[guardIdx];
-  const guards = s.guards.map((g2, i) =>
-    i === guardIdx ? { ...g2, chips: { ...g2.chips, black: g2.startingBlack } } : g2
-  );
-  return addLog({ ...s, guards }, `${g.name} chips reset · black → ${g.startingBlack}`);
-}
-
 // ─── Cities ───────────────────────────────────────────────────────────────────
 
 // Prestige is always derived from the three quest booleans — never stored.

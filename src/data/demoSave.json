@@ -26,9 +26,7 @@
         { "item": "",                "qty": 1 },
         { "item": "",                "qty": 1 },
         { "item": "",                "qty": 1 }
-      ],
-      "chips": { "black": 6, "green": 3, "red": 2, "purple": 1 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Alek",
@@ -48,9 +46,7 @@
         { "item": "Pine",          "qty": 2 },
         { "item": "Bone Frag.",    "qty": 3 },
         { "item": "",              "qty": 1 }
-      ],
-      "chips": { "black": 5, "green": 4, "red": 1, "purple": 0 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Catherine",
@@ -70,9 +66,7 @@
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 }
-      ],
-      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Yury",
@@ -92,9 +86,7 @@
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 }
-      ],
-      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Kharzin",
@@ -114,9 +106,7 @@
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 }
-      ],
-      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Vera",
@@ -136,9 +126,7 @@
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 }
-      ],
-      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Pavel",
@@ -158,9 +146,7 @@
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 }
-      ],
-      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
-      "startingBlack": 8
+      ]
     },
     {
       "name": "Yana",
@@ -180,9 +166,7 @@
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 },
         { "item": "", "qty": 1 }
-      ],
-      "chips": { "black": 8, "green": 0, "red": 0, "purple": 0 },
-      "startingBlack": 8
+      ]
     }
   ],
   "cities": [

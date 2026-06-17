@@ -25,8 +25,7 @@ import {
   reduceSetLux,
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
-  reduceAdjustChip,
-  reduceResetChips,
+
   cityPrestige,
   reduceToggleCityQuest,
   reduceAdjustStash,
@@ -365,73 +364,6 @@ describe('reduceAdjustGuardMaxHp', () => {
   it('reduces current HP to new max when max drops below current', () => {
     const next = reduceAdjustGuardMaxHp(s, 0, -5);
     expect(next.guards[0].hp).toBeLessThanOrEqual(next.guards[0].maxHp);
-  });
-});
-
-// ─── Guard chips ──────────────────────────────────────────────────────────────
-
-describe('reduceAdjustChip', () => {
-  it('increments a chip type', () => {
-    const next = reduceAdjustChip(s, 0, 'black', 1);
-    expect(next.guards[0].chips.black).toBe(9);
-  });
-
-  it('decrements a chip type', () => {
-    const next = reduceAdjustChip(s, 0, 'black', -1);
-    expect(next.guards[0].chips.black).toBe(7);
-  });
-
-  it('clamps at 0 (cannot go negative)', () => {
-    const next = reduceAdjustChip(s, 0, 'green', -5);
-    expect(next.guards[0].chips.green).toBe(0);
-  });
-
-  it('adjusts the correct chip type without affecting others', () => {
-    const next = reduceAdjustChip(s, 0, 'red', 2);
-    expect(next.guards[0].chips.red).toBe(2);
-    expect(next.guards[0].chips.black).toBe(8);
-    expect(next.guards[0].chips.green).toBe(0);
-  });
-
-  it('only mutates the targeted guard', () => {
-    const next = reduceAdjustChip(s, 0, 'black', -1);
-    expect(next.guards[1].chips.black).toBe(8);
-  });
-
-  it('logs increment with + prefix', () => {
-    const next = reduceAdjustChip(s, 0, 'green', 1);
-    expect(next.log[0].message).toContain('+1');
-  });
-
-  it('logs decrement with − prefix', () => {
-    const next = reduceAdjustChip(s, 0, 'black', -1);
-    expect(next.log[0].message).toMatch(/−1/);
-  });
-});
-
-describe('reduceResetChips', () => {
-  it('restores black chips to startingBlack', () => {
-    const depleted = reduceAdjustChip(s, 0, 'black', -5);
-    const reset    = reduceResetChips(depleted, 0);
-    expect(reset.guards[0].chips.black).toBe(s.guards[0].startingBlack);
-  });
-
-  it('does not change non-black chips', () => {
-    const withRed = reduceAdjustChip(s, 0, 'red', 3);
-    const reset   = reduceResetChips(withRed, 0);
-    expect(reset.guards[0].chips.red).toBe(3);
-  });
-
-  it('logs the reset', () => {
-    const next = reduceResetChips(s, 0);
-    expect(next.log[0].message).toContain('reset');
-    expect(next.log[0].message).toContain('black');
-  });
-
-  it('only resets the targeted guard', () => {
-    const depleted = reduceAdjustChip(s, 0, 'black', -5);
-    const reset    = reduceResetChips(depleted, 0);
-    expect(reset.guards[1].chips.black).toBe(8);
   });
 });
 
