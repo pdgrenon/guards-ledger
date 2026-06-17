@@ -99,10 +99,28 @@ a:focus-visible {
   /* Typography */
   --font-display: 'Cinzel', Georgia, serif;
   --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, monospace;
 
   /* Shadows */
   --shadow-card:     0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 20px;
+
+  /* Backdrop overlay */
+  --c-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Z-index scale */
+  --z-autocomplete: 100;
+  --z-overlay:      200;
+  --z-modal:        300;
+  --z-onboarding:   400;
+  --z-top:          1000;
 }
 
 /* ─── DARK MODE ──────────────────────────────────────────────────────────── */
@@ -152,8 +170,6 @@ a:focus-visible {
     --c-gray-text: #d3d1c7;
 
     --c-hp:       #f0997b;
-    --c-ap-gray:  #b4b2a9;
-    --c-ap-green: #97c459;
 
     --c-guard-gold-bg:         #1e2330; --c-guard-gold-border:      #8898b8; --c-guard-gold-text:        #c8d4f0;
     --c-guard-amber-bg:        #412402; --c-guard-amber-border:     #ef9f27; --c-guard-amber-text:       #fac775;
@@ -314,7 +330,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   gap: 5px;
   padding: 5px 10px;
   border: 0.5px solid var(--c-border2);
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   background: var(--c-surface2);
   font-family: var(--font-display);
   font-size: 12px;
@@ -341,52 +357,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   flex-shrink: 0;
   transition: background 0.3s;
 }
-
-/* ─── RESOURCE PILLS ─────────────────────────────────────────────────────── */
-.resource-pill {
-  display: flex; align-items: center; gap: 5px;
-  background: var(--c-surface2);
-  border: 0.5px solid var(--c-border2);
-  border-radius: 20px;
-  padding: 5px 10px;
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none; -webkit-user-select: none;
-  flex-shrink: 0;
-  font-family: inherit;
-  line-height: 1;
-}
-.resource-pill:active { opacity: 0.7; }
-.resource-pill-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--c-text2);
-}
-.resource-pill-value {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--c-text);
-}
-
-/* ─── END ROUND BUTTON ───────────────────────────────────────────────────── */
-.end-round-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  border: 1px solid var(--c-accent);
-  border-radius: 20px;
-  background: var(--c-accent-bg);
-  color: var(--c-accent-text);
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none; -webkit-user-select: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: inherit;
-  line-height: 1;
-}
-.end-round-btn:active { opacity: 0.7; }
 
 /* ─── ICON BUTTON (settings gear) ───────────────────────────────────────── */
 /* Uses an SVG icon rather than the ⚙ Unicode glyph for cross-platform consistency */
@@ -649,7 +619,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-surface);
   border: 0.5px solid var(--c-border2);
   border-radius: var(--radius-md);
-  z-index: 100;
+  z-index: var(--z-autocomplete);
   max-height: 180px;
   overflow-y: auto;
   box-shadow: var(--shadow-elevated);
@@ -660,6 +630,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 13px;
   color: var(--c-text);
   cursor: pointer;
+  touch-action: manipulation;
   border-bottom: 0.5px solid var(--c-border);
 }
 .autocomplete-option:last-child { border-bottom: none; }
@@ -669,7 +640,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 /* ─── SATCHEL ────────────────────────────────────────────────────────────── */
 .satchel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.satchel-grid.satchel-expanded { border: 1px solid var(--c-border); border-radius: 8px; padding: 8px; }
+.satchel-grid.satchel-expanded { border: 1px solid var(--c-border); border-radius: var(--radius-md); padding: 8px; }
 .satchel-slot {
   border: 0.5px dashed var(--c-border2);
   border-radius: var(--radius-sm);
@@ -795,6 +766,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 7px 8px;
   font-size: 12px;
   color: var(--c-text);
+  touch-action: manipulation;
   font-family: inherit;
   cursor: pointer;
   height: 34px;
@@ -965,35 +937,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: var(--font-display);
 }
 
-.stash-add-btn {
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  border: 1px solid var(--c-accent);
-  border-radius: 20px;
-  background: var(--c-accent-bg);
-  color: var(--c-accent-text);
-  cursor: pointer;
-  touch-action: manipulation;
-  font-family: inherit;
-  line-height: 1;
-}
-.stash-add-btn:active { opacity: 0.7; }
-.stash-cancel-btn {
-  padding: 8px 12px;
-  font-size: 12px;
-  border: 0.5px solid var(--c-border2);
-  border-radius: var(--radius-md);
-  background: var(--c-surface2);
-  color: var(--c-text2);
-  cursor: pointer;
-  touch-action: manipulation;
-  white-space: nowrap;
-  font-family: inherit;
-  line-height: 1;
-}
-.stash-add-wrap { margin-bottom: 10px; }
-
 /* Add item panel — always visible at bottom of stash card, clearly distinct from filter */
 .stash-add-panel {
   margin: 12px -12px -12px;
@@ -1058,6 +1001,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
+  touch-action: manipulation;
   color: var(--c-text);
   border: none;
   border-radius: var(--radius-sm);
@@ -1111,6 +1055,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text2);
   font-size: 12px;
   font-family: var(--font-ui);
+  touch-action: manipulation;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s;
@@ -1168,6 +1113,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 8px 10px;
   background: var(--c-surface);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s;
 }
 
@@ -1226,8 +1172,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .encounter-detail-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.4);
+  z-index: var(--z-top);
+  background: var(--c-overlay);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1275,6 +1221,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 12px;
   font-family: var(--font-ui);
   cursor: pointer;
+  touch-action: manipulation;
   white-space: nowrap;
   transition: all 0.15s;
 }
@@ -1323,19 +1270,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 
 /* ─── SESSION LOG ────────────────────────────────────────────────────────── */
-.log-card { padding-bottom: 4px; }
-
-/* Event count badge in header */
-.log-count {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--c-text3);
-  background: var(--c-surface2);
-  border: 0.5px solid var(--c-border2);
-  border-radius: 99px;
-  padding: 2px 8px;
-  font-family: var(--font-ui);
-}
 
 /* Empty state */
 .log-empty {
@@ -1402,8 +1336,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 /* ─── SETTINGS PANEL ─────────────────────────────────────────────────────── */
 .settings-overlay {
   position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 200;
+  background: var(--c-overlay);
+  z-index: var(--z-overlay);
   display: flex; align-items: flex-end;
   padding: 0;
 }
@@ -1568,7 +1502,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 .counter-btn:active { opacity: 0.6; }
-.resource-counter-btn { height: 48px; font-size: 24px; }
 
 /* ─── TAB CARD TITLES ────────────────────────────────────────────────────── */
 /* Major section titles in stash/stonebound/party cards */
@@ -1584,10 +1517,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-top: 3px solid var(--c-city);
   box-shadow: var(--shadow-card);
 }
-
-/* ─── GUARDS GRID ────────────────────────────────────────────────────────── */
-.guards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 600px) { .guards-grid { grid-template-columns: 1fr 1fr; } }
 
 /* ─── UTILITY ────────────────────────────────────────────────────────────── */
 .flex { display: flex; }
@@ -1617,6 +1546,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-radius: var(--radius-sm);
   background: var(--c-surface2);
   color: var(--c-text);
+  touch-action: manipulation;
   cursor: pointer;
   min-width: 110px;
 }
@@ -1706,7 +1636,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 11px;
   font-weight: 500;
   padding: 1px 7px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .fi-cost-qty--have { background: var(--c-green-bg); color: var(--c-green-text); }
@@ -1715,12 +1645,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid var(--c-border-dim);
+  border: 1px solid var(--c-border2);
   border-radius: 12px;
-  background: var(--c-bg-secondary);
+  background: var(--c-surface2);
   font-size: 10px;
   font-weight: 600;
-  color: var(--c-text-secondary);
+  color: var(--c-text2);
   cursor: pointer;
   padding: 3px 10px;
   font-family: inherit;
@@ -1728,7 +1658,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   transition: background 0.15s, border-color 0.15s;
   touch-action: manipulation;
 }
-.fi-exchange-toggle:hover { background: var(--c-bg-hover); border-color: var(--c-interact); color: var(--c-interact); }
+.fi-exchange-toggle:hover { background: var(--c-surface); border-color: var(--c-interact); color: var(--c-interact); }
 .fi-exchange-wrap--open .fi-exchange-toggle { background: var(--c-interact-bg); border-color: var(--c-interact); color: var(--c-interact); }
 .fi-chevron {
   font-size: 10px;
@@ -2068,6 +1998,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text);
   font-size: 12px;
   font-family: var(--font-ui);
+  touch-action: manipulation;
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
@@ -2204,7 +2135,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 10px;
   font-weight: 500;
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
 }
 .craft-status-ready   { background: var(--c-green-bg); color: var(--c-green-text); }
 .craft-status-partial { background: var(--c-amber-bg); color: var(--c-amber-text); }
@@ -2261,7 +2192,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 12px;
   font-weight: 500;
   padding: 1px 7px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .craft-mat-qty--have { background: var(--c-green-bg); color: var(--c-green-text); }
@@ -2285,7 +2216,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-brand);
   background: var(--c-brand-bg);
   padding: 1px 7px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 /* Prestige discount badge — appears in city footer when 2★ discount is active */
@@ -2295,7 +2226,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-city);
   background: var(--c-brand-bg);
   padding: 1px 6px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
@@ -2323,15 +2254,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .source-popup-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 200;
+  background: var(--c-overlay);
+  z-index: var(--z-overlay);
   display: flex;
   align-items: flex-end;
 }
 
 .source-popup {
   background: var(--c-surface);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-top: 0.5px solid var(--c-border2);
   width: 100%;
   max-height: 70vh;
@@ -2416,7 +2347,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .source-chip {
   font-size: 12px;
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   border: 0.5px solid var(--c-border2);
   background: var(--c-surface2);
   color: var(--c-text);
@@ -2436,15 +2367,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .confirm-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 300;
+  background: var(--c-overlay);
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
 }
 
 .confirm-modal {
   background: var(--c-surface);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-top: 0.5px solid var(--c-border2);
   width: 100%;
   max-height: 70vh;
@@ -2535,15 +2466,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .onboarding-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 400;
+  background: var(--c-overlay);
+  z-index: var(--z-onboarding);
   display: flex;
   align-items: flex-end;
 }
 
 .onboarding-modal {
   background: var(--c-surface);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-top: 0.5px solid var(--c-border2);
   width: 100%;
   max-height: 80vh;
@@ -2666,13 +2597,13 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 12px;
   background: var(--c-surface2);
   border: 0.5px solid var(--c-red);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .err-boundary-card {
   background: var(--c-bg);
   border: 0.5px solid var(--c-border2);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 20px 22px;
   max-width: 520px;
   width: 100%;
@@ -2718,6 +2649,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .err-boundary-details summary {
   cursor: pointer;
+  touch-action: manipulation;
   user-select: none;
   padding: 2px 0;
 }
@@ -2748,11 +2680,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 13px;
   font-weight: 500;
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 0.5px solid var(--c-border2);
   background: var(--c-bg);
   color: var(--c-text);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 
@@ -2780,7 +2713,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   margin: 8px 12px 0;
   background: var(--c-red-bg);
   border: 0.5px solid var(--c-red);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--c-red-text);
   font-size: 13px;
   line-height: 1.4;
@@ -2838,6 +2771,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-bg);
   color: var(--c-red-text);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.12s;
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CAMPAIGNS, CHAPTERS } from '../data/constants';
 import { FT_ISTRA_BUILDINGS } from '../data/buildings';
+import { Checkmark } from './Checkmark';
 
 // ─── Event token regions ──────────────────────────────────────────────────────
 const REGIONS = [
@@ -19,15 +20,6 @@ const FIXED_LOCATIONS = [
 ];
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
-function Checkmark() {
-  return (
-    <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.75"
-      style={{ width: 12, height: 12 }} aria-hidden="true">
-      <polyline points="1.5,5 4,7.5 8.5,2.5" />
-    </svg>
-  );
-}
-
 function RemoveBtn({ onClick, label }) {
   return (
     <button

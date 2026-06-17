@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from '../data/encounters';
-import { CAMPAIGNS, GUARD_COLOR_MAP } from '../data/constants';
+import { CAMPAIGNS, CITIES, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
 
-const CITY_NAMES_SET = new Set(['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno']);
+const CITY_NAMES_SET = new Set(CITIES.map(c => c.name));
 
 const ANY_GROUP = { id: 0, label: 'Any Campaign' };
 
