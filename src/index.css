@@ -1783,27 +1783,25 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .fi-cost-qty--have { background: var(--c-green-bg); color: var(--c-green-text); }
 .fi-cost-qty--short { background: var(--c-red-bg); color: var(--c-red-text); }
-.fi-exchange-wrap {
-  border-top: 0.5px solid var(--c-border);
-  padding-top: 6px;
-  margin-top: 4px;
-}
 .fi-exchange-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  border: none;
-  background: transparent;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--c-interact);
+  gap: 4px;
+  border: 1px solid var(--c-border-dim);
+  border-radius: 12px;
+  background: var(--c-bg-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c-text-secondary);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 3px 10px;
   font-family: inherit;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, border-color 0.15s;
   touch-action: manipulation;
 }
-.fi-exchange-toggle:active { opacity: 0.7; }
+.fi-exchange-toggle:hover { background: var(--c-bg-hover); border-color: var(--c-interact); color: var(--c-interact); }
+.fi-exchange-wrap--open .fi-exchange-toggle { background: var(--c-interact-bg); border-color: var(--c-interact); color: var(--c-interact); }
 .fi-chevron {
   font-size: 10px;
   transition: transform 0.15s;
