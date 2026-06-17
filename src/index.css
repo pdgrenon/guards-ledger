@@ -1122,6 +1122,15 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-color: var(--c-interact);
 }
 
+.encounter-group { margin-bottom: 8px; }
+.encounter-group-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-text3);
+  padding: 0 4px 4px;
+}
 .encounter-list {
   padding: 0 12px;
   display: flex;
