@@ -660,6 +660,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 13px;
   color: var(--c-text);
   cursor: pointer;
+  touch-action: manipulation;
   border-bottom: 0.5px solid var(--c-border);
 }
 .autocomplete-option:last-child { border-bottom: none; }
@@ -795,6 +796,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 7px 8px;
   font-size: 12px;
   color: var(--c-text);
+  touch-action: manipulation;
   font-family: inherit;
   cursor: pointer;
   height: 34px;
@@ -992,7 +994,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: inherit;
   line-height: 1;
 }
-.stash-add-wrap { margin-bottom: 10px; }
+
 
 /* Add item panel — always visible at bottom of stash card, clearly distinct from filter */
 .stash-add-panel {
@@ -1058,6 +1060,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
+  touch-action: manipulation;
   color: var(--c-text);
   border: none;
   border-radius: var(--radius-sm);
@@ -1111,6 +1114,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text2);
   font-size: 12px;
   font-family: var(--font-ui);
+  touch-action: manipulation;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s;
@@ -1168,6 +1172,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   padding: 8px 10px;
   background: var(--c-surface);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s;
 }
 
@@ -1275,6 +1280,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 12px;
   font-family: var(--font-ui);
   cursor: pointer;
+  touch-action: manipulation;
   white-space: nowrap;
   transition: all 0.15s;
 }
@@ -1323,19 +1329,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 
 /* ─── SESSION LOG ────────────────────────────────────────────────────────── */
-.log-card { padding-bottom: 4px; }
-
-/* Event count badge in header */
-.log-count {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--c-text3);
-  background: var(--c-surface2);
-  border: 0.5px solid var(--c-border2);
-  border-radius: 99px;
-  padding: 2px 8px;
-  font-family: var(--font-ui);
-}
 
 /* Empty state */
 .log-empty {
@@ -1568,7 +1561,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
 }
 .counter-btn:active { opacity: 0.6; }
-.resource-counter-btn { height: 48px; font-size: 24px; }
 
 /* ─── TAB CARD TITLES ────────────────────────────────────────────────────── */
 /* Major section titles in stash/stonebound/party cards */
@@ -1584,10 +1576,6 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-top: 3px solid var(--c-city);
   box-shadow: var(--shadow-card);
 }
-
-/* ─── GUARDS GRID ────────────────────────────────────────────────────────── */
-.guards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 600px) { .guards-grid { grid-template-columns: 1fr 1fr; } }
 
 /* ─── UTILITY ────────────────────────────────────────────────────────────── */
 .flex { display: flex; }
@@ -1617,6 +1605,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-radius: var(--radius-sm);
   background: var(--c-surface2);
   color: var(--c-text);
+  touch-action: manipulation;
   cursor: pointer;
   min-width: 110px;
 }
@@ -2068,6 +2057,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text);
   font-size: 12px;
   font-family: var(--font-ui);
+  touch-action: manipulation;
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
@@ -2718,6 +2708,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .err-boundary-details summary {
   cursor: pointer;
+  touch-action: manipulation;
   user-select: none;
   padding: 2px 0;
 }
@@ -2753,6 +2744,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-bg);
   color: var(--c-text);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 
@@ -2838,6 +2830,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-bg);
   color: var(--c-red-text);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.12s;
 }
 
