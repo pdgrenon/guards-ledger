@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * useSupabaseSync.echoSuppression.test.jsx
  *
