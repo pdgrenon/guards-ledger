@@ -34,8 +34,9 @@ import {
   reduceAddStoneboundLocation,
   reduceRemoveStoneboundLocation,
   reduceUpdateStoneboundLocation,
+  reduceToggleEncounterComplete,
 } from '../hooks/gameReducers';
-import { colorizeLogMessage } from '../App';
+import { colorizeLogMessage } from '../utils/logUtils';
 
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
@@ -125,6 +126,10 @@ describe('createInitialCampaign', () => {
   it('returns campaign with empty ftIstraBuildings map', () => {
     expect(createInitialCampaign().campaign.ftIstraBuildings).toEqual({});
   });
+
+  it('returns campaign with empty completedEncounters', () => {
+    expect(createInitialCampaign().campaign.completedEncounters).toEqual([]);
+  });
 });
 
 // ─── Ft. Istra building state ─────────────────────────────────────────────────
@@ -191,6 +196,32 @@ describe('ftIstraBuildings', () => {
     };
     expect(next.campaign.ftIstraBuildings['Lumbermill']).toBe('built');
     expect(next.campaign.ftIstraBuildings['Lapidary']).toBe('upgraded');
+  });
+});
+
+// ─── Encounter completion ──────────────────────────────────────────────────────
+
+describe('reduceToggleEncounterComplete', () => {
+  it('adds an encounter id when it is not completed', () => {
+    const next = reduceToggleEncounterComplete({ campaign: { completedEncounters: [] } }, 'be-flexible');
+    expect(next.campaign.completedEncounters).toEqual(['be-flexible']);
+  });
+
+  it('removes an encounter id when it is already completed', () => {
+    const next = reduceToggleEncounterComplete({ campaign: { completedEncounters: ['be-flexible'] } }, 'be-flexible');
+    expect(next.campaign.completedEncounters).toEqual([]);
+  });
+
+  it('preserves other completed encounters when toggling one', () => {
+    const state = { campaign: { completedEncounters: ['be-flexible', 'ice-cold'] } };
+    const next = reduceToggleEncounterComplete(state, 'ice-cold');
+    expect(next.campaign.completedEncounters).toEqual(['be-flexible']);
+  });
+
+  it('preserves other completed encounters when adding one', () => {
+    const state = { campaign: { completedEncounters: ['be-flexible'] } };
+    const next = reduceToggleEncounterComplete(state, 'ice-cold');
+    expect(next.campaign.completedEncounters).toEqual(['be-flexible', 'ice-cold']);
   });
 });
 

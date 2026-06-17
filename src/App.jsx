@@ -1,4 +1,4 @@
-import { useState, createElement } from 'react';
+import { useState } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
@@ -6,37 +6,16 @@ import { StashTab } from './components/StashTab';
 import { SettingsPanel } from './components/SettingsPanel';
 import { CampaignTab } from './components/CampaignTab';
 import { CraftTab } from './components/CraftTab';
+import { MoreTab } from './components/MoreTab';
 import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CorruptionBanner } from './components/CorruptionBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
+// eslint-disable-next-line react-refresh/only-export-components
+export { colorizeLogMessage } from './utils/logUtils';
 import './index.css';
 
-const TABS = ['Guards', 'Cities', 'Stash', 'Crafting', 'Campaign', 'Log'];
-
-// ─── Log entry category classifier ───────────────────────────────────────────
-const CITY_NAMES_SET = new Set(['Mir', 'Razdor', 'Ryba', 'Silny', 'Strofa', 'Vouno']);
-
-function classifyEntry(message) {
-  const first = message.split(' ')[0];
-  if (GUARD_COLOR_MAP[first]) return { type: 'guard', guardKey: GUARD_COLOR_MAP[first].key };
-  if (first === 'Party' || first === 'Stash' || first === 'Stonebound' || CITY_NAMES_SET.has(first)) return { type: 'party' };
-  return { type: 'system' };
-}
-
-const ALL_GUARD_NAMES  = Object.keys(GUARD_COLOR_MAP);
-const GUARD_NAME_SPLIT_REGEX = new RegExp(`\\b(${[...ALL_GUARD_NAMES, 'Party', 'Stash'].join('|')})\\b`, 'g');
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function colorizeLogMessage(message) {
-  const parts = message.split(GUARD_NAME_SPLIT_REGEX);
-  return parts.map((part, i) => {
-    if (i % 2 === 0) return part;
-    const color = GUARD_COLOR_MAP[part];
-    if (!color) return createElement('strong', { key: i }, part);
-    return createElement('span', { key: i, className: `log-name-${color.key}` }, part);
-  });
-}
+const TABS = ['Guards', 'Cities', 'Stash', 'Crafting', 'Campaign', 'More'];
 
 function SettingsIcon() {
   return (
@@ -272,44 +251,14 @@ export default function App() {
             </ErrorBoundary>
           )}
 
-          {/* ── Log tab ── */}
-          {tab === 'Log' && (
-            <ErrorBoundary level="tab" tabName="Log">
-              <div className="card log-card">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="card-title">Log</div>
-                  <span className="log-count">{state.log.length} event{state.log.length !== 1 ? 's' : ''}</span>
-                </div>
-
-                {state.log.length === 0 ? (
-                  <div className="log-empty">
-                    <div className="log-empty-title">No events yet</div>
-                    <div className="log-empty-sub">Actions will appear here as you play</div>
-                  </div>
-                ) : (
-                  <div className="log-list">
-                    {state.log.map((entry) => {
-                      const cls = classifyEntry(entry.message);
-                      const borderColor =
-                        cls.type === 'guard'  ? `var(--c-guard-${cls.guardKey}-border)` :
-                        cls.type === 'party'  ? 'var(--c-brand)' :
-                                                'var(--c-border2)';
-                      return (
-                        <div
-                          key={entry.id}
-                          className="log-entry"
-                          style={{ '--log-border': borderColor }}
-                        >
-                          <span className="log-time">{entry.time}</span>
-                          <span className="log-text">
-                            {colorizeLogMessage(entry.message)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+          {/* ── More tab (Encounters + Log) ── */}
+          {tab === 'More' && (
+            <ErrorBoundary level="tab" tabName="More">
+              <MoreTab
+                log={state.log}
+                completedEncounters={state.campaign.completedEncounters}
+                toggleEncounterComplete={game.toggleEncounterComplete}
+              />
             </ErrorBoundary>
           )}
         </div>

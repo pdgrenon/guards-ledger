@@ -135,6 +135,7 @@ export function createInitialCampaign() {
       },
       plans: [],
       ftIstraBuildings: {},
+      completedEncounters: [],
     },
   };
 }
