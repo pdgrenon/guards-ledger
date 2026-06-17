@@ -39,7 +39,7 @@ function CollapsibleSection({ title, count, defaultOpen, children }) {
   );
 }
 
-function EncounterCard({ encounter, completed, onToggle, isSpiritBoss }) {
+function EncounterCard({ encounter, completed, onToggle }) {
   const [detailOpen, setDetailOpen] = useState(false);
 
   function closeDetail() {
@@ -122,15 +122,6 @@ function EncounterCard({ encounter, completed, onToggle, isSpiritBoss }) {
               <div className="encounter-detail-section">
                 <div className="encounter-detail-sect-label">ENEMY SETUP</div>
                 <div className="encounter-detail-text">{encounter.enemies}</div>
-              </div>
-
-              <div className="encounter-detail-section">
-                <div className="encounter-detail-sect-label">IF DEFEATED</div>
-                <div className="encounter-detail-text">
-                  {isSpiritBoss
-                    ? "Reset all Guards' HP back to maximum, and remove all negative chips from both bags. No rewards are gained unless all requirements are met."
-                    : "Reset the participating Guard(s)' HP back to 20. Chip bag(s) remain unchanged. No Lux Essence or enemy drops are obtained on defeat; no rewards are gained unless all requirements are met."}
-                </div>
               </div>
 
               <div className="encounter-detail-section">
@@ -218,11 +209,19 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
                   encounter={fight}
                   completed={completedEncounters.includes(fight.id)}
                   onToggle={toggleEncounterComplete}
-                  isSpiritBoss={encounterTab === 'spirit'}
                 />
               ))}
             </div>
           ))}
+        </div>
+
+        <div className="encounter-defeat-note">
+          <div className="encounter-defeat-note-label">IF DEFEATED</div>
+          <div className="encounter-detail-text">
+            {encounterTab === 'spirit'
+              ? "Reset all Guards' HP back to maximum. No rewards are gained unless all requirements are met."
+              : "Reset the participating Guard(s)' HP back to 20. No Lux Essence or enemy drops are obtained on defeat; no rewards are gained unless all requirements are met."}
+          </div>
         </div>
       </CollapsibleSection>
 
