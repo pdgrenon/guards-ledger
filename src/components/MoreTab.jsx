@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from '../data/encounters';
 import { CAMPAIGNS, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
