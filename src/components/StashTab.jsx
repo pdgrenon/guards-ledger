@@ -187,6 +187,13 @@ export function StashTab({
           </div>
         )}
 
+        {filteredCategories.length === 0 && search.length > 0 && (
+          <div className="stash-empty">
+            <div className="stash-empty-title">No results</div>
+            <div className="stash-empty-sub">Try a different search term</div>
+          </div>
+        )}
+
         {filteredCategories.map(cat => (
           <div key={cat.label}>
             <div className="stash-category-header">
