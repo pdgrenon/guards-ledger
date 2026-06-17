@@ -26,7 +26,7 @@ function SyncBadge({ status }) {
 
 export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, scrollToMultiplayer, onClose }) {
   const { guards, activeParty = ['Alek', 'Grigory'] } = state;
-  const { adjustGuardMaxHp, setStartingBlack, setPartySlot, exportState, importState, resetState } = actions;
+  const { adjustGuardMaxHp, setPartySlot, exportState, importState, resetState } = actions;
 
   // Multiplayer UI state
   const [joinCode,  setJoinCode]  = useState('');
@@ -198,18 +198,6 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, -1)} aria-label={`Decrease ${guard.name} max HP`}>−</button>
                     <span className="adj-val">{guard.maxHp}</span>
                     <button className="adj-btn" onClick={() => adjustGuardMaxHp(gi, 1)} aria-label={`Increase ${guard.name} max HP`}>+</button>
-                  </div>
-                </div>
-
-                <div className="settings-row">
-                  <div>
-                    <div className="settings-label">Starting black chips</div>
-                    <div className="settings-sub">Value black resets to when "Reset chips" is tapped</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack - 1)} aria-label={`Decrease ${guard.name} starting black chips`}>−</button>
-                    <span className="adj-val">{guard.startingBlack}</span>
-                    <button className="adj-btn" onClick={() => setStartingBlack(gi, guard.startingBlack + 1)} aria-label={`Increase ${guard.name} starting black chips`}>+</button>
                   </div>
                 </div>
               </div>

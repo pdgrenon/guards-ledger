@@ -60,13 +60,12 @@ export default function App() {
     setGuardEquipment:     game.setGuardEquipment,
     setGuardSatchelItem:   game.setGuardSatchelItem,
     toggleExpandedSatchel: game.toggleExpandedSatchel,
-    adjustChip:            game.adjustChip,
-    resetChips:            game.resetChips,
+
   };
 
   const settingsActions = {
     adjustGuardMaxHp: game.adjustGuardMaxHp,
-    setStartingBlack: game.setStartingBlack,
+
     setPartySlot:     game.setPartySlot,
     exportState:      game.exportState,
     importState:      game.importState,

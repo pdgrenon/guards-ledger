@@ -18,8 +18,7 @@ import {
   reduceAdjustGuardMaxHp,
   reduceSetGuardEquipment,
   reduceSetGuardSatchelItem,
-  reduceAdjustChip,
-  reduceResetChips,
+
   reduceToggleCityQuest,
   reduceAdjustStash,
   reduceSetStoneboundMax,
@@ -108,13 +107,7 @@ function healGuard(raw) {
                              accessory: healString(raw.equipment.accessory),
                              item:      healString(raw.equipment.item) }
                          : fresh.equipment,
-    chips:             isPlainObject(raw.chips)
-                         ? { black:  healNumber(raw.chips.black,  0),
-                             green:  healNumber(raw.chips.green,  0),
-                             red:    healNumber(raw.chips.red,    0),
-                             purple: healNumber(raw.chips.purple, 0) }
-                         : fresh.chips,
-    startingBlack:     healNumber(raw.startingBlack, fresh.startingBlack),
+
   };
 }
 
@@ -351,19 +344,6 @@ export function useGameState() {
       return { ...s, guards };
     }, guardColumn(guardIdx)), [setState]);
 
-  const adjustChip = useCallback((guardIdx, chipType, delta) =>
-    setState(s => reduceAdjustChip(s, guardIdx, chipType, delta), guardColumn(guardIdx)), [setState]);
-
-  const resetChips = useCallback((guardIdx) =>
-    setState(s => reduceResetChips(s, guardIdx), guardColumn(guardIdx)), [setState]);
-
-  const setStartingBlack = useCallback((guardIdx, value) =>
-    setState(s => {
-      const guards = s.guards.map((g, i) => i === guardIdx
-        ? { ...g, startingBlack: Math.max(0, value) } : g);
-      return { ...s, guards };
-    }, guardColumn(guardIdx)), [setState]);
-
   // ── Cities ───────────────────────────────────────────────────────────────
   const toggleCityQuest = useCallback((cityIdx, field) =>
     setState(s => reduceToggleCityQuest(s, cityIdx, field), 'cities'), [setState]);
@@ -471,7 +451,7 @@ export function useGameState() {
     setSil, setLux,
     adjustGuardHp, adjustGuardMaxHp,
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,
-    adjustChip, resetChips, setStartingBlack,
+
     toggleCityQuest,
     adjustStash,
     setStoneboundMax, addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,

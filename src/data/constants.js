@@ -19,13 +19,6 @@ export const GUARDS = [
   'Yana',
 ];
 
-export const CHIP_TYPES = [
-  { id: 'black',  label: 'Black',  color: 'chip-black'  },
-  { id: 'green',  label: 'Green',  color: 'chip-green'  },
-  { id: 'red',    label: 'Red',    color: 'chip-red'    },
-  { id: 'purple', label: 'Purple', color: 'chip-purple' },
-];
-
 // Guard identity colors — single source of truth used by App.jsx, GuardPanel.jsx,
 // SettingsPanel.jsx, and the session log colorizer.
 // key: CSS variable suffix (e.g. 'amber' → --c-guard-amber-*)
@@ -71,8 +64,6 @@ function makeGuard(name) {
     expandedSatchel: false,
     satchel:         Array(SATCHEL_EXPANDED_SIZE).fill(null).map(() => ({ item: '', qty: 1 })),
     equipment:       { weapon: '', armor: '', accessory: '', item: '' },
-    chips:           { black: 8, green: 0, red: 0, purple: 0 },
-    startingBlack:   8,
   };
 }
 
