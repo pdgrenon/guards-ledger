@@ -257,6 +257,7 @@ export default function App() {
             <ErrorBoundary level="tab" tabName="More">
               <MoreTab
                 log={state.log}
+                campaign={state.campaign}
                 completedEncounters={state.campaign.completedEncounters}
                 toggleEncounterComplete={game.toggleEncounterComplete}
               />

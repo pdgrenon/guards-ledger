@@ -145,8 +145,18 @@ function EncounterCard({ encounter, completed, onToggle, isSpiritBoss }) {
   );
 }
 
-export function MoreTab({ log, completedEncounters, toggleEncounterComplete }) {
+function encountersMatchFilter(fight, campaignId) {
+  if (campaignId === 0) return true;
+  const group = campaignGroupFromReq(fight.campaignReq);
+  return group.id === 0 || group.id === campaignId;
+}
+
+export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete }) {
+  const { campaignId } = campaign;
   const [encounterTab, setEncounterTab] = useState('training');
+  const [localCampaign, setLocalCampaign] = useState(0);
+
+  const activeFilter = localCampaign > 0 ? localCampaign : campaignId;
 
   return (
     <div>
@@ -168,8 +178,29 @@ export function MoreTab({ log, completedEncounters, toggleEncounterComplete }) {
           </button>
         </div>
 
+        <div className="encounter-filter-pills" role="group" aria-label="Campaign filter">
+          <button
+            className={`encounter-pill encounter-pill--sm${activeFilter === 0 ? ' active' : ''}`}
+            onClick={() => setLocalCampaign(0)}
+            aria-pressed={activeFilter === 0}
+          >
+            All
+          </button>
+          {CAMPAIGNS.map(c => (
+            <button
+              key={c.id}
+              className={`encounter-pill encounter-pill--sm${activeFilter === c.id ? ' active' : ''}`}
+              onClick={() => setLocalCampaign(c.id)}
+              aria-pressed={activeFilter === c.id}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+
         <div className="encounter-list">
           {(encounterTab === 'training' ? TRAINING_YARD_FIGHTS : SPIRIT_BOSSES).reduce((groups, fight) => {
+            if (!encountersMatchFilter(fight, activeFilter)) return groups;
             const group = campaignGroupFromReq(fight.campaignReq);
             const last = groups[groups.length - 1];
             if (!last || last.group.id !== group.id) {

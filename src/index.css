@@ -1122,6 +1122,18 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-color: var(--c-interact);
 }
 
+.encounter-filter-pills {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 8px;
+  flex-wrap: wrap;
+}
+.encounter-pill--sm {
+  flex: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 .encounter-group { margin-bottom: 8px; }
 .encounter-group-header {
   font-size: 10px;
