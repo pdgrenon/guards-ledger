@@ -696,6 +696,27 @@ describe('groupEncounters', () => {
     ];
     const groups = groupEncounters(fights, 0);
     expect(groups).toHaveLength(2);
-    expect(groups[0].group.label).toBe('Any Campaign');
+    expect(groups[groups.length - 1].group.label).toBe('Any Campaign');
+  });
+
+  it('includes all campaigns up to and including the active filter', () => {
+    const fights = [
+      { id: 'c1a', name: 'C1A', campaignReq: 'Campaign 1' },
+      { id: 'c2a', name: 'C2A', campaignReq: 'Campaign 2' },
+      { id: 'c3a', name: 'C3A', campaignReq: 'Campaign 3' },
+    ];
+    const groups = groupEncounters(fights, 2);
+    const ids = groups.map(g => g.group.id);
+    expect(ids).toEqual([1, 2]);
+  });
+
+  it('excludes campaigns beyond the active filter', () => {
+    const fights = [
+      { id: 'c1a', name: 'C1A', campaignReq: 'Campaign 1' },
+      { id: 'c3a', name: 'C3A', campaignReq: 'Campaign 3' },
+    ];
+    const groups = groupEncounters(fights, 1);
+    const ids = groups.map(g => g.group.id);
+    expect(ids).toEqual([1]);
   });
 });
