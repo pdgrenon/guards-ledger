@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
 import { CITIES, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
+import { useDialogA11y } from '../hooks/useDialogA11y';
 
 const CITY_NAMES_SET = new Set(CITIES.map(c => c.name));
 
@@ -28,23 +29,13 @@ function CollapsibleSection({ title, count, defaultOpen, children }) {
 
 function EncounterCard({ encounter, completed, onToggle }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const toggleBtnRef = useRef(null);
-
-  // Move focus into the dialog when it opens — once, not on every render.
-  useEffect(() => {
-    if (detailOpen) toggleBtnRef.current?.focus();
-  }, [detailOpen]);
 
   function closeDetail() {
     setDetailOpen(false);
   }
 
-  function handleDetailBackdropKeyDown(e) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeDetail();
-    }
-  }
+  // Focus management + Escape + focus trap for the detail dialog.
+  const dialogRef = useDialogA11y(detailOpen, closeDetail);
 
   function handleCardKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -79,13 +70,16 @@ function EncounterCard({ encounter, completed, onToggle }) {
       {detailOpen && (
         <div
           className="encounter-detail-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label={encounter.name}
           onClick={closeDetail}
-          onKeyDown={handleDetailBackdropKeyDown}
         >
-          <div className="encounter-detail" onClick={e => e.stopPropagation()}>
+          <div
+            ref={dialogRef}
+            className="encounter-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-label={encounter.name}
+            onClick={e => e.stopPropagation()}
+          >
             <div className="encounter-detail-handle" />
             <div className="encounter-detail-header">
               <span className="encounter-detail-title">{encounter.name}</span>
@@ -93,7 +87,6 @@ function EncounterCard({ encounter, completed, onToggle }) {
                 className={`encounter-toggle-btn${completed ? ' done' : ''}`}
                 onClick={e => { e.stopPropagation(); onToggle(encounter.id); }}
                 aria-label={completed ? 'Mark incomplete' : 'Mark complete'}
-                ref={toggleBtnRef}
               >
                 {completed ? 'Completed ✓' : 'Mark Complete'}
               </button>

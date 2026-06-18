@@ -1,15 +1,12 @@
-import { useEffect } from 'react';
+import { useDialogA11y } from '../hooks/useDialogA11y';
 
 export function ConfirmModal({ title, children, confirmLabel, cancelLabel, onConfirm, onCancel, danger }) {
-  useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onCancel(); }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  const dialogRef = useDialogA11y(true, onCancel);
 
   return (
     <div className="confirm-modal-backdrop" onClick={onCancel}>
       <div
+        ref={dialogRef}
         className="confirm-modal"
         onClick={e => e.stopPropagation()}
         role="dialog"

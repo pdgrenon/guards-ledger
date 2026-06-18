@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ConfirmModal } from './ConfirmModal';
+import { useDialogA11y } from '../hooks/useDialogA11y';
 
 // ─── Sync status indicator ────────────────────────────────────────────────────
 
@@ -40,6 +41,13 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   // Ref for the multiplayer section header — used to scroll into view
   const multiplayerRef = useRef(null);
   const bodyRef        = useRef(null);
+
+  // Escape closes the panel — but not while the nested confirm dialog owns the
+  // foreground (it handles its own Escape). The trap stays mounted throughout.
+  const handleEscapeClose = useCallback(() => {
+    if (!confirmAction) onClose();
+  }, [confirmAction, onClose]);
+  const dialogRef = useDialogA11y(true, handleEscapeClose);
 
   // Scroll to multiplayer section when opened via the campaign pill
   useEffect(() => {
@@ -121,7 +129,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
 
   return (
     <div className="settings-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
+      <div ref={dialogRef} className="settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
 
         {/* Sticky header */}
         <div className="settings-panel-header">

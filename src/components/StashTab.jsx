@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS, MATERIAL_SOURCES } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
 import { CITIES } from '../data/constants';
 import { PREREQ_UPGRADES_TO } from '../data/recipes';
+import { MaterialName } from './MaterialName';
 
 const CITY_NAMES = CITIES.map(c => c.name);
 const CUSTOM_CATEGORY_LABEL = 'Custom items';
@@ -209,21 +210,10 @@ export function StashTab({
             </div>
             {cat.items.map(item => {
               const upgrade = PREREQ_UPGRADES_TO[item];
-              const nameEl = MATERIAL_SOURCES[item] ? (
-                <button
-                  className="stash-row-name mat-source-trigger"
-                  onClick={() => onShowSource(item)}
-                  aria-label={`View sources for ${item}`}
-                >
-                  {item}
-                </button>
-              ) : (
-                <span className="stash-row-name">{item}</span>
-              );
               return (
                 <div key={item} className="stash-row">
                   <div className="stash-row-name-col">
-                    {nameEl}
+                    <MaterialName item={item} className="stash-row-name" onShowSource={onShowSource} />
                     {upgrade && (
                       <span className="stash-row-upgrade">
                         → {upgrade.name}

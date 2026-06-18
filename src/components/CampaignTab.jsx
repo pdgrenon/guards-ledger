@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { CAMPAIGNS } from '../data/constants';
 import { FT_ISTRA_BUILDINGS } from '../data/buildings';
-import { MATERIAL_SOURCES } from '../data/materials';
 import { Checkmark } from './Checkmark';
+import { MaterialName } from './MaterialName';
 
 // ─── Event token regions ──────────────────────────────────────────────────────
 const REGIONS = [
@@ -270,20 +270,9 @@ function ResourceCost({ cost, stash, onShowSource }) {
       {entries.map(([name, qty]) => {
         const have = stash[name] ?? 0;
         const ok = have >= qty;
-        const hasSource = !!MATERIAL_SOURCES[name];
         return (
           <div key={name} className="fi-cost-row">
-            {hasSource ? (
-              <button
-                className="fi-cost-name mat-source-trigger"
-                onClick={() => onShowSource(name)}
-                aria-label={`View sources for ${name}`}
-              >
-                {name}
-              </button>
-            ) : (
-              <span className="fi-cost-name">{name}</span>
-            )}
+            <MaterialName item={name} className="fi-cost-name" onShowSource={onShowSource} />
             <span className={`fi-cost-qty ${ok ? 'fi-cost-qty--have' : 'fi-cost-qty--short'}`}>
               {have} / {qty}
             </span>

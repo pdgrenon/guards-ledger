@@ -1,9 +1,9 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo } from 'react';
 import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined } from '../data/recipes';
-import { MATERIAL_SOURCES } from '../data/materials';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
+import { MaterialName } from './MaterialName';
 
 const CITY_NAMES = CITIES.map(c => c.name);
 const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
@@ -139,29 +139,15 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
             const effectiveQty = (useDiscount && mat.qty2R !== null) ? mat.qty2R : mat.qty;
             const have = combined[mat.name] ?? 0;
             const ok = have >= effectiveQty;
-            const hasSource = !!MATERIAL_SOURCES[mat.name];
             const showDiscount = useDiscount && mat.qty2R !== null && mat.qty2R < mat.qty;
             return (
               <div key={i} className="craft-mat-row">
-                {hasSource ? (
-                  <button
-                    className="craft-mat-name mat-source-trigger"
-                    onClick={() => onShowSource(mat.name)}
-                    aria-label={`View sources for ${mat.name}`}
-                  >
-                    {mat.name}
-                    {mat.isSpeakingStone && (
-                      <span className="craft-stone-tag"> · speaking stone</span>
-                    )}
-                  </button>
-                ) : (
-                  <span className="craft-mat-name">
-                    {mat.name}
-                    {mat.isSpeakingStone && (
-                      <span className="craft-stone-tag"> · speaking stone</span>
-                    )}
-                  </span>
-                )}
+                <MaterialName item={mat.name} className="craft-mat-name" onShowSource={onShowSource}>
+                  {mat.name}
+                  {mat.isSpeakingStone && (
+                    <span className="craft-stone-tag"> · speaking stone</span>
+                  )}
+                </MaterialName>
                 <span className={`craft-mat-qty ${ok ? 'craft-mat-qty--have' : 'craft-mat-qty--short'}`}>
                   {have} / {showDiscount
                     ? <><s className="craft-mat-qty-original">{mat.qty}</s> {mat.qty2R}</>

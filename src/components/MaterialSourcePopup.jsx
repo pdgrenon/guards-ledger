@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import { MATERIAL_SOURCES } from '../data/materials';
+import { useDialogA11y } from '../hooks/useDialogA11y';
 
 function SkullIcon() {
   return (
@@ -46,13 +46,7 @@ function CoinIcon() {
 
 export function MaterialSourcePopup({ item, onClose }) {
   const sources = item ? MATERIAL_SOURCES[item] : null;
-
-  useEffect(() => {
-    if (!item) return;
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [item, onClose]);
+  const dialogRef = useDialogA11y(!!item, onClose);
 
   if (!item) return null;
 
@@ -61,6 +55,7 @@ export function MaterialSourcePopup({ item, onClose }) {
   return (
     <div className="source-popup-backdrop" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="source-popup"
         onClick={e => e.stopPropagation()}
         role="dialog"
