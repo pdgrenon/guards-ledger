@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
-import { CAMPAIGNS, CITIES, GUARD_COLOR_MAP } from '../data/constants';
+import { CITIES, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
 
 const CITY_NAMES_SET = new Set(CITIES.map(c => c.name));
@@ -126,9 +126,8 @@ function EncounterCard({ encounter, completed, onToggle }) {
 export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete }) {
   const { campaignId } = campaign;
   const [encounterTab, setEncounterTab] = useState('training');
-  const [localCampaign, setLocalCampaign] = useState(0);
 
-  const activeFilter = localCampaign > 0 ? localCampaign : campaignId;
+  const activeFilter = campaignId;
 
   return (
     <div>
@@ -148,26 +147,6 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
           >
             Spirit Bosses
           </button>
-        </div>
-
-        <div className="step-selector mb-2" role="group" aria-label="Campaign filter">
-          <button
-            className={`step-btn${activeFilter === 0 ? ' active' : ''}`}
-            onClick={() => setLocalCampaign(0)}
-            aria-pressed={activeFilter === 0}
-          >
-            All
-          </button>
-          {CAMPAIGNS.map(c => (
-            <button
-              key={c.id}
-              className={`step-btn${activeFilter === c.id ? ' active' : ''}`}
-              onClick={() => setLocalCampaign(c.id)}
-              aria-pressed={activeFilter === c.id}
-            >
-              {c.label}
-            </button>
-          ))}
         </div>
 
         <div className="encounter-list">
