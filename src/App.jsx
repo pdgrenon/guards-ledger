@@ -247,6 +247,7 @@ export default function App() {
                 onDeletePlan={game.deletePlan}
                 onSetCampaign={game.setCampaign}
                 onSetFtIstraBuilding={game.setFtIstraBuilding}
+                onShowSource={setSourceItem}
               />
             </ErrorBoundary>
           )}
