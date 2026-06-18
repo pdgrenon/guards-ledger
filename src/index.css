@@ -990,7 +990,14 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 
 /* ─── MORE TAB (Encounters + Log) ────────────────────────────────────────── */
-.more-section { margin-bottom: 8px; }
+.more-section {
+  margin-bottom: 8px;
+  border: 0.5px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
 
 .more-section-header {
   display: flex;
@@ -1004,7 +1011,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   touch-action: manipulation;
   color: var(--c-text);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--c-surface);
   cursor: pointer;
   transition: background 0.15s;
@@ -1031,52 +1038,13 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .more-section-title {
   flex: 1;
+  font-family: var(--font-display);
 }
 
 .more-section-count {
   font-size: 11px;
   color: var(--c-text3);
   font-weight: 400;
-}
-
-.encounter-pills {
-  display: flex;
-  gap: 4px;
-  padding: 0 12px;
-  margin-bottom: 8px;
-}
-
-.encounter-pill {
-  flex: 1;
-  padding: 6px 10px;
-  border: 0.5px solid var(--c-border2);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-  color: var(--c-text2);
-  font-size: 12px;
-  font-family: var(--font-ui);
-  touch-action: manipulation;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.15s;
-}
-
-.encounter-pill.active {
-  background: var(--c-interact);
-  color: #fff;
-  border-color: var(--c-interact);
-}
-
-.encounter-filter-pills {
-  display: flex;
-  gap: 4px;
-  padding: 0 12px 8px;
-  flex-wrap: wrap;
-}
-.encounter-pill--sm {
-  flex: 0;
-  padding: 4px 8px;
-  font-size: 11px;
 }
 
 .encounter-group { margin-bottom: 8px; }
@@ -1097,6 +1065,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--c-text3);
+  font-family: var(--font-display);
   padding: 0 4px 4px;
 }
 .encounter-list {
@@ -1156,6 +1125,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 13px;
   font-weight: 500;
   color: var(--c-text);
+  font-family: var(--font-display);
 }
 
 .encounter-meta {
@@ -1210,6 +1180,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 16px;
   font-weight: 600;
   color: var(--c-text);
+  font-family: var(--font-display);
 }
 
 .encounter-toggle-btn {
