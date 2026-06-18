@@ -1,3 +1,7 @@
+import { CAMPAIGNS } from './constants';
+
+const ANY_GROUP = { id: 0, label: 'Any Campaign' };
+
 function slug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
@@ -489,3 +493,31 @@ export const SPIRIT_BOSSES = [
     reward: "Your name is recorded in the 'Hall of the Stonebound' in our official Discord server.",
   },
 ];
+
+export function campaignGroupFromReq(req) {
+  if (!req || req === 'Any Campaign') return ANY_GROUP;
+  const match = req.match(/Campaign (\d)/);
+  if (match) {
+    const id = parseInt(match[1], 10);
+    const found = CAMPAIGNS.find(c => c.id === id);
+    if (found) return { id, label: found.label };
+  }
+  return ANY_GROUP;
+}
+
+export function encountersMatchFilter(fight, campaignId) {
+  if (campaignId === 0) return true;
+  const group = campaignGroupFromReq(fight.campaignReq);
+  return group.id === 0 || group.id === campaignId;
+}
+
+export function groupEncounters(fights, activeFilter) {
+  const matched = fights.filter(f => encountersMatchFilter(f, activeFilter));
+  const byId = new Map();
+  for (const fight of matched) {
+    const group = campaignGroupFromReq(fight.campaignReq);
+    if (!byId.has(group.id)) byId.set(group.id, { group, fights: [] });
+    byId.get(group.id).fights.push(fight);
+  }
+  return [...byId.values()].sort((a, b) => a.group.id - b.group.id);
+}
