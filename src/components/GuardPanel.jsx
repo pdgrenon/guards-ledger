@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_STATS } from '../data/materials';
 import { Autocomplete } from './Autocomplete';
@@ -38,19 +39,21 @@ function initials(name) { return name.slice(0, 2).toUpperCase(); }
 
 function GuardAvatar({ name, colorKey }) {
   const src = GUARD_IMAGES[name];
+  const [failed, setFailed] = useState(false);
+
+  // Render initials instead of fighting React's DOM ownership when the
+  // portrait is missing — a state toggle keeps the node fully React-managed.
+  if (failed || !src) {
+    return <div className={`guard-avatar ${colorKey}`}>{initials(name)}</div>;
+  }
+
   return (
     <div className={`guard-avatar ${colorKey}`} style={{ padding: 0, overflow: 'hidden' }}>
       <img
         src={src}
         alt={name}
         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 'inherit' }}
-        onError={e => {
-          const el = e.currentTarget.parentElement;
-          e.currentTarget.remove();
-          el.textContent = initials(name);
-          el.style.padding = '';
-          el.style.overflow = '';
-        }}
+        onError={() => setFailed(true)}
       />
     </div>
   );
@@ -154,16 +157,20 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       {/* Satchel */}
       <div className="flex items-center justify-between mb-2">
         <div className="sec-label-primary" style={{ marginBottom: 0 }}>Satchel</div>
-        <div
-          className="flex items-center gap-1"
-          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
+        <button
+          type="button"
+          className="flex items-center gap-1 satchel-toggle"
+          style={{ touchAction: 'manipulation' }}
           onClick={() => toggleExpandedSatchel(guardIdx)}
+          role="switch"
+          aria-checked={guard.expandedSatchel}
+          aria-label="Expanded satchel"
         >
           <div className={`toggle ${guard.expandedSatchel ? 'on' : ''}`} style={{ width: 34, height: 20 }}>
             <div className="toggle-thumb" style={{ width: 13, height: 13, top: 2, left: 2 }} />
           </div>
           <span className="text-xs text-muted">Expanded</span>
-        </div>
+        </button>
       </div>
 
       <div className={`satchel-grid${guard.expandedSatchel ? ' satchel-expanded' : ''}`}>

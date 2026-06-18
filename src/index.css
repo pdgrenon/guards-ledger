@@ -78,17 +78,17 @@ a:focus-visible {
   --c-guard-gold-bg:         #edf0f5; --c-guard-gold-border:      #4a5568; --c-guard-gold-text:        #2d3444;
   /* Grigory — amber */
   --c-guard-amber-bg:        #faeeda; --c-guard-amber-border:     #ba7517; --c-guard-amber-text:       #633806;
-  /* Dasha   — forest */
+  /* Catherine — forest */
   --c-guard-forest-bg:       #eaf3de; --c-guard-forest-border:    #3b6d11; --c-guard-forest-text:      #27500a;
-  /* Zoya    — coral */
+  /* Yury    — coral */
   --c-guard-vermilion-bg:    #faece7; --c-guard-vermilion-border: #c94b28; --c-guard-vermilion-text:   #712b13;
-  /* Borya   — violet */
+  /* Kharzin — violet */
   --c-guard-indigo-bg:       #f0edf8; --c-guard-indigo-border:    #6a5acd; --c-guard-indigo-text:      #3c2a7e;
-  /* Mila    — teal */
+  /* Vera    — teal */
   --c-guard-teal-bg:         #e1f5ee; --c-guard-teal-border:      #1d9e75; --c-guard-teal-text:        #085041;
-  /* Seva    — rose */
+  /* Pavel   — rose */
   --c-guard-rose-bg:         #fbeaf0; --c-guard-rose-border:      #d4537e; --c-guard-rose-text:        #72243e;
-  /* Kira    — sky */
+  /* Yana    — sky */
   --c-guard-cerulean-bg:     #e6f1fb; --c-guard-cerulean-border:  #378add; --c-guard-cerulean-text:    #0c447c;
 
   /* Radii */
@@ -1401,6 +1401,17 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 
 /* ─── TOGGLE ─────────────────────────────────────────────────────────────── */
+/* Button wrapper around the Expanded-satchel toggle — reset native chrome
+   so it reads as the inline control it replaced. */
+.satchel-toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
 .toggle {
   width: 42px; height: 24px;
   border-radius: 12px;
