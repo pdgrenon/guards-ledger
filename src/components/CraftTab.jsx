@@ -6,6 +6,8 @@ import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 
 const CITY_NAMES = CITIES.map(c => c.name);
+const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
+const STAR_LABELS = ['All', '★', '★★', '★★★', '★★★★', '★★★★★'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -57,14 +59,12 @@ function StatusBadge({ status }) {
 }
 
 function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource, selectedCity, cityPrestigeLevel }) {
+  // Party-restricted recipes with no matching active guard are already filtered
+  // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
   const status = craftStatus(recipe, combined, sil, lux, selectedCity, cityPrestigeLevel);
   const cost = formatCost(recipe, selectedCity);
   const cityLine = formatCityBreakdown(recipe, selectedCity);
-
-  const isPartyRestricted = recipe.limitedTo.length > 0 &&
-    !recipe.limitedTo.some(g => activePartyNames.includes(g));
-  if (isPartyRestricted) return null;
 
   const activeGuardMatch = recipe.limitedTo.length > 0
     ? recipe.limitedTo.filter(g => activePartyNames.includes(g))
@@ -242,12 +242,9 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowS
     });
   }, [search, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames]);
 
-  const typeOrder = ['Weapon', 'Armor', 'Accessory', 'Item'];
-  const grouped = typeOrder
+  const grouped = useMemo(() => TYPE_ORDER
     .map(type => ({ type, recipes: filtered.filter(r => r.type === type) }))
-    .filter(g => g.recipes.length > 0);
-
-  const STAR_LABELS = ['All', '★', '★★', '★★★', '★★★★', '★★★★★'];
+    .filter(g => g.recipes.length > 0), [filtered]);
 
   return (
     <>
@@ -363,9 +360,9 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowS
         grouped.map(({ type, recipes }) => (
           <div key={type}>
             <div className="sec-label craft-section-label">{type}</div>
-            {recipes.map((r, i) => (
+            {recipes.map(r => (
               <RecipeCard
-                key={`${r.name}-${r.city}-${i}`}
+                key={`${r.name}-${r.city}`}
                 recipe={r}
                 combined={combined}
                 sil={sil}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS, MATERIAL_SOURCES } from '../data/materials';
 import { CITIES } from '../data/constants';
 import { PREREQ_UPGRADES_TO } from '../data/recipes';
@@ -23,12 +23,12 @@ export function StashTab({
   const cubesAvailable = stonebound.max - cubesUsed;
   const overBudget = cubesAvailable < 0;
 
-  const predefinedAddResults = addSearch.length > 0
+  const predefinedAddResults = useMemo(() => addSearch.length > 0
     ? ALL_ITEMS_WITH_CATEGORY.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&
         (stash[item] ?? 0) === 0
       ).slice(0, 12)
-    : [];
+    : [], [addSearch, stash]);
 
   const trimmedSearch = addSearch.trim();
   const isKnownItem = ALL_KNOWN_ITEMS.has(trimmedSearch);
@@ -42,30 +42,37 @@ export function StashTab({
     setAddSearch('');
   }
 
-  const activeByCategory = MATERIAL_CATEGORIES
-    .map(cat => ({
-      label: cat.label,
-      items: cat.items.filter(item => (stash[item] ?? 0) > 0),
-    }))
-    .filter(cat => cat.items.length > 0);
+  // Active (count > 0) items grouped by category, plus a Custom-items group.
+  const activeByCategory = useMemo(() => {
+    const grouped = MATERIAL_CATEGORIES
+      .map(cat => ({
+        label: cat.label,
+        items: cat.items.filter(item => (stash[item] ?? 0) > 0),
+      }))
+      .filter(cat => cat.items.length > 0);
 
-  const customItems = Object.keys(stash).filter(
-    key => !ALL_KNOWN_ITEMS.has(key) && (stash[key] ?? 0) > 0
+    const customItems = Object.keys(stash)
+      .filter(key => !ALL_KNOWN_ITEMS.has(key) && (stash[key] ?? 0) > 0)
+      .sort();
+    if (customItems.length > 0) {
+      grouped.push({ label: CUSTOM_CATEGORY_LABEL, items: customItems });
+    }
+    return grouped;
+  }, [stash]);
+
+  const allActiveItems = useMemo(
+    () => activeByCategory.flatMap(c => c.items),
+    [activeByCategory]
   );
-  if (customItems.length > 0) {
-    activeByCategory.push({ label: CUSTOM_CATEGORY_LABEL, items: customItems.sort() });
-  }
 
-  const allActiveItems = activeByCategory.flatMap(c => c.items);
-
-  const filteredCategories = search.length > 0
+  const filteredCategories = useMemo(() => search.length > 0
     ? activeByCategory
         .map(cat => ({
           ...cat,
           items: cat.items.filter(item => item.toLowerCase().includes(search.toLowerCase())),
         }))
         .filter(cat => cat.items.length > 0)
-    : activeByCategory;
+    : activeByCategory, [activeByCategory, search]);
 
   return (
     <>

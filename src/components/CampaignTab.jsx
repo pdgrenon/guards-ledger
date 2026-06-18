@@ -244,10 +244,12 @@ function PlanRow({ plan, onToggle, onDelete }) {
       <button
         className={`campaign-plan-check${plan.done ? ' done' : ''}`}
         onClick={() => onToggle(plan.id)}
-        aria-label={plan.done ? 'Mark incomplete' : 'Mark complete'}
+        aria-label={`${plan.done ? 'Mark incomplete' : 'Mark complete'}: ${plan.text}`}
       >
         {plan.done && <Checkmark />}
       </button>
+      {/* Pointer-only convenience target; the labeled checkbox above is the
+          accessible control, so this span intentionally has no button role. */}
       <span
         className={`campaign-plan-text${plan.done ? ' done' : ''}`}
         onClick={() => onToggle(plan.id)}

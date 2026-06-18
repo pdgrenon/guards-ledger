@@ -26,7 +26,7 @@ export function CitiesTab({ cities, toggleCityQuest }) {
             <div className="city-name">{city.name}</div>
 
             {/* Prestige pips — below name, colored, larger */}
-            <div className="prestige-pips" role="status" aria-label={`Prestige: ${prestige} of 3`}>
+            <div className="prestige-pips" role="img" aria-label={`Prestige: ${prestige} of 3`}>
               {Array(3).fill(0).map((_, pi) => (
                 <div key={pi} className={`prestige-pip${pi < prestige ? ' filled' : ''}`} />
               ))}
