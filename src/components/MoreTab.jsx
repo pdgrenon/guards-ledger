@@ -152,16 +152,16 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
   return (
     <div>
       <CollapsibleSection title="Encounters" defaultOpen={true}>
-        <div className="encounter-pills" role="group" aria-label="Encounter type">
+        <div className="step-selector mb-2" role="group" aria-label="Encounter type">
           <button
-            className={`encounter-pill${encounterTab === 'training' ? ' active' : ''}`}
+            className={`step-btn${encounterTab === 'training' ? ' active' : ''}`}
             onClick={() => setEncounterTab('training')}
             aria-pressed={encounterTab === 'training'}
           >
             Training Yard
           </button>
           <button
-            className={`encounter-pill${encounterTab === 'spirit' ? ' active' : ''}`}
+            className={`step-btn${encounterTab === 'spirit' ? ' active' : ''}`}
             onClick={() => setEncounterTab('spirit')}
             aria-pressed={encounterTab === 'spirit'}
           >
@@ -169,9 +169,9 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
           </button>
         </div>
 
-        <div className="encounter-filter-pills" role="group" aria-label="Campaign filter">
+        <div className="step-selector mb-2" role="group" aria-label="Campaign filter">
           <button
-            className={`encounter-pill encounter-pill--sm${activeFilter === 0 ? ' active' : ''}`}
+            className={`step-btn${activeFilter === 0 ? ' active' : ''}`}
             onClick={() => setLocalCampaign(0)}
             aria-pressed={activeFilter === 0}
           >
@@ -180,7 +180,7 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
           {CAMPAIGNS.map(c => (
             <button
               key={c.id}
-              className={`encounter-pill encounter-pill--sm${activeFilter === c.id ? ' active' : ''}`}
+              className={`step-btn${activeFilter === c.id ? ' active' : ''}`}
               onClick={() => setLocalCampaign(c.id)}
               aria-pressed={activeFilter === c.id}
             >
