@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 
 export function Autocomplete({ value, onChange, options, placeholder, className }) {
   const [open, setOpen] = useState(false);
@@ -7,6 +7,11 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
   const [activeIdx, setActiveIdx] = useState(-1);
   const ref = useRef(null);
   const inputRef = useRef(null);
+  // Instance-scoped ids so multiple Autocompletes on one page (the Guards tab
+  // mounts ~12 of them) don't share DOM ids and break their ARIA wiring.
+  const baseId = useId();
+  const listboxId = `${baseId}-listbox`;
+  const optionId = i => `${baseId}-opt-${i}`;
 
   if (value !== prevValue) {
     setPrevValue(value);
@@ -73,7 +78,7 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
   }
 
   const activeDescendantId = activeIdx >= 0 && activeIdx < filtered.length
-    ? `autocomplete-opt-${activeIdx}`
+    ? optionId(activeIdx)
     : undefined;
 
   return (
@@ -93,14 +98,14 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
         aria-expanded={open}
         aria-autocomplete="list"
         aria-activedescendant={activeDescendantId}
-        aria-controls="autocomplete-listbox"
+        aria-controls={listboxId}
       />
       {open && filtered.length > 0 && (
-        <div id="autocomplete-listbox" className="autocomplete-dropdown" role="listbox">
+        <div id={listboxId} className="autocomplete-dropdown" role="listbox">
           {filtered.map((opt, i) => (
             <div
               key={opt}
-              id={`autocomplete-opt-${i}`}
+              id={optionId(i)}
               className={`autocomplete-option${i === activeIdx ? ' active' : ''}`}
               role="option"
               aria-selected={i === activeIdx}

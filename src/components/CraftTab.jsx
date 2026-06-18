@@ -277,7 +277,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowS
               onChange={e => setTypeFilter(e.target.value)}
               aria-label="Filter by type"
             >
-              <option>All types</option>
+              <option value="All">All types</option>
               <option value="Weapon">Weapon</option>
               <option value="Armor">Armor</option>
               <option value="Accessory">Accessory</option>
