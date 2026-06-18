@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CAMPAIGNS } from '../data/constants';
 import { FT_ISTRA_BUILDINGS } from '../data/buildings';
+import { MATERIAL_SOURCES } from '../data/materials';
 import { Checkmark } from './Checkmark';
 
 // ─── Event token regions ──────────────────────────────────────────────────────
@@ -259,7 +260,7 @@ function PlanRow({ plan, onToggle, onDelete }) {
 }
 
 // ─── Ft. Istra Buildings card ────────────────────────────────────────────────
-function ResourceCost({ cost, stash }) {
+function ResourceCost({ cost, stash, onShowSource }) {
   if (!cost) return null;
   const entries = Object.entries(cost);
   return (
@@ -267,9 +268,20 @@ function ResourceCost({ cost, stash }) {
       {entries.map(([name, qty]) => {
         const have = stash[name] ?? 0;
         const ok = have >= qty;
+        const hasSource = !!MATERIAL_SOURCES[name];
         return (
           <div key={name} className="fi-cost-row">
-            <span className="fi-cost-name">{name}</span>
+            {hasSource ? (
+              <button
+                className="fi-cost-name mat-source-trigger"
+                onClick={() => onShowSource(name)}
+                aria-label={`View sources for ${name}`}
+              >
+                {name}
+              </button>
+            ) : (
+              <span className="fi-cost-name">{name}</span>
+            )}
             <span className={`fi-cost-qty ${ok ? 'fi-cost-qty--have' : 'fi-cost-qty--short'}`}>
               {have} / {qty}
             </span>
@@ -318,7 +330,7 @@ function ExchangeList({ exchange }) {
 const BUILDING_STATES = ['not_owned', 'built', 'upgraded'];
 const STATE_LABELS = ['Not Owned', 'Built', 'Upgraded'];
 
-function BuildingCard({ building, state, stash, onSetState }) {
+function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
   const currentIdx = BUILDING_STATES.indexOf(state ?? 'not_owned');
   const isBuilt = currentIdx >= 1;
   const showCost = currentIdx === 0 ? building.buildCost : (currentIdx === 1 && building.hasUpgrade ? building.upgradeCost : null);
@@ -368,7 +380,7 @@ function BuildingCard({ building, state, stash, onSetState }) {
           <div className="fi-cost-label">
             {currentIdx === 0 ? 'Build cost' : 'Upgrade cost'}
           </div>
-          <ResourceCost cost={showCost} stash={stash} />
+          <ResourceCost cost={showCost} stash={stash} onShowSource={onShowSource} />
         </div>
       )}
 
@@ -400,7 +412,7 @@ function CampaignProgressCard({ campaign, onSetCampaign }) {
   );
 }
 
-function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding }) {
+function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding, onShowSource }) {
   const buildings = FT_ISTRA_BUILDINGS;
 
   return (
@@ -413,6 +425,7 @@ function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding })
             state={ftIstraBuildings[building.name] ?? 'not_owned'}
             stash={stash}
             onSetState={onSetFtIstraBuilding}
+            onShowSource={onShowSource}
           />
           {building.hasUpgrade && (
             <div className="fi-upgrade-divider" />
@@ -438,6 +451,7 @@ export function CampaignTab({
   onDeletePlan,
   onSetCampaign,
   onSetFtIstraBuilding,
+  onShowSource,
 }) {
   const { eventTokens, locations, plans, ftIstraBuildings } = campaign;
 
@@ -469,6 +483,7 @@ export function CampaignTab({
         ftIstraBuildings={ftIstraBuildings}
         stash={stash}
         onSetFtIstraBuilding={onSetFtIstraBuilding}
+        onShowSource={onShowSource}
       />
     </>
   );
