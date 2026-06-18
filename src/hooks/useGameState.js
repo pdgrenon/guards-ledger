@@ -36,7 +36,6 @@ import {
   reduceDeletePlan,
   reduceToggleEncounterComplete,
   reduceSetCampaign,
-  reduceSetChapter,
 } from './gameReducers';
 import { useSupabaseSync, guardColumn } from './useSupabaseSync';
 
@@ -401,9 +400,6 @@ export function useGameState() {
   const setCampaign = useCallback((campaignId) =>
     setState(s => reduceSetCampaign(s, campaignId), 'campaign'), [setState]);
 
-  const setChapter = useCallback((chapterId) =>
-    setState(s => reduceSetChapter(s, chapterId), 'campaign'), [setState]);
-
   const setFtIstraBuilding = useCallback((buildingName, state) => {
     setState(s => ({
       ...s,
@@ -468,7 +464,7 @@ export function useGameState() {
     addDynamicLocation, updateDynamicLocation, removeDynamicLocation,
     addPlan, togglePlan, deletePlan,
     toggleEncounterComplete,
-    setCampaign, setChapter,
+    setCampaign,
     setFtIstraBuilding,
     setState, exportState, importState, resetState,
   };

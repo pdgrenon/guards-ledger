@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CAMPAIGNS, CHAPTERS } from '../data/constants';
+import { CAMPAIGNS } from '../data/constants';
 import { FT_ISTRA_BUILDINGS } from '../data/buildings';
 import { Checkmark } from './Checkmark';
 
@@ -378,23 +378,13 @@ function BuildingCard({ building, state, stash, onSetState }) {
 }
 
 // ─── Campaign / Chapter tracker ────────────────────────────────────────────────
-function CampaignProgressCard({ campaign, onSetCampaign, onSetChapter }) {
-  const { campaignId, chapterId } = campaign;
-  const chapterOptions = campaignId > 0
-    ? CHAPTERS.filter(ch => ch.campaign === campaignId)
-    : [];
+function CampaignProgressCard({ campaign, onSetCampaign }) {
+  const { campaignId } = campaign;
 
   return (
     <div className="card mb-3">
       <div className="card-title mb-3">Campaign Progress</div>
-      <div className="step-selector mb-2" role="group" aria-label="Campaign">
-        <button
-          className={`step-btn${campaignId === 0 ? ' active' : ''}`}
-          onClick={() => onSetCampaign(0)}
-          aria-pressed={campaignId === 0}
-        >
-          Any
-        </button>
+      <div className="step-selector" role="group" aria-label="Campaign">
         {CAMPAIGNS.map(c => (
           <button
             key={c.id}
@@ -406,27 +396,6 @@ function CampaignProgressCard({ campaign, onSetCampaign, onSetChapter }) {
           </button>
         ))}
       </div>
-      {chapterOptions.length > 0 && (
-        <div className="step-selector" role="group" aria-label="Chapter">
-          <button
-            className={`step-btn${chapterId === 0 ? ' active' : ''}`}
-            onClick={() => onSetChapter(0)}
-            aria-pressed={chapterId === 0}
-          >
-            Any
-          </button>
-          {chapterOptions.map(ch => (
-            <button
-              key={ch.id}
-              className={`step-btn${chapterId === ch.id ? ' active' : ''}`}
-              onClick={() => onSetChapter(ch.id)}
-              aria-pressed={chapterId === ch.id}
-            >
-              {ch.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -468,7 +437,6 @@ export function CampaignTab({
   onTogglePlan,
   onDeletePlan,
   onSetCampaign,
-  onSetChapter,
   onSetFtIstraBuilding,
 }) {
   const { eventTokens, locations, plans, ftIstraBuildings } = campaign;
@@ -478,7 +446,6 @@ export function CampaignTab({
       <CampaignProgressCard
         campaign={campaign}
         onSetCampaign={onSetCampaign}
-        onSetChapter={onSetChapter}
       />
       <EventTokensCard
         eventTokens={eventTokens}

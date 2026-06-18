@@ -246,7 +246,6 @@ export default function App() {
                 onTogglePlan={game.togglePlan}
                 onDeletePlan={game.deletePlan}
                 onSetCampaign={game.setCampaign}
-                onSetChapter={game.setChapter}
                 onSetFtIstraBuilding={game.setFtIstraBuilding}
               />
             </ErrorBoundary>

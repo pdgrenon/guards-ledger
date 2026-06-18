@@ -267,7 +267,6 @@
   },
   "campaign": {
     "campaignId": 2,
-    "chapterId": 8,
     "eventTokens": { "mountain": 2, "forest": 1, "plains": 3, "sea": 0 },
     "locations": {
       "party": "Ryba outskirts",
