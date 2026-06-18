@@ -508,7 +508,7 @@ export function campaignGroupFromReq(req) {
 export function encountersMatchFilter(fight, campaignId) {
   if (campaignId === 0) return true;
   const group = campaignGroupFromReq(fight.campaignReq);
-  return group.id === 0 || group.id === campaignId;
+  return group.id === 0 || group.id <= campaignId;
 }
 
 export function groupEncounters(fights, activeFilter) {
@@ -519,5 +519,9 @@ export function groupEncounters(fights, activeFilter) {
     if (!byId.has(group.id)) byId.set(group.id, { group, fights: [] });
     byId.get(group.id).fights.push(fight);
   }
-  return [...byId.values()].sort((a, b) => a.group.id - b.group.id);
+  return [...byId.values()].sort((a, b) => {
+    if (a.group.id === 0) return 1;
+    if (b.group.id === 0) return -1;
+    return a.group.id - b.group.id;
+  });
 }
