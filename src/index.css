@@ -229,7 +229,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 /* ─── ADJ BUTTONS ────────────────────────────────────────────────────────── */
 .adj-row { display: flex; align-items: center; gap: 6px; }
 .adj-btn {
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   border: 0.5px solid var(--c-border2);
   border-radius: var(--radius-sm);
   background: var(--c-surface2);
@@ -526,7 +526,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
 .stat-name { font-size: 11px; color: var(--c-text2); width: 30px; flex-shrink: 0; }
-.adj-btn-sm { width: 24px !important; height: 24px !important; font-size: 14px !important; }
+.adj-btn-sm { width: 28px !important; height: 28px !important; font-size: 14px !important; }
 .adj-pair { display: flex; flex-direction: row; gap: 3px; flex-shrink: 0; }
 
 /* ─── HP NUMBER DISPLAY — replaces pip track ────────────────────────────── */
@@ -654,7 +654,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .satchel-qty-row { display: flex; align-items: center; gap: 2px; }
 .satchel-qty-btn {
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   border: 0.5px solid var(--c-border2);
   border-radius: 3px;
   background: var(--c-surface);
@@ -800,8 +800,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .sb-remove-btn:active { opacity: 0.6; }
 .sb-remove-btn:hover { color: var(--c-red); border-color: var(--c-red); }
-.sb-max-btn   { width: 28px !important; height: 28px !important; font-size: 15px !important; }
-.sb-count-btn { width: 28px !important; height: 28px !important; font-size: 15px !important; }
+.sb-max-btn   { width: 32px !important; height: 32px !important; font-size: 15px !important; }
+.sb-count-btn { width: 32px !important; height: 32px !important; font-size: 15px !important; }
 .sb-add-btn {
   width: 100%;
   padding: 10px;
@@ -913,7 +913,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .stash-row-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 /* Smaller stash +/− buttons — controls are secondary to the count */
 .stash-row-btn {
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   border: 0.5px solid var(--c-border2);
   border-radius: var(--radius-sm);
   background: var(--c-surface2);
