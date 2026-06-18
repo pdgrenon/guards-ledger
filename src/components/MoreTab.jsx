@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
 import { CITIES, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
@@ -28,6 +28,12 @@ function CollapsibleSection({ title, count, defaultOpen, children }) {
 
 function EncounterCard({ encounter, completed, onToggle }) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const toggleBtnRef = useRef(null);
+
+  // Move focus into the dialog when it opens — once, not on every render.
+  useEffect(() => {
+    if (detailOpen) toggleBtnRef.current?.focus();
+  }, [detailOpen]);
 
   function closeDetail() {
     setDetailOpen(false);
@@ -87,7 +93,7 @@ function EncounterCard({ encounter, completed, onToggle }) {
                 className={`encounter-toggle-btn${completed ? ' done' : ''}`}
                 onClick={e => { e.stopPropagation(); onToggle(encounter.id); }}
                 aria-label={completed ? 'Mark incomplete' : 'Mark complete'}
-                ref={el => el && detailOpen && el.focus()}
+                ref={toggleBtnRef}
               >
                 {completed ? 'Completed ✓' : 'Mark Complete'}
               </button>

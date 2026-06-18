@@ -45,9 +45,10 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   useEffect(() => {
     if (scrollToMultiplayer && multiplayerRef.current && bodyRef.current) {
       // Small timeout lets the panel finish its mount animation first
-      setTimeout(() => {
-        multiplayerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const t = setTimeout(() => {
+        multiplayerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 120);
+      return () => clearTimeout(t);
     }
   }, [scrollToMultiplayer]);
 

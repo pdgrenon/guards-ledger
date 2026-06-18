@@ -240,8 +240,11 @@ function saveState(state) {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGameState() {
-    const [state, setRaw]     = useState(() => loadState().state);
-    const [corruption, setCorruption] = useState(() => loadState().corruption);
+    // loadState() does the full parse/heal/migrate pass — run it once on boot
+    // and seed both pieces of state from the single result.
+    const [initial]           = useState(loadState);
+    const [state, setRaw]     = useState(initial.state);
+    const [corruption, setCorruption] = useState(initial.corruption);
     const saveTimer = useRef(null);
     const upsertTimer = useRef(null);
     const stateRef = useRef(state);
