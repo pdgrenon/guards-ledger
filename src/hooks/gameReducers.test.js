@@ -37,6 +37,7 @@ import {
   reduceSetCampaign,
 } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
+import { groupEncounters } from '../data/encounters';
 
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
@@ -648,5 +649,53 @@ describe('colorizeLogMessage', () => {
     expect(result[1].props.children).toBe('Alek');
     expect(result[2]).toBe(' found <script>bad()</script>');
     expect(typeof result[2]).toBe('string');
+  });
+});
+
+// ─── groupEncounters (regression — unsorted input) ──────────────────────────
+
+describe('groupEncounters', () => {
+  it('merges non-adjacent fights with the same campaign into one group', () => {
+    const fights = [
+      { id: 'a', name: 'A', campaignReq: 'Campaign 1' },
+      { id: 'b', name: 'B', campaignReq: 'Campaign 3' },
+      { id: 'c', name: 'C', campaignReq: 'Campaign 1' },
+      { id: 'd', name: 'D', campaignReq: 'Campaign 2' },
+    ];
+    const groups = groupEncounters(fights, 0);
+    expect(groups).toHaveLength(3);
+    const c1 = groups.find(g => g.group.id === 1);
+    expect(c1.fights.map(f => f.id)).toEqual(['a', 'c']);
+  });
+
+  it('produces no duplicate group headers for unsorted data', () => {
+    const fights = [
+      { id: 'a', name: 'A', campaignReq: 'Any Campaign' },
+      { id: 'b', name: 'B', campaignReq: 'Campaign 1' },
+      { id: 'c', name: 'C', campaignReq: 'Campaign 3' },
+      { id: 'd', name: 'D', campaignReq: 'Any Campaign' },
+      { id: 'e', name: 'E', campaignReq: 'Campaign 1' },
+    ];
+    const groups = groupEncounters(fights, 0);
+    const ids = groups.map(g => g.group.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('returns empty array when no fights match the filter', () => {
+    const fights = [
+      { id: 'a', name: 'A', campaignReq: 'Campaign 2' },
+    ];
+    const groups = groupEncounters(fights, 1);
+    expect(groups).toEqual([]);
+  });
+
+  it('handles Any Campaign req', () => {
+    const fights = [
+      { id: 'a', name: 'A', campaignReq: 'Any Campaign' },
+      { id: 'b', name: 'B', campaignReq: 'Campaign 1' },
+    ];
+    const groups = groupEncounters(fights, 0);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].group.label).toBe('Any Campaign');
   });
 });

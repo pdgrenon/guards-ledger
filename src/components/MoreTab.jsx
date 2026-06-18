@@ -1,22 +1,9 @@
 import { useState } from 'react';
-import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from '../data/encounters';
+import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
 import { CAMPAIGNS, CITIES, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
 
 const CITY_NAMES_SET = new Set(CITIES.map(c => c.name));
-
-const ANY_GROUP = { id: 0, label: 'Any Campaign' };
-
-function campaignGroupFromReq(req) {
-  if (!req || req === 'Any Campaign') return ANY_GROUP;
-  const match = req.match(/Campaign (\d)/);
-  if (match) {
-    const id = parseInt(match[1], 10);
-    const found = CAMPAIGNS.find(c => c.id === id);
-    if (found) return { id, label: found.label };
-  }
-  return ANY_GROUP;
-}
 
 function classifyEntry(message) {
   const first = message.split(' ')[0];
@@ -136,12 +123,6 @@ function EncounterCard({ encounter, completed, onToggle }) {
   );
 }
 
-function encountersMatchFilter(fight, campaignId) {
-  if (campaignId === 0) return true;
-  const group = campaignGroupFromReq(fight.campaignReq);
-  return group.id === 0 || group.id === campaignId;
-}
-
 export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete }) {
   const { campaignId } = campaign;
   const [encounterTab, setEncounterTab] = useState('training');
@@ -190,18 +171,11 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
         </div>
 
         <div className="encounter-list">
-          {(encounterTab === 'training' ? TRAINING_YARD_FIGHTS : SPIRIT_BOSSES).reduce((groups, fight) => {
-            if (!encountersMatchFilter(fight, activeFilter)) return groups;
-            const group = campaignGroupFromReq(fight.campaignReq);
-            const last = groups[groups.length - 1];
-            if (!last || last.group.id !== group.id) {
-              groups.push({ group, fights: [fight] });
-            } else {
-              last.fights.push(fight);
-            }
-            return groups;
-          }, []).map(({ group, fights }) => (
-            <div key={group.id} className="encounter-group">
+          {groupEncounters(
+            encounterTab === 'training' ? TRAINING_YARD_FIGHTS : SPIRIT_BOSSES,
+            activeFilter
+          ).map(({ group, fights }) => (
+            <div key={`${encounterTab}-${group.id}`} className="encounter-group">
               <div className="encounter-group-header">{group.label}</div>
               {fights.map(fight => (
                 <EncounterCard
