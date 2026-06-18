@@ -122,32 +122,7 @@ export const CAMPAIGNS = [
   { id: 4, label: 'Campaign 4',   subtitle: 'The Prophecy'        },
 ];
 
-export const CHAPTERS = [
-  { id: 1,  campaign: 1, label: 'Ch. 1',  subtitle: 'A Call to Arms'      },
-  { id: 2,  campaign: 1, label: 'Ch. 2',  subtitle: 'To Mir'              },
-  { id: 3,  campaign: 1, label: 'Ch. 3',  subtitle: 'The Guilds of Mir'   },
-  { id: 4,  campaign: 1, label: 'Ch. 4',  subtitle: 'Wanted: Dead or Alive' },
-  { id: 5,  campaign: 1, label: 'Ch. 5',  subtitle: 'The Ruins'           },
-  { id: 6,  campaign: 1, label: 'Ch. 6',  subtitle: 'The Remnant'         },
-  { id: 7,  campaign: 2, label: 'Ch. 7',  subtitle: 'The Stonebound'      },
-  { id: 8,  campaign: 2, label: 'Ch. 8',  subtitle: 'The Mad Alchemist'   },
-  { id: 9,  campaign: 2, label: 'Ch. 9',  subtitle: 'The Hunt'           },
-  { id: 10, campaign: 2, label: 'Ch. 10', subtitle: 'The Darkwood'        },
-  { id: 11, campaign: 2, label: 'Ch. 11', subtitle: 'The Siege of Ryba'   },
-  { id: 12, campaign: 2, label: 'Ch. 12', subtitle: 'The Fall'           },
-  { id: 13, campaign: 3, label: 'Ch. 13', subtitle: 'The Survivors'      },
-  { id: 14, campaign: 3, label: 'Ch. 14', subtitle: 'The Lost City'      },
-  { id: 15, campaign: 3, label: 'Ch. 15', subtitle: 'The Escape'         },
-  { id: 16, campaign: 3, label: 'Ch. 16', subtitle: 'The Conspiracy'     },
-  { id: 17, campaign: 3, label: 'Ch. 17', subtitle: 'The Beast'          },
-  { id: 18, campaign: 3, label: 'Ch. 18', subtitle: 'The Reckoning'      },
-  { id: 19, campaign: 4, label: 'Ch. 19', subtitle: 'The Prodigal'       },
-  { id: 20, campaign: 4, label: 'Ch. 20', subtitle: 'The Truth'          },
-  { id: 21, campaign: 4, label: 'Ch. 21', subtitle: 'The Journey'        },
-  { id: 22, campaign: 4, label: 'Ch. 22', subtitle: 'The Sacrifice'      },
-  { id: 23, campaign: 4, label: 'Ch. 23', subtitle: 'The Awakening'      },
-  { id: 24, campaign: 4, label: 'Ch. 24', subtitle: 'The End'            },
-];
+
 
 export function createInitialCampaign() {
   return {
@@ -161,8 +136,7 @@ export function createInitialCampaign() {
       plans: [],
       ftIstraBuildings: {},
       completedEncounters: [],
-      campaignId: 0,
-      chapterId: 0,
+      campaignId: 1,
     },
   };
 }
