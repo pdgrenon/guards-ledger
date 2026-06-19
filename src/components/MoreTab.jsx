@@ -27,106 +27,114 @@ function CollapsibleSection({ title, count, defaultOpen, children }) {
   );
 }
 
-function EncounterCard({ encounter, completed, onToggle }) {
-  const [detailOpen, setDetailOpen] = useState(false);
-
-  function closeDetail() {
-    setDetailOpen(false);
-  }
-
-  // Focus management + Escape + focus trap for the detail dialog.
-  const dialogRef = useDialogA11y(detailOpen, closeDetail);
-
+function EncounterCard({ encounter, completed, onOpen }) {
   function handleCardKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      setDetailOpen(true);
+      onOpen(encounter);
     }
   }
 
   const cardLabel = completed ? 'Completed: ' + encounter.name : encounter.name;
 
   return (
-    <>
-      <div
-        className={`encounter-card${completed ? ' completed' : ''}`}
-        onClick={() => setDetailOpen(true)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={handleCardKeyDown}
-        aria-label={cardLabel}
-      >
-        <div className="encounter-card-row">
-          <span className={`encounter-check${completed ? ' done' : ''}`} aria-hidden="true">
-            {completed ? '✓' : ''}
-          </span>
-          <div className="encounter-card-body">
-            <span className="encounter-name">{encounter.name}</span>
-            <span className="encounter-meta">{encounter.campaignReq}</span>
-          </div>
+    <div
+      className={`encounter-card${completed ? ' completed' : ''}`}
+      onClick={() => onOpen(encounter)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={handleCardKeyDown}
+      aria-label={cardLabel}
+    >
+      <div className="encounter-card-row">
+        <span className={`encounter-check${completed ? ' done' : ''}`} aria-hidden="true">
+          {completed ? '✓' : ''}
+        </span>
+        <div className="encounter-card-body">
+          <span className="encounter-name">{encounter.name}</span>
+          <span className="encounter-meta">{encounter.campaignReq}</span>
         </div>
       </div>
-
-      {detailOpen && (
-        <div
-          className="encounter-detail-backdrop"
-          onClick={closeDetail}
-        >
-          <div
-            ref={dialogRef}
-            className="encounter-detail"
-            role="dialog"
-            aria-modal="true"
-            aria-label={encounter.name}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="encounter-detail-handle" />
-            <div className="encounter-detail-header">
-              <span className="encounter-detail-title">{encounter.name}</span>
-              <button
-                className={`encounter-toggle-btn${completed ? ' done' : ''}`}
-                onClick={e => { e.stopPropagation(); onToggle(encounter.id); }}
-                aria-label={completed ? 'Mark incomplete' : 'Mark complete'}
-              >
-                {completed ? 'Completed ✓' : 'Mark Complete'}
-              </button>
-            </div>
-
-            <div className="encounter-detail-body">
-              <div className="encounter-detail-section">
-                <div className="encounter-detail-sect-label">REQUIREMENTS</div>
-                <div className="encounter-detail-line"><strong>Campaign:</strong> {encounter.campaignReq}</div>
-                <div className="encounter-detail-line"><strong>Guards:</strong> {encounter.guardReq}</div>
-                {encounter.specialReq && (
-                  <div className="encounter-detail-line"><strong>Special:</strong> {encounter.specialReq}</div>
-                )}
-                {encounter.unlockCondition && (
-                  <div className="encounter-detail-line"><strong>Unlock:</strong> {encounter.unlockCondition}</div>
-                )}
-              </div>
-
-              <div className="encounter-detail-section">
-                <div className="encounter-detail-sect-label">ENEMY SETUP</div>
-                <div className="encounter-detail-text">{encounter.enemies}</div>
-              </div>
-
-              <div className="encounter-detail-section">
-                <div className="encounter-detail-sect-label">REWARD</div>
-                <div className="encounter-detail-text">{encounter.reward}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
-export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete }) {
+// Detail dialog lives at the tab level (driven by MoreTab's openEnc state) so it
+// can be opened either by tapping a card or by a deep-link from global search,
+// independent of which sub-tab or campaign filter is showing the list.
+function EncounterDetailDialog({ encounter, completed, onToggle, onClose }) {
+  const dialogRef = useDialogA11y(true, onClose);
+
+  return (
+    <div className="encounter-detail-backdrop" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        className="encounter-detail"
+        role="dialog"
+        aria-modal="true"
+        aria-label={encounter.name}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="encounter-detail-handle" />
+        <div className="encounter-detail-header">
+          <span className="encounter-detail-title">{encounter.name}</span>
+          <button
+            className={`encounter-toggle-btn${completed ? ' done' : ''}`}
+            onClick={e => { e.stopPropagation(); onToggle(encounter.id); }}
+            aria-label={completed ? 'Mark incomplete' : 'Mark complete'}
+          >
+            {completed ? 'Completed ✓' : 'Mark Complete'}
+          </button>
+        </div>
+
+        <div className="encounter-detail-body">
+          <div className="encounter-detail-section">
+            <div className="encounter-detail-sect-label">REQUIREMENTS</div>
+            <div className="encounter-detail-line"><strong>Campaign:</strong> {encounter.campaignReq}</div>
+            <div className="encounter-detail-line"><strong>Guards:</strong> {encounter.guardReq}</div>
+            {encounter.specialReq && (
+              <div className="encounter-detail-line"><strong>Special:</strong> {encounter.specialReq}</div>
+            )}
+            {encounter.unlockCondition && (
+              <div className="encounter-detail-line"><strong>Unlock:</strong> {encounter.unlockCondition}</div>
+            )}
+          </div>
+
+          <div className="encounter-detail-section">
+            <div className="encounter-detail-sect-label">ENEMY SETUP</div>
+            <div className="encounter-detail-text">{encounter.enemies}</div>
+          </div>
+
+          <div className="encounter-detail-section">
+            <div className="encounter-detail-sect-label">REWARD</div>
+            <div className="encounter-detail-text">{encounter.reward}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete, encounterTarget }) {
   const { campaignId } = campaign;
   const [encounterTab, setEncounterTab] = useState('training');
+  const [openEnc, setOpenEnc] = useState(null);
+  const [targetNonce, setTargetNonce] = useState(encounterTarget?.nonce ?? null);
 
   const activeFilter = campaignId;
+
+  // Deep-link from global search: switch to the right sub-tab and open the
+  // encounter's detail. Adjust-state-on-prop-change during render, keyed on the
+  // target's nonce so repeat links re-fire even for the same encounter.
+  if (encounterTarget && encounterTarget.nonce !== targetNonce) {
+    setTargetNonce(encounterTarget.nonce);
+    const pool = encounterTarget.kind === 'spirit' ? SPIRIT_BOSSES : TRAINING_YARD_FIGHTS;
+    const match = pool.find(f => f.id === encounterTarget.id);
+    if (match) {
+      setEncounterTab(encounterTarget.kind === 'spirit' ? 'spirit' : 'training');
+      setOpenEnc(match);
+    }
+  }
 
   return (
     <div>
@@ -160,7 +168,7 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
                   key={fight.id}
                   encounter={fight}
                   completed={completedEncounters.includes(fight.id)}
-                  onToggle={toggleEncounterComplete}
+                  onOpen={setOpenEnc}
                 />
               ))}
             </div>
@@ -207,6 +215,15 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
           </div>
         )}
       </CollapsibleSection>
+
+      {openEnc && (
+        <EncounterDetailDialog
+          encounter={openEnc}
+          completed={completedEncounters.includes(openEnc.id)}
+          onToggle={toggleEncounterComplete}
+          onClose={() => setOpenEnc(null)}
+        />
+      )}
     </div>
   );
 }
