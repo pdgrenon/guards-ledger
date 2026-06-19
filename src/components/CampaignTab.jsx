@@ -337,10 +337,6 @@ function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
   const description = currentIdx >= 1 && building.upgradeDescription
     ? building.upgradeDescription
     : building.description;
-  const showExchange = currentIdx === 0
-    ? null
-    : (currentIdx >= 2 ? building.upgradeExchange : building.exchange);
-
   return (
     <div className={`fi-building-card${isBuilt ? ' fi-building-card--built' : ''}`}>
       <div className="fi-building-header">
@@ -384,7 +380,14 @@ function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
         </div>
       )}
 
-      <ExchangeList exchange={showExchange} />
+      {currentIdx === 0 ? null : currentIdx >= 2 ? (
+        <>
+          {building.exchange && <ExchangeList exchange={building.exchange} />}
+          {building.upgradeExchange && <ExchangeList exchange={building.upgradeExchange} />}
+        </>
+      ) : (
+        <ExchangeList exchange={building.exchange} />
+      )}
     </div>
   );
 }
