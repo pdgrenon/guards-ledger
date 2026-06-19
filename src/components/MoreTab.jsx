@@ -156,6 +156,23 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
           </button>
         </div>
 
+        <div className="encounter-retry-note">
+          <div className="encounter-detail-text">
+            {encounterTab === 'spirit'
+              ? 'Each spirit boss can be completed only once, but can be retried as many times in case of defeat.'
+              : 'Each training yard fight can be completed only once, but can be retried as many times in case of defeat.'}
+          </div>
+        </div>
+
+        <div className="encounter-defeat-note">
+          <div className="encounter-defeat-note-label">IF DEFEATED</div>
+          <div className="encounter-detail-text">
+            {encounterTab === 'spirit'
+              ? "Reset all Guards' HP back to maximum. No rewards are gained unless all requirements are met."
+              : "Reset the participating Guard(s)' HP back to 20. No Lux Essence or enemy drops are obtained on defeat; no rewards are gained unless all requirements are met."}
+          </div>
+        </div>
+
         <div className="encounter-list">
           {groupEncounters(
             encounterTab === 'training' ? TRAINING_YARD_FIGHTS : SPIRIT_BOSSES,
@@ -173,15 +190,6 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
               ))}
             </div>
           ))}
-        </div>
-
-        <div className="encounter-defeat-note">
-          <div className="encounter-defeat-note-label">IF DEFEATED</div>
-          <div className="encounter-detail-text">
-            {encounterTab === 'spirit'
-              ? "Reset all Guards' HP back to maximum. No rewards are gained unless all requirements are met."
-              : "Reset the participating Guard(s)' HP back to 20. No Lux Essence or enemy drops are obtained on defeat; no rewards are gained unless all requirements are met."}
-          </div>
         </div>
       </CollapsibleSection>
 
