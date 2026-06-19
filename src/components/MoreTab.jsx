@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
 import { CITIES, GUARD_COLOR_MAP } from '../data/constants';
 import { colorizeLogMessage } from '../utils/logUtils';
@@ -115,11 +115,14 @@ function EncounterDetailDialog({ encounter, completed, onToggle, onClose }) {
   );
 }
 
-export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete, encounterTarget }) {
+export function MoreTab({ log, campaign, completedEncounters, toggleEncounterComplete, encounterTarget, onTargetApplied }) {
   const { campaignId } = campaign;
   const [encounterTab, setEncounterTab] = useState('training');
   const [openEnc, setOpenEnc] = useState(null);
-  const [targetNonce, setTargetNonce] = useState(encounterTarget?.nonce ?? null);
+  // Starts null (not the incoming nonce) so a target present on the first mount
+  // — the common case, since this tab is unmounted until the deep-link switches
+  // to it — still counts as "changed" and opens the encounter.
+  const [targetNonce, setTargetNonce] = useState(null);
 
   const activeFilter = campaignId;
 
@@ -135,6 +138,12 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
       setOpenEnc(match);
     }
   }
+
+  // The target is a one-shot — tell the parent to clear it once consumed so it
+  // can't re-open on a later manual return to this tab.
+  useEffect(() => {
+    if (encounterTarget) onTargetApplied?.();
+  }, [encounterTarget, onTargetApplied]);
 
   return (
     <div>

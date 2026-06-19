@@ -1,5 +1,5 @@
 // src/components/CraftTab.jsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
@@ -179,13 +179,16 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowSource, searchSeed }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowSource, searchSeed, onSeedApplied }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
   const [selectedCity, setSelectedCity] = useState(null);
-  const [seedNonce, setSeedNonce] = useState(searchSeed?.nonce ?? null);
+  // Starts null (not the incoming nonce) so a seed present on the very first
+  // mount — the common case, since this tab is unmounted until the deep-link
+  // switches to it — still counts as "changed" and gets applied.
+  const [seedNonce, setSeedNonce] = useState(null);
 
   // Deep-link from global search: seed the search box with the recipe name and
   // clear any active filters so the target recipe is guaranteed to be visible.
@@ -199,6 +202,13 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowS
     setCanCraftOnly(false);
     setSelectedCity(null);
   }
+
+  // The seed is a one-shot — tell the parent to clear it once consumed so it
+  // can't re-apply on a later manual return to this tab. Calls only the parent
+  // setter (no local setState), so it's not a cascading-render concern.
+  useEffect(() => {
+    if (searchSeed) onSeedApplied?.();
+  }, [searchSeed, onSeedApplied]);
 
   const activePartyNames = useMemo(() => activeParty ?? [], [activeParty]);
 
