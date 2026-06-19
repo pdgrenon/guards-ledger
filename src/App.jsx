@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
@@ -56,10 +56,15 @@ export default function App() {
   const [settingsScrollToMultiplayer, setSettingsScrollToMultiplayer] = useState(false);
   const [sourceItem, setSourceItem] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  // Deep-link seeds from global search — a bumped nonce re-triggers the target
-  // tab's effect even when the same recipe/encounter is selected twice.
+  // Deep-link seeds from global search. These are one-shot commands: the target
+  // tab applies the seed once, then calls its onApplied callback to clear it.
+  // Clearing matters because the tab unmounts when inactive — without it, a seed
+  // would persist and re-apply (clobbering the user's input) on a later manual
+  // return to that tab. A bumped nonce lets a repeat selection re-fire.
   const [craftSeed, setCraftSeed]   = useState(null);
   const [encounterTarget, setEncounterTarget] = useState(null);
+  const clearCraftSeed       = useCallback(() => setCraftSeed(null), []);
+  const clearEncounterTarget = useCallback(() => setEncounterTarget(null), []);
   const game = useGameState();
   const { state } = game;
 
@@ -266,6 +271,7 @@ export default function App() {
                 cities={state.cities}
                 onShowSource={setSourceItem}
                 searchSeed={craftSeed}
+                onSeedApplied={clearCraftSeed}
               />
             </ErrorBoundary>
           )}
@@ -301,6 +307,7 @@ export default function App() {
                 completedEncounters={state.campaign.completedEncounters}
                 toggleEncounterComplete={game.toggleEncounterComplete}
                 encounterTarget={encounterTarget}
+                onTargetApplied={clearEncounterTarget}
               />
             </ErrorBoundary>
           )}
