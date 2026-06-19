@@ -2363,12 +2363,27 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .gs-drops { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
 .gs-drop-chip {
+  font: inherit;
   font-size: 11px;
   color: var(--c-text2);
   background: var(--c-surface2);
   border: 0.5px solid var(--c-border);
   border-radius: var(--radius-sm);
-  padding: 1px 6px;
+  padding: 3px 8px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.gs-drop-chip:active { opacity: 0.7; }
+@media (hover: hover) {
+  .gs-drop-chip:hover { border-color: var(--c-border2); color: var(--c-text); }
+}
+.gs-drop-chip--active {
+  background: var(--c-brand-bg);
+  border-color: var(--c-brand);
+  color: var(--c-brand-text);
 }
 
 .gs-material-detail {

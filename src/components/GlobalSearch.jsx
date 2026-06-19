@@ -12,6 +12,9 @@ const TYPE_GLYPH = { Weapon: '⚔', Armor: '🛡', Accessory: '◈', Item: '⬡'
 export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpenEncounter, onOpenCity }) {
   const [query, setQuery] = useState('');
   const [expandedMaterial, setExpandedMaterial] = useState(null);
+  // Which enemy drop chip is expanded — keyed by both enemy and drop so the
+  // same material dropped by two enemies only expands under the tapped one.
+  const [expandedDrop, setExpandedDrop] = useState(null); // { enemy, drop } | null
   const dialogRef = useDialogA11y(open, onClose);
 
   const results = useMemo(
@@ -42,7 +45,7 @@ export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpe
             className="gs-input"
             type="search"
             value={query}
-            onChange={e => { setQuery(e.target.value); setExpandedMaterial(null); }}
+            onChange={e => { setQuery(e.target.value); setExpandedMaterial(null); setExpandedDrop(null); }}
             placeholder="Search recipes, materials, enemies…"
             aria-label="Search everything"
             autoComplete="off"
@@ -127,17 +130,38 @@ export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpe
             <div className="gs-group">
               <div className="gs-group-label">Enemies</div>
               {results.enemies.map(({ name, drops }) => (
-                <div key={name} className="gs-result gs-result--static">
-                  <span className="gs-result-glyph" aria-hidden="true">☠</span>
-                  <span className="gs-result-main">
-                    <span className="gs-result-title">{name}</span>
-                    {drops.length > 0 && (
-                      <span className="gs-drops">
-                        {drops.map(d => <span key={d} className="gs-drop-chip">{d}</span>)}
-                      </span>
-                    )}
-                    {drops.length === 0 && <span className="gs-result-meta">no recorded drops</span>}
-                  </span>
+                <div key={name}>
+                  <div className="gs-result gs-result--static">
+                    <span className="gs-result-glyph" aria-hidden="true">☠</span>
+                    <span className="gs-result-main">
+                      <span className="gs-result-title">{name}</span>
+                      {drops.length > 0 ? (
+                        <span className="gs-drops">
+                          {drops.map(d => {
+                            const isOpen = expandedDrop?.enemy === name && expandedDrop?.drop === d;
+                            return (
+                              <button
+                                key={d}
+                                type="button"
+                                className={`gs-drop-chip${isOpen ? ' gs-drop-chip--active' : ''}`}
+                                aria-expanded={isOpen}
+                                onClick={() => setExpandedDrop(isOpen ? null : { enemy: name, drop: d })}
+                              >
+                                {d}
+                              </button>
+                            );
+                          })}
+                        </span>
+                      ) : (
+                        <span className="gs-result-meta">no recorded drops</span>
+                      )}
+                    </span>
+                  </div>
+                  {expandedDrop?.enemy === name && (
+                    <div className="gs-material-detail">
+                      <MaterialSourceSections sources={MATERIAL_SOURCES[expandedDrop.drop]} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
