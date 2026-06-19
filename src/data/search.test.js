@@ -46,6 +46,18 @@ describe('searchAll', () => {
     expect(iron.count).toBe(0);
   });
 
+  it('every returned enemy drop has a MATERIAL_SOURCES entry', () => {
+    // The search overlay expands a drop chip into MaterialSourceSections keyed
+    // on MATERIAL_SOURCES[drop], so every drop must resolve to a source entry.
+    const res = searchAll('tenebris'); // broad enemy match with drops
+    expect(res.enemies.length).toBeGreaterThan(0);
+    for (const { drops } of res.enemies) {
+      for (const drop of drops) {
+        expect(MATERIAL_SOURCES[drop]).toBeDefined();
+      }
+    }
+  });
+
   it('matches cities by name and only returns matching cities', () => {
     const cities = [
       { id: 1, name: 'Mir' },
