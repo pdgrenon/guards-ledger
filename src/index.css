@@ -2233,6 +2233,143 @@ button, input, select, textarea { font-family: var(--font-ui); }
    Bottom-sheet that answers "where do I get this?" for stash and craft tabs.
    Rendered at App level so it overlays the full viewport.               */
 
+/* ─── GLOBAL SEARCH ──────────────────────────────────────────────────────── */
+.gs-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--c-overlay);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.gs-panel {
+  background: var(--c-surface);
+  width: 100%;
+  max-width: 900px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  border-bottom: 0.5px solid var(--c-border2);
+  box-shadow: var(--shadow-elevated);
+  overflow: hidden;
+}
+
+.gs-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 0.5px solid var(--c-border);
+  flex-shrink: 0;
+}
+
+.gs-search-icon { color: var(--c-text3); flex-shrink: 0; }
+
+.gs-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  font-size: 16px; /* ≥16px avoids iOS zoom-on-focus */
+  outline: none;
+  padding: 4px 0;
+}
+.gs-input::placeholder { color: var(--c-text3); }
+
+.gs-close {
+  width: 30px; height: 30px;
+  border: none;
+  background: var(--c-surface2);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--c-text2);
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+.gs-close:active { opacity: 0.7; }
+
+.gs-results {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 0 16px;
+}
+
+.gs-hint {
+  text-align: center;
+  padding: 40px 24px;
+}
+.gs-hint-title { font-size: 15px; color: var(--c-text); font-family: var(--font-display); margin-bottom: 6px; }
+.gs-hint-sub { font-size: 13px; color: var(--c-text3); line-height: 1.5; }
+
+.gs-group { margin-top: 6px; }
+.gs-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-text3);
+  padding: 8px 16px 4px;
+  font-weight: 600;
+}
+
+.gs-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--c-text);
+  font-family: inherit;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+.gs-result:active { background: var(--c-surface2); }
+@media (hover: hover) { .gs-result:hover { background: var(--c-surface2); } }
+.gs-result--static { cursor: default; }
+.gs-result--static:active { background: none; }
+
+.gs-result-glyph { width: 20px; text-align: center; color: var(--c-text2); flex-shrink: 0; }
+
+.gs-result-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.gs-result-title { font-size: 14px; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gs-result-meta { font-size: 11px; color: var(--c-text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.gs-stars { font-size: 12px; color: var(--c-brand); letter-spacing: 1px; flex-shrink: 0; }
+.gs-stars--ft { color: var(--c-red); }
+
+.gs-count {
+  font-size: 11px;
+  color: var(--c-brand-text);
+  background: var(--c-brand-bg);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.gs-drops { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.gs-drop-chip {
+  font-size: 11px;
+  color: var(--c-text2);
+  background: var(--c-surface2);
+  border: 0.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+.gs-material-detail {
+  padding: 4px 16px 12px 46px;
+}
+
 .source-popup-backdrop {
   position: fixed;
   inset: 0;

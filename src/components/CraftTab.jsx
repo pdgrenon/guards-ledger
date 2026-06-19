@@ -179,12 +179,26 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowSource }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowSource, searchSeed }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
   const [selectedCity, setSelectedCity] = useState(null);
+  const [seedNonce, setSeedNonce] = useState(searchSeed?.nonce ?? null);
+
+  // Deep-link from global search: seed the search box with the recipe name and
+  // clear any active filters so the target recipe is guaranteed to be visible.
+  // Adjust-state-on-prop-change during render (the pattern Autocomplete uses),
+  // keyed on the seed's nonce so re-selecting the same recipe re-applies.
+  if (searchSeed && searchSeed.nonce !== seedNonce) {
+    setSeedNonce(searchSeed.nonce);
+    setSearch(searchSeed.term);
+    setTypeFilter('All');
+    setMinStars(0);
+    setCanCraftOnly(false);
+    setSelectedCity(null);
+  }
 
   const activePartyNames = useMemo(() => activeParty ?? [], [activeParty]);
 

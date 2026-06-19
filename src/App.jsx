@@ -8,6 +8,7 @@ import { CampaignTab } from './components/CampaignTab';
 import { CraftTab } from './components/CraftTab';
 import { MoreTab } from './components/MoreTab';
 import { MaterialSourcePopup } from './components/MaterialSourcePopup';
+import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CorruptionBanner } from './components/CorruptionBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
@@ -29,6 +30,18 @@ function SettingsIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
 // Sync status dot colors — matches SyncBadge in SettingsPanel
 const SYNC_DOT_COLOR = {
   idle:    'var(--c-green)',
@@ -42,8 +55,30 @@ export default function App() {
   const [settingsOpen, setSettingsOpen]     = useState(false);
   const [settingsScrollToMultiplayer, setSettingsScrollToMultiplayer] = useState(false);
   const [sourceItem, setSourceItem] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Deep-link seeds from global search — a bumped nonce re-triggers the target
+  // tab's effect even when the same recipe/encounter is selected twice.
+  const [craftSeed, setCraftSeed]   = useState(null);
+  const [encounterTarget, setEncounterTarget] = useState(null);
   const game = useGameState();
   const { state } = game;
+
+  function openRecipeFromSearch(recipe) {
+    setCraftSeed({ term: recipe.name, nonce: Date.now() });
+    setTab('Crafting');
+    setSearchOpen(false);
+  }
+
+  function openEncounterFromSearch(encounter, kind) {
+    setEncounterTarget({ id: encounter.id, kind, nonce: Date.now() });
+    setTab('More');
+    setSearchOpen(false);
+  }
+
+  function openCityFromSearch() {
+    setTab('Cities');
+    setSearchOpen(false);
+  }
 
   function dismissOnboarding() {
     game.setState(s => ({ ...s, settings: { ...s.settings, hasSeenOnboarding: true } }), null);
@@ -124,6 +159,10 @@ export default function App() {
               {campaignId}
             </button>
           )}
+
+          <button className="icon-btn" onClick={() => setSearchOpen(true)} aria-label="Search everything">
+            <SearchIcon />
+          </button>
 
           <button className="icon-btn" onClick={openSettings} aria-label="Settings">
             <SettingsIcon />
@@ -226,6 +265,7 @@ export default function App() {
                 activeParty={state.activeParty}
                 cities={state.cities}
                 onShowSource={setSourceItem}
+                searchSeed={craftSeed}
               />
             </ErrorBoundary>
           )}
@@ -260,6 +300,7 @@ export default function App() {
                 campaign={state.campaign}
                 completedEncounters={state.campaign.completedEncounters}
                 toggleEncounterComplete={game.toggleEncounterComplete}
+                encounterTarget={encounterTarget}
               />
             </ErrorBoundary>
           )}
@@ -277,6 +318,17 @@ export default function App() {
             onClose={closeSettings}
           />
         )}
+
+        {/* Global search overlay */}
+        <GlobalSearch
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          stash={state.stash}
+          cities={state.cities}
+          onOpenRecipe={openRecipeFromSearch}
+          onOpenEncounter={openEncounterFromSearch}
+          onOpenCity={openCityFromSearch}
+        />
 
         {/* Material source popup */}
         <MaterialSourcePopup
