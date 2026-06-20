@@ -19,11 +19,18 @@
 -- stash, campaign). It also closes the debounce race: a stale client
 -- write no longer clobbers a fresher server value it didn't touch.
 --
--- The same-key edge case (two players both editing the SAME stash key
--- concurrently — e.g., both picking up Iron at the same instant) is
--- genuinely a CRDT problem and is not solved here. Documented as a
--- known limitation. A client-side delta tracking refactor is the right
--- next step if it ever becomes a real issue.
+-- The same-key edge case (two players both editing the SAME field
+-- concurrently — e.g., both picking up Iron at the same instant, or both
+-- toggling the SAME array element's SAME field) is genuinely a CRDT problem
+-- and is not solved here. Documented as a known limitation. A client-side
+-- delta tracking refactor is the right next step if it ever becomes a real
+-- issue.
+--
+-- NOTE: the original version of this merge only recursed into JSONB objects,
+-- so it overwrote *any* array wholesale (cities, campaign plans/quests,
+-- stonebound locations). AVE-197 narrowed the limitation to the same-field
+-- case above by adding array-aware merging — see
+-- supabase/migrations/0003_array_merge.sql.
 --
 -- Apply this to an existing database. Idempotent (CREATE OR REPLACE).
 -- Fresh installs: schema.sql should also include the function definitions
