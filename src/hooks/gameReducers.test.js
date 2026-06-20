@@ -969,8 +969,7 @@ describe('reduceTogglePlan', () => {
   });
 
   it('leaves other plans untouched', () => {
-    const s2 = reduceAddPlan(s1, 'Second plan');
-    const id2 = s2.campaign.plans[1].id;
+    const s2 = reduceAddPlan(s1, 'New Plan');
     const s3 = reduceTogglePlan(s2, id);
     expect(s3.campaign.plans[1].done).toBe(false);
   });
