@@ -11,6 +11,7 @@ import {
 } from '../data/constants';
 import {
   addLog,
+  deriveUndoLabel,
   reduceSetPartySlot,
   reduceSetSil,
   reduceSetLux,
@@ -282,6 +283,12 @@ export function useGameState() {
 
     const sync = useSupabaseSync(state, handleRemoteChange);
 
+    // ── Undo snapshot (single-level) ─────────────────────────────────────────
+    // Captured before every undoable mutation in setState. Cleared on undo or
+    // when a new undoable action overwrites it.
+    const undoSnapshot = useRef(null);
+    const [undoLabel, setUndoLabel] = useState(null);
+
     // ── Core setState — persists locally and upserts the changed section(s) ──
     // sectionName: which Supabase column this change belongs to, or null for local-only.
     // Multiple distinct sections may be touched within one debounce window (e.g.
@@ -291,11 +298,14 @@ export function useGameState() {
       const pendingSections = useRef(new Set());
 
       const setState = useCallback((updater, sectionName = null) => {
-        setRaw(prev => {
-          const next = typeof updater === 'function' ? updater(prev) : updater;
-          return next;
-        });
         if (sectionName) {
+          setRaw(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            const label = deriveUndoLabel(prev, next, sectionName);
+            undoSnapshot.current = { prevState: prev, sectionName, label };
+            setUndoLabel(label);
+            return next;
+          });
           pendingSections.current.add(sectionName);
           if (upsertTimer.current) clearTimeout(upsertTimer.current);
           upsertTimer.current = setTimeout(() => {
@@ -305,8 +315,23 @@ export function useGameState() {
               sync.upsertSection(section, stateRef.current);
             }
           }, 400);
+        } else {
+          setRaw(typeof updater === 'function' ? updater : updater);
         }
       }, [sync]);
+
+  // ── Undo last action ──────────────────────────────────────────────────────
+  const undoLastAction = useCallback(() => {
+    const snapshot = undoSnapshot.current;
+    if (!snapshot) return;
+    const { prevState, sectionName, label } = snapshot;
+    setRaw(addLog(prevState, `Undo: ${label}`));
+    if (sectionName) {
+      sync.upsertSection(sectionName, prevState);
+    }
+    undoSnapshot.current = null;
+    setUndoLabel(null);
+  }, [sync]);
 
   // ── Active guard (local-only UI navigation — never synced) ──────────────
   // Each player independently controls which guard card they're viewing.
@@ -470,5 +495,6 @@ export function useGameState() {
     setCampaign,
     setFtIstraBuilding,
     setState, exportState, importState, resetState,
+    undoLabel, undoLastAction,
   };
 }
