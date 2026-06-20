@@ -35,6 +35,16 @@ import {
   reduceUpdateStoneboundLocation,
   reduceToggleEncounterComplete,
   reduceSetCampaign,
+
+  reduceSetEventToken,
+  reduceResetEventToken,
+  reduceSetCampaignLocation,
+  reduceAddDynamicLocation,
+  reduceUpdateDynamicLocation,
+  reduceRemoveDynamicLocation,
+  reduceAddPlan,
+  reduceTogglePlan,
+  reduceDeletePlan,
 } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
 import { groupEncounters } from '../data/encounters';
@@ -718,5 +728,274 @@ describe('groupEncounters', () => {
     const groups = groupEncounters(fights, 1);
     const ids = groups.map(g => g.group.id);
     expect(ids).toEqual([1]);
+  });
+});
+
+// ─── Campaign event tokens ─────────────────────────────────────────────────────
+
+describe('reduceSetEventToken', () => {
+  it('clamps to a maximum of 3', () => {
+    const s2 = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        eventTokens: { ...s.campaign.eventTokens, mountain: 2 },
+      },
+    };
+    const next = reduceSetEventToken(s2, 'mountain', 5);
+    expect(next.campaign.eventTokens.mountain).toBe(3);
+  });
+
+  it('clamps to a minimum of 0', () => {
+    const next = reduceSetEventToken(s, 'mountain', -5);
+    expect(next.campaign.eventTokens.mountain).toBe(0);
+  });
+
+  it('returns a new eventTokens object reference', () => {
+    const prev = s.campaign.eventTokens;
+    const next = reduceSetEventToken(s, 'mountain', 1);
+    expect(next.campaign.eventTokens).not.toBe(prev);
+  });
+
+  it('logs a triggered message when crossing from below 3 to exactly 3', () => {
+    const s2 = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        eventTokens: { ...s.campaign.eventTokens, mountain: 2 },
+      },
+    };
+    const next = reduceSetEventToken(s2, 'mountain', 1);
+    expect(next.log[0].message).toContain('event triggered');
+  });
+
+  it('logs a normal increment message when not triggered', () => {
+    const next = reduceSetEventToken(s, 'mountain', 1);
+    expect(next.log[0].message).toContain('+1');
+  });
+});
+
+describe('reduceResetEventToken', () => {
+  it('resets the named region to 0', () => {
+    const s2 = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        eventTokens: { ...s.campaign.eventTokens, mountain: 3 },
+      },
+    };
+    const next = reduceResetEventToken(s2, 'mountain');
+    expect(next.campaign.eventTokens.mountain).toBe(0);
+  });
+
+  it('leaves other regions untouched', () => {
+    const s2 = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        eventTokens: { ...s.campaign.eventTokens, mountain: 3, forest: 2 },
+      },
+    };
+    const next = reduceResetEventToken(s2, 'mountain');
+    expect(next.campaign.eventTokens.forest).toBe(2);
+    expect(next.campaign.eventTokens.plains).toBe(0);
+    expect(next.campaign.eventTokens.sea).toBe(0);
+  });
+});
+
+// ─── Campaign locations ────────────────────────────────────────────────────────
+
+describe('reduceSetCampaignLocation', () => {
+  it('sets the given location key', () => {
+    const next = reduceSetCampaignLocation(s, 'party', 'Forest');
+    expect(next.campaign.locations.party).toBe('Forest');
+  });
+
+  it('leaves other location keys untouched', () => {
+    const next = reduceSetCampaignLocation(s, 'party', 'Forest');
+    expect(next.campaign.locations.caravan).toBe('');
+    expect(next.campaign.locations.mainQuest).toBe('');
+  });
+
+  it('does not log', () => {
+    const next = reduceSetCampaignLocation(s, 'party', 'Forest');
+    expect(next.log.length).toBe(s.log.length);
+  });
+});
+
+describe('reduceAddDynamicLocation', () => {
+  it('appends an entry with id and empty label to sideQuests', () => {
+    const next = reduceAddDynamicLocation(s, 'sideQuests');
+    expect(next.campaign.locations.sideQuests).toHaveLength(1);
+    expect(next.campaign.locations.sideQuests[0]).toEqual(
+      expect.objectContaining({ label: '' })
+    );
+    expect(typeof next.campaign.locations.sideQuests[0].id).toBe('number');
+  });
+
+  it('appends an entry with id and empty label to bounties', () => {
+    const next = reduceAddDynamicLocation(s, 'bounties');
+    expect(next.campaign.locations.bounties).toHaveLength(1);
+    expect(next.campaign.locations.bounties[0]).toEqual(
+      expect.objectContaining({ label: '' })
+    );
+    expect(typeof next.campaign.locations.bounties[0].id).toBe('number');
+  });
+
+  it('assigns unique ids across multiple calls', () => {
+    const s1 = reduceAddDynamicLocation(s, 'sideQuests');
+    const s2 = reduceAddDynamicLocation(s1, 'sideQuests');
+    expect(s2.campaign.locations.sideQuests[0].id).not.toBe(
+      s2.campaign.locations.sideQuests[1].id
+    );
+  });
+
+  it('does not log', () => {
+    const next = reduceAddDynamicLocation(s, 'sideQuests');
+    expect(next.log.length).toBe(s.log.length);
+  });
+});
+
+describe('reduceUpdateDynamicLocation', () => {
+  let s1, id;
+  beforeEach(() => {
+    s1 = reduceAddDynamicLocation(s, 'sideQuests');
+    id = s1.campaign.locations.sideQuests[0].id;
+  });
+
+  it('updates the label of the matching entry', () => {
+    const next = reduceUpdateDynamicLocation(s1, 'sideQuests', id, 'Thief Camp');
+    expect(next.campaign.locations.sideQuests[0].label).toBe('Thief Camp');
+  });
+
+  it('leaves other entries in the same array untouched', () => {
+    const s2 = reduceAddDynamicLocation(s1, 'sideQuests');
+    const otherId = s2.campaign.locations.sideQuests[0].id;
+    const next = reduceUpdateDynamicLocation(s2, 'sideQuests', otherId, 'Thief Camp');
+    expect(next.campaign.locations.sideQuests[1].label).toBe('');
+  });
+
+  it('no-ops safely when id does not match any entry', () => {
+    const next = reduceUpdateDynamicLocation(s1, 'sideQuests', 99999, 'Ghost Town');
+    expect(next.campaign.locations.sideQuests).toHaveLength(1);
+    expect(next.campaign.locations.sideQuests[0].label).toBe('');
+  });
+
+  it('does not log', () => {
+    const next = reduceUpdateDynamicLocation(s1, 'sideQuests', id, 'Thief Camp');
+    expect(next.log.length).toBe(s.log.length);
+  });
+});
+
+describe('reduceRemoveDynamicLocation', () => {
+  let s1, id;
+  beforeEach(() => {
+    s1 = reduceAddDynamicLocation(s, 'sideQuests');
+    id = s1.campaign.locations.sideQuests[0].id;
+  });
+
+  it('removes the entry matching id', () => {
+    const next = reduceRemoveDynamicLocation(s1, 'sideQuests', id);
+    expect(next.campaign.locations.sideQuests).toHaveLength(0);
+  });
+
+  it('leaves other entries in the array when removing one', () => {
+    const s2 = reduceAddDynamicLocation(s1, 'sideQuests');
+    const next = reduceRemoveDynamicLocation(s2, 'sideQuests', id);
+    expect(next.campaign.locations.sideQuests).toHaveLength(1);
+    expect(next.campaign.locations.sideQuests[0].id).not.toBe(id);
+  });
+
+  it('leaves the array unchanged if id does not match', () => {
+    const next = reduceRemoveDynamicLocation(s1, 'sideQuests', 99999);
+    expect(next.campaign.locations.sideQuests).toHaveLength(1);
+  });
+
+  it('does not log', () => {
+    const next = reduceRemoveDynamicLocation(s1, 'sideQuests', id);
+    expect(next.log.length).toBe(s.log.length);
+  });
+});
+
+// ─── Plans ─────────────────────────────────────────────────────────────────────
+
+describe('reduceAddPlan', () => {
+  it('appends a new plan with done: false and trimmed text', () => {
+    const next = reduceAddPlan(s, ' Defeat the boss ');
+    expect(next.campaign.plans).toHaveLength(1);
+    expect(next.campaign.plans[0]).toEqual(
+      expect.objectContaining({ text: 'Defeat the boss', done: false })
+    );
+    expect(typeof next.campaign.plans[0].id).toBe('number');
+  });
+
+  it('trims whitespace from text before storing', () => {
+    const next = reduceAddPlan(s, '  Rescue the villagers  ');
+    expect(next.campaign.plans[0].text).toBe('Rescue the villagers');
+  });
+
+  it('is a no-op when text is empty', () => {
+    const next = reduceAddPlan(s, '');
+    expect(next.campaign.plans).toHaveLength(0);
+  });
+
+  it('is a no-op when text is all whitespace', () => {
+    const next = reduceAddPlan(s, '   ');
+    expect(next.campaign.plans).toHaveLength(0);
+  });
+
+  it('returns the same reference when text is empty (no-op)', () => {
+    const next = reduceAddPlan(s, '');
+    expect(next).toBe(s);
+  });
+});
+
+describe('reduceTogglePlan', () => {
+  let s1, id;
+  beforeEach(() => {
+    s1 = reduceAddPlan(s, 'Test plan');
+    id = s1.campaign.plans[0].id;
+  });
+
+  it('flips done from false to true', () => {
+    const next = reduceTogglePlan(s1, id);
+    expect(next.campaign.plans[0].done).toBe(true);
+  });
+
+  it('flips done back to false on second toggle', () => {
+    const s2 = reduceTogglePlan(s1, id);
+    const s3 = reduceTogglePlan(s2, id);
+    expect(s3.campaign.plans[0].done).toBe(false);
+  });
+
+  it('leaves other plans untouched', () => {
+    const s2 = reduceAddPlan(s1, 'Second plan');
+    const id2 = s2.campaign.plans[1].id;
+    const s3 = reduceTogglePlan(s2, id);
+    expect(s3.campaign.plans[1].done).toBe(false);
+  });
+});
+
+describe('reduceDeletePlan', () => {
+  it('removes the plan matching id', () => {
+    const s1 = reduceAddPlan(s, 'Plan A');
+    const id = s1.campaign.plans[0].id;
+    const next = reduceDeletePlan(s1, id);
+    expect(next.campaign.plans).toHaveLength(0);
+  });
+
+  it('leaves other plans unchanged when removing one', () => {
+    const s1 = reduceAddPlan(s, 'Plan A');
+    const s2 = reduceAddPlan(s1, 'Plan B');
+    const id = s2.campaign.plans[0].id;
+    const next = reduceDeletePlan(s2, id);
+    expect(next.campaign.plans).toHaveLength(1);
+    expect(next.campaign.plans[0].text).toBe('Plan B');
+  });
+
+  it('leaves the array unchanged if id does not match', () => {
+    const s1 = reduceAddPlan(s, 'Plan A');
+    const next = reduceDeletePlan(s1, 99999);
+    expect(next.campaign.plans).toHaveLength(1);
   });
 });
