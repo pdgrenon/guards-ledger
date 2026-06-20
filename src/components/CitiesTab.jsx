@@ -1,5 +1,6 @@
 import { cityPrestige } from '../hooks/gameReducers';
 import { Checkmark } from './Checkmark';
+import { MAX_PRESTIGE } from '../data/constants';
 
 // Cities use a dedicated stone-ochre accent — distinct from all 8 guard colors.
 const CITY_COLOR = 'var(--c-city)';
@@ -26,8 +27,8 @@ export function CitiesTab({ cities, toggleCityQuest }) {
             <div className="city-name">{city.name}</div>
 
             {/* Prestige pips — below name, colored, larger */}
-            <div className="prestige-pips" role="img" aria-label={`Prestige: ${prestige} of 3`}>
-              {Array(3).fill(0).map((_, pi) => (
+            <div className="prestige-pips" role="img" aria-label={`Prestige: ${prestige} of ${MAX_PRESTIGE}`}>
+              {Array(MAX_PRESTIGE).fill(0).map((_, pi) => (
                 <div key={pi} className={`prestige-pip${pi < prestige ? ' filled' : ''}`} />
               ))}
             </div>
