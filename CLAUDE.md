@@ -77,7 +77,7 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 **Key behaviors:**
 - The Supabase client is `null` when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are absent. All sync calls silently no-op. The app runs as a fully local tool.
-- `sync.upsertSection(sectionName, state)` extracts the relevant keys (or, for a `guard_N` column, that one guard object) and calls the **`merge_section` RPC** (not a raw `UPDATE`) — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`). The server-side RPC performs a **field-level deep merge** of the incoming payload into the existing column, so two players editing different keys in the same section concurrently don't lose each other's writes. See `supabase/migrations/0002_field_level_merge.sql` for the merge function. (AVE-94.)
+- `sync.upsertSection(sectionName, state)` extracts the relevant keys (or, for a `guard_N` column, that one guard object) and calls the **`merge_section` RPC** (not a raw `UPDATE`) — it never writes local-only keys (`log`, `settings`, `activeGuardIdx`). The server-side RPC performs a **field-level deep merge** of the incoming payload into the existing column, so two players editing different keys in the same section concurrently don't lose each other's writes. The merge is **array-aware**: arrays of `id`-keyed objects (cities, `campaign.plans`, `campaign.locations.sideQuests`/`bounties`, `stonebound.locations`) are merged element-by-id — existing elements preserved, matching ids deep-merged, new ids appended — and arrays of plain values (`campaign.completedEncounters`) are merged as a set union, so concurrent edits to *different* array elements no longer clobber each other. The only remaining unmerged case is two players editing the *same* field of the same key/array element at the same instant (a CRDT problem, accepted limitation). See `supabase/migrations/0002_field_level_merge.sql` (object merge) and `supabase/migrations/0003_array_merge.sql` (array merge) for the merge functions. (AVE-94, AVE-197.)
 - When offline, upserts are queued in a `Map` (keyed by section name, so later writes replace earlier ones for the same section). The queue is flushed automatically on reconnect via the `online` event. Each queued section is sent through `merge_section` independently on flush.
 - `useGameState`'s debounce collects a **set** of pending sections per window and flushes each — so editing two different guards within one debounce window upserts both columns rather than dropping one.
 - Echo suppression on inbound Realtime updates is **value-based**: a section is skipped only if the incoming value deeply equals the current local value. This replaced the older 3-second wall-clock window, which was dropping legitimate concurrent changes (AVE-82, AVE-84).
@@ -248,9 +248,10 @@ For local development with multiplayer enabled:
 
 1. Run `supabase/schema.sql` in the Supabase SQL editor (fresh installs). For a database created before AVE-83, instead run the one-time `supabase/migrations/0001_split_guards_per_column.sql` to split the old single `guards` column into per-guard columns.
 2. Run `supabase/migrations/0002_field_level_merge.sql` to install the `merge_section` RPC and `deep_merge_jsonb` helper. (Idempotent `CREATE OR REPLACE` — safe to re-run.)
-3. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
-4. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-5. `npm install @supabase/supabase-js`
+3. Run `supabase/migrations/0003_array_merge.sql` to install the `merge_jsonb_array_by_id` helper and the array-aware update to `deep_merge_jsonb`. (Idempotent `CREATE OR REPLACE` — safe to re-run.)
+4. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
+5. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+6. `npm install @supabase/supabase-js`
 
 Without these env vars the app runs as a local-only tool — no errors, sync is simply disabled.
 
