@@ -33,6 +33,33 @@ export function addLog(state, message) {
   return { ...state, log: [entry, ...state.log].slice(0, 100) };
 }
 
+/**
+ * Derive a human-readable undo label by comparing prev/next log heads.
+ * Returns the log message if the action added a new entry, otherwise falls
+ * back to a generic section-based label (e.g. "Campaign update").
+ */
+export function deriveUndoLabel(prev, next, sectionName) {
+  if (next.log[0]?.id !== prev.log[0]?.id) {
+    return next.log[0]?.message ?? null;
+  }
+  if (sectionName) {
+    const guardMatch = sectionName.match(/^guard_(\d+)$/);
+    if (guardMatch) {
+      const guard = prev.guards[Number(guardMatch[1])];
+      return guard ? `${guard.name} update` : 'Guard update';
+    }
+    const labels = {
+      party: 'Party update',
+      resources: 'Resources update',
+      cities: 'City update',
+      stash: 'Stash update',
+      campaign: 'Campaign update',
+    };
+    return labels[sectionName] ?? 'State update';
+  }
+  return 'State update';
+}
+
 // ─── Party navigation ─────────────────────────────────────────────────────────
 
 export function reduceSetPartySlot(s, slotIdx, name) {

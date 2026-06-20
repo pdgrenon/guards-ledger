@@ -18,6 +18,18 @@ import './index.css';
 
 const TABS = ['Guards', 'Cities', 'Stash', 'Crafting', 'Campaign', 'More'];
 
+function UndoIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 8h13a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4H7" />
+      <path d="M7 5l-4 3 4 3" />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -164,6 +176,16 @@ export default function App() {
               {campaignId}
             </button>
           )}
+
+          <button
+            className="icon-btn"
+            disabled={!game.undoLabel}
+            onClick={game.undoLastAction}
+            aria-label={game.undoLabel ? `Undo: ${game.undoLabel}` : 'Undo last action (none)'}
+            title={game.undoLabel ? `Undo: ${game.undoLabel}` : ''}
+          >
+            <UndoIcon />
+          </button>
 
           <button className="icon-btn" onClick={() => setSearchOpen(true)} aria-label="Search everything">
             <SearchIcon />

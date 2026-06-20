@@ -20,6 +20,7 @@ import {
 } from '../data/constants';
 import {
   addLog,
+  deriveUndoLabel,
   reduceSetPartySlot,
   reduceSetSil,
   reduceSetLux,
@@ -996,5 +997,35 @@ describe('reduceDeletePlan', () => {
     const s1 = reduceAddPlan(s, 'Plan A');
     const next = reduceDeletePlan(s1, 99999);
     expect(next.campaign.plans).toHaveLength(1);
+  });
+});
+
+// ─── deriveUndoLabel ───────────────────────────────────────────────────────────
+
+describe('deriveUndoLabel', () => {
+  it('returns the log message when a new log entry was added', () => {
+    const prev = s;
+    const next = addLog(s, 'Grigory HP +1 → 5');
+    expect(deriveUndoLabel(prev, next, 'guard_0')).toBe('Grigory HP +1 → 5');
+  });
+
+  it('falls back to guard name section label when no new log entry', () => {
+    const next = reduceSetCampaignLocation(s, 'fort', 'Fort Istra');
+    expect(deriveUndoLabel(s, next, 'campaign')).toBe('Campaign update');
+  });
+
+  it('uses guard name in fallback for guard sections', () => {
+    const next = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, hp: g.hp + 1 } : g) };
+    expect(deriveUndoLabel(s, next, 'guard_0')).toBe('Grigory update');
+  });
+
+  it('uses generic label for unknown section names', () => {
+    expect(deriveUndoLabel(s, s, 'unknown_section')).toBe('State update');
+  });
+
+  it('returns null when prev.log[0] is present but next has same log head', () => {
+    const prev = addLog(s, 'Some action');
+    const next = { ...prev, sil: 99 };
+    expect(deriveUndoLabel(prev, next, 'resources')).toBe('Resources update');
   });
 });
