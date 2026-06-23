@@ -101,9 +101,9 @@ export const MATERIAL_CATEGORIES = [
     // Excludes Jade, Black Diamond, Ancient Roots (tracked in Special ingredients)
     // and Diamond (tracked in Ores). All are the same physical item regardless of use.
     items: [
-      'Adamant', 'Aquamarine', 'Aventurine', 'Carnelian',
-      'Garnet', 'Lapis Lazuli', 'Obsidian', 'Orichalcum',
-      'Rainbow Obsidian', 'Star Fragment', 'Star Quartz',
+      'Adamant', 'Aquamarine', 'Aventurine', 'Carnelian', 'Coral',
+      'Garnet', 'Lapis Lazuli', 'Obsidian', 'Orichalcum', 'Peridot',
+      'Rainbow Obsidian', 'Star Fragment', 'Star Quartz', 'Topaz',
     ],
   },
   {

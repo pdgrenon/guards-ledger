@@ -458,7 +458,15 @@ export function useGameState() {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
-          setState(addLog(migrateV1(imported), 'Save file imported'), null);
+          // Run the same heal pass the load path uses (healState) so an older
+          // or partially-shaped export can't boot us into a state that crashes
+          // at render (e.g. a campaign missing ftIstraBuildings/completedEncounters).
+          const healed = healState(migrateV1(imported));
+          if (!healed) {
+            resolve({ success: false, error: 'Invalid save file.' });
+            return;
+          }
+          setState(addLog(healed, 'Save file imported'), null);
           resolve({ success: true });
         } catch {
           resolve({ success: false, error: 'Invalid save file.' });
