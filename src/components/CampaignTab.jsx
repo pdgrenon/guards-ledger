@@ -144,33 +144,6 @@ function LocationsCard({ locations, onSetFixed, onAddDynamic, onUpdateDynamic, o
         </button>
       </div>
 
-      <hr className="divider" style={{ marginTop: 12, marginBottom: 12 }} />
-
-      {/* Bounties — dynamic */}
-      <div className="campaign-dynamic-section">
-        <div className="sec-label" style={{ marginBottom: 6 }}>Bounties</div>
-        {(locations.bounties ?? []).map(entry => (
-          <div key={entry.id} className="campaign-dynamic-row">
-            <input
-              className="campaign-location-input"
-              type="text"
-              value={entry.label}
-              onChange={e => onUpdateDynamic('bounties', entry.id, e.target.value)}
-              placeholder="Location / description"
-            />
-            <RemoveBtn
-              onClick={() => onRemoveDynamic('bounties', entry.id)}
-              label="Remove bounty"
-            />
-          </div>
-        ))}
-        <button
-          className="campaign-add-link"
-          onClick={() => onAddDynamic('bounties')}
-        >
-          + Add bounty
-        </button>
-      </div>
     </div>
   );
 }

@@ -260,6 +260,10 @@ export default function App() {
               <CitiesTab
                 cities={state.cities}
                 toggleCityQuest={game.toggleCityQuest}
+                locations={state.campaign.locations}
+                onAddDynamic={game.addDynamicLocation}
+                onUpdateDynamic={game.updateDynamicLocation}
+                onRemoveDynamic={game.removeDynamicLocation}
               />
             </ErrorBoundary>
           )}
