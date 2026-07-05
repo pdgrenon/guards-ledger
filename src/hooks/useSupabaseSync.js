@@ -43,6 +43,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import deepEqual from 'fast-deep-equal';
+import { normalizeCompletedEncounters } from './gameReducers';
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
@@ -132,18 +133,35 @@ export function extractSection(state, sectionName) {
  * no guard_0 column yet (i.e. the SQL migration hasn't been applied), expand it
  * into guard_0…guard_7 + party so the client can read either shape. This is the
  * client-side counterpart to the one-time SQL migration.
+ *
+ * Also normalizes a pre-AVE-287 `campaign.completedEncounters` (a plain array of
+ * encounter-id strings) into the id-keyed { id, deleted? } shape, so a database
+ * that hasn't yet had supabase/migrations/0004_tombstone_deletes.sql applied is
+ * still read correctly.
  */
 export function normalizeRow(row) {
-  if (!row || row.guards === undefined || row.guard_0 !== undefined) return row;
-  const out  = { ...row };
-  const blob = row.guards || {};
-  const arr  = Array.isArray(blob.guards) ? blob.guards : [];
-  for (let i = 0; i < GUARD_COUNT; i++) {
-    if (arr[i] !== undefined) out[guardColumn(i)] = arr[i];
+  if (!row) return row;
+
+  let out = row;
+  if (row.guards !== undefined && row.guard_0 === undefined) {
+    out = { ...out };
+    const blob = row.guards || {};
+    const arr  = Array.isArray(blob.guards) ? blob.guards : [];
+    for (let i = 0; i < GUARD_COUNT; i++) {
+      if (arr[i] !== undefined) out[guardColumn(i)] = arr[i];
+    }
+    if (out.party === undefined && blob.activeParty) {
+      out.party = { activeParty: blob.activeParty };
+    }
   }
-  if (out.party === undefined && blob.activeParty) {
-    out.party = { activeParty: blob.activeParty };
+
+  // Reshape completedEncounters from string[] to { id, deleted? }[] if needed.
+  const enc = out.campaign?.completedEncounters;
+  if (Array.isArray(enc) && enc.some(e => typeof e === 'string')) {
+    if (out === row) out = { ...out };
+    out.campaign = { ...out.campaign, completedEncounters: normalizeCompletedEncounters(enc) };
   }
+
   return out;
 }
 

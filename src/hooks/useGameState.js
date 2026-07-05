@@ -37,6 +37,7 @@ import {
   reduceDeletePlan,
   reduceToggleEncounterComplete,
   reduceSetCampaign,
+  normalizeCompletedEncounters,
 } from './gameReducers';
 import { useSupabaseSync, guardColumn } from './useSupabaseSync';
 
@@ -60,7 +61,12 @@ function migrateV1(v1) {
     activeGuardIdx: createInitialGuards().activeGuardIdx,
     stash:          v1.stash          ?? createInitialStash().stash,
     stonebound:     v1.stonebound     ?? createInitialStash().stonebound,
-    campaign:       v1.campaign       ?? createInitialCampaign().campaign,
+    // Normalize completedEncounters (string[] → { id }[]) so pre-AVE-287 saves
+    // and imports get the tombstone-capable id-keyed shape (AVE-287).
+    campaign:       v1.campaign
+                      ? { ...v1.campaign,
+                          completedEncounters: normalizeCompletedEncounters(v1.campaign.completedEncounters) }
+                      : createInitialCampaign().campaign,
     log:            v1.log            ?? [],
     settings:       v1.settings       ?? { initialized: true },
   };
@@ -164,9 +170,7 @@ function healState(parsed) {
                              ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
                                ? parsed.campaign.ftIstraBuildings
                                : {},
-                             completedEncounters: Array.isArray(parsed.campaign.completedEncounters)
-                               ? parsed.campaign.completedEncounters
-                               : [] }
+                             completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters) }
                         : campInit.campaign,
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },

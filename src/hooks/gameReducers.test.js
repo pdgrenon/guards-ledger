@@ -35,6 +35,8 @@ import {
   reduceRemoveStoneboundLocation,
   reduceUpdateStoneboundLocation,
   reduceToggleEncounterComplete,
+  isEncounterCompleted,
+  normalizeCompletedEncounters,
   reduceSetCampaign,
 
   reduceSetEventToken,
@@ -214,26 +216,68 @@ describe('ftIstraBuildings', () => {
 // ─── Encounter completion ──────────────────────────────────────────────────────
 
 describe('reduceToggleEncounterComplete', () => {
-  it('adds an encounter id when it is not completed', () => {
+  it('adds an id-keyed element when the encounter is not completed', () => {
     const next = reduceToggleEncounterComplete({ campaign: { completedEncounters: [] } }, 'be-flexible');
-    expect(next.campaign.completedEncounters).toEqual(['be-flexible']);
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }]);
+    expect(isEncounterCompleted(next.campaign.completedEncounters, 'be-flexible')).toBe(true);
   });
 
-  it('removes an encounter id when it is already completed', () => {
-    const next = reduceToggleEncounterComplete({ campaign: { completedEncounters: ['be-flexible'] } }, 'be-flexible');
-    expect(next.campaign.completedEncounters).toEqual([]);
+  it('tombstones (does not drop) an encounter when un-completing it', () => {
+    const next = reduceToggleEncounterComplete(
+      { campaign: { completedEncounters: [{ id: 'be-flexible' }] } }, 'be-flexible'
+    );
+    // The element is kept and marked deleted so the change syncs through the
+    // append/union-only server merge, instead of being silently restored.
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible', deleted: true }]);
+    expect(isEncounterCompleted(next.campaign.completedEncounters, 'be-flexible')).toBe(false);
+  });
+
+  it('re-completes a previously un-completed encounter by clearing the tombstone', () => {
+    const state = { campaign: { completedEncounters: [{ id: 'be-flexible', deleted: true }] } };
+    const next = reduceToggleEncounterComplete(state, 'be-flexible');
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }]);
+    expect(isEncounterCompleted(next.campaign.completedEncounters, 'be-flexible')).toBe(true);
   });
 
   it('preserves other completed encounters when toggling one', () => {
-    const state = { campaign: { completedEncounters: ['be-flexible', 'ice-cold'] } };
+    const state = { campaign: { completedEncounters: [{ id: 'be-flexible' }, { id: 'ice-cold' }] } };
     const next = reduceToggleEncounterComplete(state, 'ice-cold');
-    expect(next.campaign.completedEncounters).toEqual(['be-flexible']);
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }, { id: 'ice-cold', deleted: true }]);
   });
 
   it('preserves other completed encounters when adding one', () => {
-    const state = { campaign: { completedEncounters: ['be-flexible'] } };
+    const state = { campaign: { completedEncounters: [{ id: 'be-flexible' }] } };
     const next = reduceToggleEncounterComplete(state, 'ice-cold');
-    expect(next.campaign.completedEncounters).toEqual(['be-flexible', 'ice-cold']);
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }, { id: 'ice-cold' }]);
+  });
+});
+
+describe('isEncounterCompleted', () => {
+  it('is true for a present, non-tombstoned element', () => {
+    expect(isEncounterCompleted([{ id: 'a' }], 'a')).toBe(true);
+  });
+  it('is false for a tombstoned element', () => {
+    expect(isEncounterCompleted([{ id: 'a', deleted: true }], 'a')).toBe(false);
+  });
+  it('is false for an absent element', () => {
+    expect(isEncounterCompleted([{ id: 'a' }], 'b')).toBe(false);
+  });
+  it('tolerates a null/undefined list', () => {
+    expect(isEncounterCompleted(undefined, 'a')).toBe(false);
+  });
+});
+
+describe('normalizeCompletedEncounters', () => {
+  it('converts a pre-AVE-287 string array to id-keyed objects', () => {
+    expect(normalizeCompletedEncounters(['a', 'b'])).toEqual([{ id: 'a' }, { id: 'b' }]);
+  });
+  it('leaves already-normalized objects intact (including tombstones)', () => {
+    expect(normalizeCompletedEncounters([{ id: 'a' }, { id: 'b', deleted: true }]))
+      .toEqual([{ id: 'a' }, { id: 'b', deleted: true }]);
+  });
+  it('drops malformed entries and non-arrays', () => {
+    expect(normalizeCompletedEncounters([{ nope: 1 }, null, 5])).toEqual([]);
+    expect(normalizeCompletedEncounters(undefined)).toEqual([]);
   });
 });
 
@@ -547,13 +591,17 @@ describe('reduceAddStoneboundLocation', () => {
 });
 
 describe('reduceRemoveStoneboundLocation', () => {
-  it('removes the location with the given id', () => {
+  it('tombstones the location with the given id (keeps it, marks deleted)', () => {
     const s1   = reduceAddStoneboundLocation(s);
     const s2   = reduceAddStoneboundLocation(s1);
     const id   = s2.stonebound.locations[0].id;
     const next = reduceRemoveStoneboundLocation(s2, id);
-    expect(next.stonebound.locations).toHaveLength(1);
-    expect(next.stonebound.locations[0].id).not.toBe(id);
+    // Kept in the array so the delete syncs through the append-only merge.
+    expect(next.stonebound.locations).toHaveLength(2);
+    const target = next.stonebound.locations.find(l => l.id === id);
+    expect(target.deleted).toBe(true);
+    // Other locations are left untouched.
+    expect(next.stonebound.locations.find(l => l.id !== id).deleted).toBeUndefined();
   });
 
   it('logs removal with the selection name when present', () => {
@@ -914,16 +962,18 @@ describe('reduceRemoveDynamicLocation', () => {
     id = s1.campaign.locations.sideQuests[0].id;
   });
 
-  it('removes the entry matching id', () => {
+  it('tombstones the entry matching id (keeps it, marks deleted)', () => {
     const next = reduceRemoveDynamicLocation(s1, 'sideQuests', id);
-    expect(next.campaign.locations.sideQuests).toHaveLength(0);
+    expect(next.campaign.locations.sideQuests).toHaveLength(1);
+    expect(next.campaign.locations.sideQuests[0].deleted).toBe(true);
   });
 
-  it('leaves other entries in the array when removing one', () => {
+  it('leaves other entries untouched when removing one', () => {
     const s2 = reduceAddDynamicLocation(s1, 'sideQuests');
     const next = reduceRemoveDynamicLocation(s2, 'sideQuests', id);
-    expect(next.campaign.locations.sideQuests).toHaveLength(1);
-    expect(next.campaign.locations.sideQuests[0].id).not.toBe(id);
+    expect(next.campaign.locations.sideQuests).toHaveLength(2);
+    const other = next.campaign.locations.sideQuests.find(e => e.id !== id);
+    expect(other.deleted).toBeUndefined();
   });
 
   it('leaves the array unchanged if id does not match', () => {
@@ -996,26 +1046,30 @@ describe('reduceTogglePlan', () => {
 });
 
 describe('reduceDeletePlan', () => {
-  it('removes the plan matching id', () => {
+  it('tombstones the plan matching id (keeps it, marks deleted)', () => {
     const s1 = reduceAddPlan(s, 'Plan A');
     const id = s1.campaign.plans[0].id;
     const next = reduceDeletePlan(s1, id);
-    expect(next.campaign.plans).toHaveLength(0);
+    // Kept in the array so the delete syncs through the append-only merge.
+    expect(next.campaign.plans).toHaveLength(1);
+    expect(next.campaign.plans[0].deleted).toBe(true);
   });
 
-  it('leaves other plans unchanged when removing one', () => {
+  it('leaves other plans untouched when removing one', () => {
     const s1 = reduceAddPlan(s, 'Plan A');
     const s2 = reduceAddPlan(s1, 'Plan B');
     const id = s2.campaign.plans[0].id;
     const next = reduceDeletePlan(s2, id);
-    expect(next.campaign.plans).toHaveLength(1);
-    expect(next.campaign.plans[0].text).toBe('Plan B');
+    expect(next.campaign.plans).toHaveLength(2);
+    const other = next.campaign.plans.find(p => p.id !== id);
+    expect(other.deleted).toBeUndefined();
   });
 
-  it('leaves the array unchanged if id does not match', () => {
+  it('leaves the array content unchanged if id does not match', () => {
     const s1 = reduceAddPlan(s, 'Plan A');
     const next = reduceDeletePlan(s1, 99999);
     expect(next.campaign.plans).toHaveLength(1);
+    expect(next.campaign.plans[0].deleted).toBeUndefined();
   });
 });
 

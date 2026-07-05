@@ -19,7 +19,10 @@ export function StashTab({
   const [luxStep, setLuxStep] = useState(1);
   const [addSearch, setAddSearch] = useState('');
 
-  const locations = stonebound.locations ?? [];
+  // Filter out tombstoned locations (soft-deleted while a campaign is active) so
+  // they are never rendered or counted toward the cube budget. Updates key off
+  // loc.id, so dropping deleted rows here doesn't disturb the others (AVE-287).
+  const locations = (stonebound.locations ?? []).filter(loc => !loc.deleted);
   const cubesUsed = locations.reduce((sum, loc) => sum + (loc.count || 1), 0);
   const cubesAvailable = stonebound.max - cubesUsed;
   const overBudget = cubesAvailable < 0;
