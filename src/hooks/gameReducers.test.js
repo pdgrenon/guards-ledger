@@ -37,6 +37,8 @@ import {
   reduceToggleEncounterComplete,
   isEncounterCompleted,
   normalizeCompletedEncounters,
+  reduceToggleBountyComplete,
+  isBountyCompleted,
   reduceSetCampaign,
 
   reduceSetEventToken,
@@ -51,6 +53,7 @@ import {
 } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
 import { groupEncounters } from '../data/encounters';
+import { bountiesForCity } from '../data/bounties';
 
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
@@ -143,6 +146,10 @@ describe('createInitialCampaign', () => {
 
   it('returns campaign with empty completedEncounters', () => {
     expect(createInitialCampaign().campaign.completedEncounters).toEqual([]);
+  });
+
+  it('returns campaign with empty completedBounties', () => {
+    expect(createInitialCampaign().campaign.completedBounties).toEqual([]);
   });
 });
 
@@ -264,6 +271,52 @@ describe('isEncounterCompleted', () => {
   });
   it('tolerates a null/undefined list', () => {
     expect(isEncounterCompleted(undefined, 'a')).toBe(false);
+  });
+});
+
+describe('reduceToggleBountyComplete', () => {
+  it('marks a bounty complete by adding its id', () => {
+    const next = reduceToggleBountyComplete({ campaign: { completedBounties: [] } }, 'mir-c1-stone-idols');
+    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols' }]);
+    expect(isBountyCompleted(next.campaign.completedBounties, 'mir-c1-stone-idols')).toBe(true);
+  });
+
+  it('tombstones (does not drop) a bounty when un-completing it', () => {
+    const next = reduceToggleBountyComplete(
+      { campaign: { completedBounties: [{ id: 'mir-c1-stone-idols' }] } }, 'mir-c1-stone-idols'
+    );
+    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols', deleted: true }]);
+    expect(isBountyCompleted(next.campaign.completedBounties, 'mir-c1-stone-idols')).toBe(false);
+  });
+
+  it('re-completes a previously un-completed bounty by clearing the tombstone', () => {
+    const state = { campaign: { completedBounties: [{ id: 'mir-c1-stone-idols', deleted: true }] } };
+    const next = reduceToggleBountyComplete(state, 'mir-c1-stone-idols');
+    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols' }]);
+  });
+
+  it('preserves other campaigns’ completed bounties when toggling one', () => {
+    // Completing a campaign-2 bounty must not disturb the campaign-1 record —
+    // the guarantee that switching campaigns and back preserves reputation.
+    const state = { campaign: { completedBounties: [{ id: 'mir-c1-stone-idols' }] } };
+    const next = reduceToggleBountyComplete(state, 'mir-c2-lurking-in-the-shadows');
+    expect(next.campaign.completedBounties).toEqual([
+      { id: 'mir-c1-stone-idols' },
+      { id: 'mir-c2-lurking-in-the-shadows' },
+    ]);
+    expect(isBountyCompleted(next.campaign.completedBounties, 'mir-c1-stone-idols')).toBe(true);
+  });
+});
+
+describe('isBountyCompleted', () => {
+  it('is true for a present, non-tombstoned element', () => {
+    expect(isBountyCompleted([{ id: 'a' }], 'a')).toBe(true);
+  });
+  it('is false for a tombstoned element', () => {
+    expect(isBountyCompleted([{ id: 'a', deleted: true }], 'a')).toBe(false);
+  });
+  it('tolerates a null/undefined list', () => {
+    expect(isBountyCompleted(undefined, 'a')).toBe(false);
   });
 });
 
@@ -442,16 +495,38 @@ describe('reduceSetCampaign', () => {
 // ─── Cities ───────────────────────────────────────────────────────────────────
 
 describe('cityPrestige', () => {
-  it('returns 0 when no quests are done', () => {
-    expect(cityPrestige(s.cities[0])).toBe(0);
+  it('returns 0 when nothing is done', () => {
+    expect(cityPrestige(s.cities[0], 1, [])).toBe(0);
   });
 
-  it('returns 1 when only puzzle quest is done', () => {
-    expect(cityPrestige({ puzzleQuestDone: true, bounty1Done: false, bounty2Done: false })).toBe(1);
+  it('returns 1 when only the puzzle quest is done', () => {
+    expect(cityPrestige({ name: 'Mir', puzzleQuestDone: true }, 1, [])).toBe(1);
   });
 
-  it('returns 3 when all quests are done', () => {
-    expect(cityPrestige({ puzzleQuestDone: true, bounty1Done: true, bounty2Done: true })).toBe(3);
+  it('counts completed campaign bounties toward reputation', () => {
+    const mir = s.cities.find(c => c.name === 'Mir');
+    const [b1, b2] = bountiesForCity('Mir', 1);
+    const completed = [{ id: b1.id }, { id: b2.id }];
+    // both campaign-1 bounties done, puzzle not done → 2
+    expect(cityPrestige(mir, 1, completed)).toBe(2);
+    // plus puzzle quest → 3 (max)
+    expect(cityPrestige({ ...mir, puzzleQuestDone: true }, 1, completed)).toBe(3);
+  });
+
+  it('is campaign-scoped: a campaign 1 bounty does not raise campaign 2 reputation', () => {
+    const mir = s.cities.find(c => c.name === 'Mir');
+    const [b1] = bountiesForCity('Mir', 1);
+    const completed = [{ id: b1.id }];
+    expect(cityPrestige(mir, 1, completed)).toBe(1); // visible in campaign 1
+    expect(cityPrestige(mir, 2, completed)).toBe(0); // not in campaign 2
+    // …and switching back to campaign 1 still reflects it (derivation is pure)
+    expect(cityPrestige(mir, 1, completed)).toBe(1);
+  });
+
+  it('ignores tombstoned (un-completed) bounties', () => {
+    const mir = s.cities.find(c => c.name === 'Mir');
+    const [b1] = bountiesForCity('Mir', 1);
+    expect(cityPrestige(mir, 1, [{ id: b1.id, deleted: true }])).toBe(0);
   });
 });
 
@@ -468,9 +543,9 @@ describe('reduceToggleCityQuest', () => {
   });
 
   it('does not affect other cities', () => {
-    const next = reduceToggleCityQuest(s, 0, 'bounty1Done');
+    const next = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
     for (let i = 1; i < next.cities.length; i++) {
-      expect(next.cities[i].bounty1Done).toBe(false);
+      expect(next.cities[i].puzzleQuestDone).toBe(false);
     }
   });
 
@@ -482,14 +557,14 @@ describe('reduceToggleCityQuest', () => {
   });
 
   it('logs reopening', () => {
-    const done = reduceToggleCityQuest(s, 0, 'bounty1Done');
-    const next = reduceToggleCityQuest(done, 0, 'bounty1Done');
+    const done = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
+    const next = reduceToggleCityQuest(done, 0, 'puzzleQuestDone');
     expect(next.log[0].message).toContain('reopened');
   });
 
   it('prestige increments when a quest is completed', () => {
     const next = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    expect(cityPrestige(next.cities[0])).toBe(1);
+    expect(cityPrestige(next.cities[0], 1, [])).toBe(1);
   });
 });
 
@@ -899,15 +974,6 @@ describe('reduceAddDynamicLocation', () => {
       expect.objectContaining({ label: '' })
     );
     expect(typeof next.campaign.locations.sideQuests[0].id).toBe('number');
-  });
-
-  it('appends an entry with id and empty label to bounties', () => {
-    const next = reduceAddDynamicLocation(s, 'bounties');
-    expect(next.campaign.locations.bounties).toHaveLength(1);
-    expect(next.campaign.locations.bounties[0]).toEqual(
-      expect.objectContaining({ label: '' })
-    );
-    expect(typeof next.campaign.locations.bounties[0].id).toBe('number');
   });
 
   it('assigns unique ids across multiple calls', () => {
