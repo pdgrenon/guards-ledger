@@ -2929,3 +2929,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-surface2);
   color: var(--c-text);
 }
+
+/* Suspense fallback shown while a lazily-loaded tab chunk downloads */
+.tab-loading {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--c-text2);
+  font-size: 0.9rem;
+}

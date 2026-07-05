@@ -1,17 +1,20 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, lazy, Suspense } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
 import { StashTab } from './components/StashTab';
-import { SettingsPanel } from './components/SettingsPanel';
-import { CampaignTab } from './components/CampaignTab';
-import { CraftTab } from './components/CraftTab';
-import { MoreTab } from './components/MoreTab';
 import { MaterialSourcePopup } from './components/MaterialSourcePopup';
-import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CorruptionBanner } from './components/CorruptionBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
+
+// Heavier / less-frequently-used surfaces are split into their own chunks so
+// they aren't part of the initial download (AVE-292). Each loads on first use.
+const CraftTab       = lazy(() => import('./components/CraftTab').then(m => ({ default: m.CraftTab })));
+const CampaignTab    = lazy(() => import('./components/CampaignTab').then(m => ({ default: m.CampaignTab })));
+const MoreTab        = lazy(() => import('./components/MoreTab').then(m => ({ default: m.MoreTab })));
+const SettingsPanel  = lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
+const GlobalSearch   = lazy(() => import('./components/GlobalSearch').then(m => ({ default: m.GlobalSearch })));
 // eslint-disable-next-line react-refresh/only-export-components
 export { colorizeLogMessage } from './utils/logUtils';
 import './index.css';
@@ -213,6 +216,7 @@ export default function App() {
 
         {/* Tab content */}
         <div className="tab-content">
+        <Suspense fallback={<div className="tab-loading" role="status">Loading…</div>}>
 
           {/* ── Guards tab ── */}
           {tab === 'Guards' && (
@@ -337,31 +341,38 @@ export default function App() {
               />
             </ErrorBoundary>
           )}
+        </Suspense>
         </div>
 
         {/* Settings overlay */}
         {settingsOpen && (
-          <SettingsPanel
-            state={state}
-            actions={settingsActions}
-            sync={game.sync}
-            guardColorMap={GUARD_COLOR_MAP}
-            allGuards={GUARDS}
-            scrollToMultiplayer={settingsScrollToMultiplayer}
-            onClose={closeSettings}
-          />
+          <Suspense fallback={null}>
+            <SettingsPanel
+              state={state}
+              actions={settingsActions}
+              sync={game.sync}
+              guardColorMap={GUARD_COLOR_MAP}
+              allGuards={GUARDS}
+              scrollToMultiplayer={settingsScrollToMultiplayer}
+              onClose={closeSettings}
+            />
+          </Suspense>
         )}
 
-        {/* Global search overlay */}
-        <GlobalSearch
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          stash={state.stash}
-          cities={state.cities}
-          onOpenRecipe={openRecipeFromSearch}
-          onOpenEncounter={openEncounterFromSearch}
-          onOpenCity={openCityFromSearch}
-        />
+        {/* Global search overlay — only mounted when open so its chunk loads on demand */}
+        {searchOpen && (
+          <Suspense fallback={null}>
+            <GlobalSearch
+              open={searchOpen}
+              onClose={() => setSearchOpen(false)}
+              stash={state.stash}
+              cities={state.cities}
+              onOpenRecipe={openRecipeFromSearch}
+              onOpenEncounter={openEncounterFromSearch}
+              onOpenCity={openCityFromSearch}
+            />
+          </Suspense>
+        )}
 
         {/* Material source popup */}
         <MaterialSourcePopup

@@ -73,6 +73,21 @@ export default defineConfig({
     }),
   ],
   base: './',
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy third-party deps out of the app bundle (AVE-292).
+        // Supabase and Sentry rarely change and can be cached independently,
+        // and keeping them out of the entry chunk trims first paint.
+        codeSplitting: {
+          groups: [
+            { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+            { name: 'sentry', test: /node_modules[\\/]@sentry[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   test: {
     environment: 'node',
     globals: true,
