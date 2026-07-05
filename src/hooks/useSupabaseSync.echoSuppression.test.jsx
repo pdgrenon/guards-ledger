@@ -252,6 +252,148 @@ describe('value-based echo suppression (replaces 3s wall-clock window)', () => {
   });
 });
 
+// ─── Self-write echoes of earlier edits (AVE-314) ───────────────────────────
+
+describe('self-write echo suppression while actively editing (AVE-314)', () => {
+  // Helper: clone state with guard_0 satchel slot 0 set to `item`.
+  function withGuard0Item(item) {
+    const s = createInitialState();
+    const satchel = s.guards[0].satchel.map((slot, i) => i === 0 ? { ...slot, item } : slot);
+    s.guards = s.guards.map((g, i) => i === 0 ? { ...g, satchel } : g);
+    return s;
+  }
+
+  it('drops the echo of an earlier keystroke after local has moved on', async () => {
+    // The exact typing race: we send "Silver" (debounced), keep typing to
+    // "Silverwood", then the Realtime echo of "Silver" arrives. It no longer
+    // equals local — but it's our own write, so it must NOT be applied
+    // (applying it would snap the input back to "Silver").
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: withGuard0Item('Silver') } }
+    );
+
+    // We sent "Silver" and are still on "Silver" locally at send time.
+    const silver = withGuard0Item('Silver');
+    await act(async () => {
+      await result.current.upsertSection('guard_0', silver);
+      rerender({ state: silver });
+    });
+
+    // Local advances to "Silverwood" (more keystrokes) before the echo lands.
+    const silverwood = withGuard0Item('Silverwood');
+    rerender({ state: silverwood });
+    onRemoteChange.mockClear();
+
+    // The server echoes our earlier "Silver" write.
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } });
+    });
+
+    // guard_0 must remain "Silverwood" — the stale echo was dropped.
+    const merged = onRemoteChange.mock.calls[0][0];
+    expect(merged.guards[0].satchel[0].item).toBe('Silverwood');
+  });
+
+  it('drops the echo that would revert a cleared (deleted) slot', async () => {
+    // Deletion symptom: we clear a slot (item: ''), the echo of the prior
+    // non-empty value must not restore it.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: withGuard0Item('Silver') } }
+    );
+
+    // We first sent "Silver" (its echo is still in flight), then clear it.
+    const silver  = withGuard0Item('Silver');
+    const cleared = withGuard0Item('');
+    await act(async () => {
+      await result.current.upsertSection('guard_0', silver);
+      rerender({ state: silver });
+      await result.current.upsertSection('guard_0', cleared);
+      rerender({ state: cleared });
+    });
+    onRemoteChange.mockClear();
+
+    // The stale echo of the earlier "Silver" write now arrives.
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } });
+    });
+
+    // The slot stays cleared — deletion persists.
+    const merged = onRemoteChange.mock.calls[0][0];
+    expect(merged.guards[0].satchel[0].item).toBe('');
+  });
+
+  it('still applies a genuine remote edit to the same guard (not a self-echo)', async () => {
+    // The suppression must be value-precise: another player's change to the
+    // same guard, carrying a value we never wrote, is applied normally — no
+    // regression to blanket per-section suppression (AVE-82 safety).
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: withGuard0Item('Silver') } }
+    );
+
+    const silver = withGuard0Item('Silver');
+    await act(async () => {
+      await result.current.upsertSection('guard_0', silver);
+      rerender({ state: silver });
+    });
+    onRemoteChange.mockClear();
+
+    // Remote change to guard_0 carrying a value we never sent.
+    const channel = client.calls.channels[0].channel;
+    const remote = withGuard0Item('Gold');
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', guard_0: remote.guards[0] } });
+    });
+
+    const merged = onRemoteChange.mock.calls[0][0];
+    expect(merged.guards[0].satchel[0].item).toBe('Gold');
+  });
+
+  it('consumes each self-write once, so a later identical remote value is applied', async () => {
+    // We send "Silver", its echo arrives and is consumed. If another player
+    // later independently sets the slot to "Silver" again, that is a real
+    // change (relative to a since-cleared local) and must come through.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: withGuard0Item('Silver') } }
+    );
+
+    const silver = withGuard0Item('Silver');
+    await act(async () => {
+      await result.current.upsertSection('guard_0', silver);
+      rerender({ state: silver });
+    });
+
+    const channel = client.calls.channels[0].channel;
+    // First echo of our own "Silver" write — dropped, local stays "Silver".
+    act(() => { channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } }); });
+
+    // We then clear locally.
+    const cleared = withGuard0Item('');
+    rerender({ state: cleared });
+    onRemoteChange.mockClear();
+
+    // Another player sets "Silver" again — the self-write entry was already
+    // consumed, so this genuine change is applied.
+    act(() => { channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } }); });
+
+    const merged = onRemoteChange.mock.calls[0][0];
+    expect(merged.guards[0].satchel[0].item).toBe('Silver');
+  });
+});
+
 // ─── Concurrent edits on the same device, different sections ────────────────
 
 describe('inbound updates preserve unrelated local changes', () => {

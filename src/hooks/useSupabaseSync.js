@@ -174,6 +174,40 @@ export function applyRemoteSection(localState, sectionName, remoteSection) {
   return { ...localState, ...remoteSection };
 }
 
+/**
+ * Reconcile an inbound Realtime value against our own outstanding writes.
+ *
+ * Every write we push through `merge_section` is echoed straight back to us as a
+ * Realtime UPDATE (Postgres replays our own change). The value-equality check in
+ * the subscription drops an echo that still deep-equals current local state, but
+ * that is not enough while the user is actively editing: by the time the echo of
+ * an *earlier* keystroke arrives, local state has already advanced to a *later*
+ * keystroke, so the echo no longer equals local — and gets applied, snapping the
+ * field back to the older value. That is the AVE-314 "typing truncated / can't
+ * delete" bug.
+ *
+ * To recognize those echoes we remember every value we send per section. This
+ * helper takes that list (each entry `{ value, at }`), prunes entries older than
+ * `ttl` (a lost echo must not linger forever), and reports whether `incoming`
+ * matches one of our own outstanding writes. When it does, that single entry is
+ * consumed so a genuine later remote change carrying the same value can still
+ * come through.
+ *
+ * Pure — the caller swaps the returned `list` back into its ref. This stays
+ * value-based and timing-independent: `ttl` only bounds buffer growth, it is not
+ * a suppression window (contrast the wall-clock window removed in AVE-82). A
+ * different value from another player never matches, so genuine remote changes
+ * are never dropped.
+ *
+ * @returns {{ isEcho: boolean, list: Array<{value:*, at:number}> }}
+ */
+export function reconcileSelfEcho(list, incoming, now, ttl) {
+  const pruned = (list || []).filter(e => now - e.at < ttl);
+  const idx = pruned.findIndex(e => deepEqual(e.value, incoming));
+  if (idx === -1) return { isEcho: false, list: pruned };
+  return { isEcho: true, list: pruned.slice(0, idx).concat(pruned.slice(idx + 1)) };
+}
+
 // ─── Runtime helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -226,6 +260,30 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   useEffect(() => { stateRef.current      = state;      }, [state]);
   useEffect(() => { campaignIdRef.current = campaignId; }, [campaignId]);
 
+  // ── Self-write echo tracking (AVE-314) ────────────────────────────────────
+  // Values we've sent per section that we still expect to hear back as our own
+  // Realtime echo. Map<sectionName, Array<{ value, at }>>. Used to drop echoes
+  // of earlier keystrokes that would otherwise revert an in-progress edit. TTL
+  // bounds the buffer so a lost echo can't linger indefinitely; it is not a
+  // suppression window (see reconcileSelfEcho / AVE-82).
+  const selfWrites = useRef(new Map());
+  const SELF_WRITE_TTL_MS = 15000;
+
+  const noteSelfWrite = useCallback((section, value) => {
+    const now  = Date.now();
+    const list = (selfWrites.current.get(section) || []).filter(e => now - e.at < SELF_WRITE_TTL_MS);
+    list.push({ value, at: now });
+    selfWrites.current.set(section, list);
+  }, []);
+
+  const consumeSelfEcho = useCallback((section, incoming) => {
+    const { isEcho, list } = reconcileSelfEcho(
+      selfWrites.current.get(section), incoming, Date.now(), SELF_WRITE_TTL_MS,
+    );
+    selfWrites.current.set(section, list);
+    return isEcho;
+  }, []);
+
   // ── Core subscribe / unsubscribe ─────────────────────────────────────────
 
   const subscribe = useCallback((id) => {
@@ -258,7 +316,14 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
               const incoming = row[section];
               if (incoming == null) continue;
               const local = extractSection(stateRef.current, section);
-              if (deepEqual(incoming, local)) continue;
+              // Already converged with local — consume any matching self-write
+              // entry so the buffer stays tidy, then skip.
+              if (deepEqual(incoming, local)) { consumeSelfEcho(section, incoming); continue; }
+              // An echo of one of our own earlier writes: local has since moved
+              // on (e.g. more keystrokes), so it no longer equals local, but we
+              // must not apply it — that would revert the in-progress edit
+              // (AVE-314). Drop it and consume the entry.
+              if (consumeSelfEcho(section, incoming)) continue;
               merged = applyRemoteSection(merged, section, incoming);
             }
             onRemoteChange(merged);
@@ -270,7 +335,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       });
 
     channelRef.current = channel;
-  }, [client, onRemoteChange]);
+  }, [client, onRemoteChange, consumeSelfEcho]);
 
   // ── Upsert helpers ────────────────────────────────────────────────────────
 
@@ -289,6 +354,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // the edits.
     const entries = Array.from(pendingQueue.current.entries());
     setSyncStatus('syncing');
+    // Record each queued write so its Realtime echo is recognized on flush
+    // (AVE-314), same as the online upsertSection path.
+    for (const [section, payload] of entries) noteSelfWrite(section, payload);
     const { error } = await mergeSections(client, campaignIdRef.current, entries);
 
     if (error) {
@@ -302,7 +370,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       setSyncStatus('idle');
       setSyncError(null);
     }
-  }, [client]);
+  }, [client, noteSelfWrite]);
 
   // ── Online / offline detection ────────────────────────────────────────────
 
@@ -390,6 +458,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     }
 
     setSyncStatus('syncing');
+    // Remember what we sent so the inbound Realtime echo of this write can be
+    // recognized and dropped even after local state moves on (AVE-314).
+    noteSelfWrite(sectionName, sectionData);
     const { error } = await client.rpc('merge_section', {
       campaign_id:  campaignId,
       section_name: sectionName,
@@ -404,7 +475,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       setSyncStatus('idle');
       setSyncError(null);
     }
-  }, [client, campaignId]);
+  }, [client, campaignId, noteSelfWrite]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 

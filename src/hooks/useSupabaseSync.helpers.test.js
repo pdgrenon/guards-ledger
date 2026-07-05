@@ -15,6 +15,7 @@ import {
   applyRemoteSection,
   normalizeRow,
   generateCampaignId,
+  reconcileSelfEcho,
 } from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
 
@@ -149,5 +150,64 @@ describe('normalizeRow', () => {
   it('passes through null/undefined', () => {
     expect(normalizeRow(null)).toBe(null);
     expect(normalizeRow(undefined)).toBe(undefined);
+  });
+});
+
+describe('reconcileSelfEcho (AVE-314)', () => {
+  const TTL = 15000;
+  const now = 1_000_000;
+
+  it('reports no echo and prunes nothing when the buffer is empty', () => {
+    expect(reconcileSelfEcho([], { item: 'Silver' }, now, TTL)).toEqual({ isEcho: false, list: [] });
+    expect(reconcileSelfEcho(undefined, { item: 'Silver' }, now, TTL)).toEqual({ isEcho: false, list: [] });
+  });
+
+  it('recognizes an echo of our own write and consumes that one entry', () => {
+    const list = [{ value: { item: 'Silver' }, at: now - 500 }];
+    const res  = reconcileSelfEcho(list, { item: 'Silver' }, now, TTL);
+    expect(res.isEcho).toBe(true);
+    expect(res.list).toEqual([]);
+  });
+
+  it('matches by deep value equality, not reference', () => {
+    const list = [{ value: { satchel: [{ item: 'Silver', qty: 1 }] }, at: now }];
+    const res  = reconcileSelfEcho(list, { satchel: [{ item: 'Silver', qty: 1 }] }, now, TTL);
+    expect(res.isEcho).toBe(true);
+  });
+
+  it('does not treat a genuine remote change (different value) as an echo', () => {
+    const list = [{ value: { item: 'Silver' }, at: now }];
+    const res  = reconcileSelfEcho(list, { item: 'Gold' }, now, TTL);
+    expect(res.isEcho).toBe(false);
+    expect(res.list).toEqual(list); // untouched, still awaiting its own echo
+  });
+
+  it('consumes only the matching entry, leaving a later self-write pending', () => {
+    // The core AVE-314 scenario: we sent "Silver" then "Silverwood"; the echo of
+    // the earlier "Silver" arrives while local is already "Silverwood".
+    const list = [
+      { value: { item: 'Silver' },     at: now - 300 },
+      { value: { item: 'Silverwood' }, at: now - 100 },
+    ];
+    const res = reconcileSelfEcho(list, { item: 'Silver' }, now, TTL);
+    expect(res.isEcho).toBe(true);
+    expect(res.list).toEqual([{ value: { item: 'Silverwood' }, at: now - 100 }]);
+  });
+
+  it('prunes entries older than the TTL', () => {
+    const list = [
+      { value: { item: 'Stale' }, at: now - TTL - 1 },
+      { value: { item: 'Fresh' }, at: now - 100 },
+    ];
+    const res = reconcileSelfEcho(list, { item: 'Other' }, now, TTL);
+    expect(res.isEcho).toBe(false);
+    expect(res.list).toEqual([{ value: { item: 'Fresh' }, at: now - 100 }]);
+  });
+
+  it('does not match an expired self-write (its echo was lost)', () => {
+    const list = [{ value: { item: 'Silver' }, at: now - TTL - 1 }];
+    const res  = reconcileSelfEcho(list, { item: 'Silver' }, now, TTL);
+    expect(res.isEcho).toBe(false);
+    expect(res.list).toEqual([]);
   });
 });
