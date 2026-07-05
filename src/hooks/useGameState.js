@@ -391,8 +391,8 @@ export function useGameState() {
   const removeStoneboundLocation = useCallback((idx) =>
     setState(s => reduceRemoveStoneboundLocation(s, idx), 'stash'), [setState]);
 
-  const updateStoneboundLocation = useCallback((idx, field, value) =>
-    setState(s => reduceUpdateStoneboundLocation(s, idx, field, value), 'stash'), [setState]);
+  const updateStoneboundLocation = useCallback((id, field, value) =>
+    setState(s => reduceUpdateStoneboundLocation(s, id, field, value), 'stash'), [setState]);
 
   // ── Campaign ─────────────────────────────────────────────────────────────
   const setEventToken = useCallback((region, delta) =>

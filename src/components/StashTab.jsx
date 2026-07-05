@@ -126,7 +126,7 @@ export function StashTab({
         </div>
 
         <div className="sb-locations">
-          {locations.map((loc, i) => {
+          {locations.map(loc => {
             const maxCount = cubesAvailable + loc.count;
             return (
               <div key={loc.id} className="sb-location">
@@ -135,7 +135,7 @@ export function StashTab({
                   <select
                     className="sb-select"
                     value={loc.selection}
-                    onChange={e => updateStoneboundLocation(i, 'selection', e.target.value)}
+                    onChange={e => updateStoneboundLocation(loc.id, 'selection', e.target.value)}
                   >
                     <option value="">— select location —</option>
                     <optgroup label="Cities">
@@ -152,14 +152,14 @@ export function StashTab({
                   <div className="sb-inline-controls">
                     <button
                       className="adj-btn sb-count-btn"
-                      onClick={() => updateStoneboundLocation(i, 'count', Math.max(1, loc.count - 1))}
+                      onClick={() => updateStoneboundLocation(loc.id, 'count', Math.max(1, loc.count - 1))}
                       aria-label={`Decrease ${loc.selection || 'location'} count`}
                     >−</button>
                     <span className="sb-count-val">{loc.count}</span>
                     <button
                       className="adj-btn sb-count-btn"
                       disabled={loc.count >= maxCount}
-                      onClick={() => updateStoneboundLocation(i, 'count', Math.min(maxCount, loc.count + 1))}
+                      onClick={() => updateStoneboundLocation(loc.id, 'count', Math.min(maxCount, loc.count + 1))}
                       aria-label={`Increase ${loc.selection || 'location'} count`}
                     >+</button>
                   </div>
