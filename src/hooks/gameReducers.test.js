@@ -559,7 +559,7 @@ describe('reduceRemoveStoneboundLocation', () => {
   it('logs removal with the selection name when present', () => {
     const s1   = reduceAddStoneboundLocation(s);
     const id   = s1.stonebound.locations[0].id;
-    const s2   = reduceUpdateStoneboundLocation(s1, 0, 'selection', 'Mir');
+    const s2   = reduceUpdateStoneboundLocation(s1, id, 'selection', 'Mir');
     const next = reduceRemoveStoneboundLocation(s2, id);
     expect(next.log[0].message).toContain('Mir');
   });
@@ -573,33 +573,52 @@ describe('reduceRemoveStoneboundLocation', () => {
 });
 
 describe('reduceUpdateStoneboundLocation', () => {
-  let s1;
-  beforeEach(() => { s1 = reduceAddStoneboundLocation(s); });
+  let s1, id;
+  beforeEach(() => {
+    s1 = reduceAddStoneboundLocation(s);
+    id = s1.stonebound.locations[0].id;
+  });
 
   it('updates the selection field', () => {
-    const next = reduceUpdateStoneboundLocation(s1, 0, 'selection', 'Mir');
+    const next = reduceUpdateStoneboundLocation(s1, id, 'selection', 'Mir');
     expect(next.stonebound.locations[0].selection).toBe('Mir');
   });
 
   it('logs a selection change', () => {
-    const next = reduceUpdateStoneboundLocation(s1, 0, 'selection', 'Mir');
+    const next = reduceUpdateStoneboundLocation(s1, id, 'selection', 'Mir');
     expect(next.log[0].message).toContain('Mir');
   });
 
   it('updates the cube count', () => {
-    const next = reduceUpdateStoneboundLocation(s1, 0, 'count', 3);
+    const next = reduceUpdateStoneboundLocation(s1, id, 'count', 3);
     expect(next.stonebound.locations[0].count).toBe(3);
   });
 
   it('logs a cube count change', () => {
-    const next = reduceUpdateStoneboundLocation(s1, 0, 'count', 2);
+    const next = reduceUpdateStoneboundLocation(s1, id, 'count', 2);
     expect(next.log[0].message).toContain('cubes → 2');
   });
 
   it('does not affect other locations', () => {
-    const s2   = reduceAddStoneboundLocation(s1);
-    const next = reduceUpdateStoneboundLocation(s2, 0, 'selection', 'Mir');
+    const s2    = reduceAddStoneboundLocation(s1);
+    const id2   = s2.stonebound.locations[0].id;
+    const next  = reduceUpdateStoneboundLocation(s2, id2, 'selection', 'Mir');
     expect(next.stonebound.locations[1].selection).toBe('');
+  });
+
+  it('finds the target by id even when array order changes', () => {
+    const s2    = reduceAddStoneboundLocation(s1);
+    const id0   = s2.stonebound.locations[0].id;
+    const swapped = {
+      ...s2,
+      stonebound: {
+        ...s2.stonebound,
+        locations: [s2.stonebound.locations[1], s2.stonebound.locations[0]],
+      },
+    };
+    const next = reduceUpdateStoneboundLocation(swapped, id0, 'selection', 'Mir');
+    expect(next.stonebound.locations[0].selection).toBe('');
+    expect(next.stonebound.locations[1].selection).toBe('Mir');
   });
 });
 

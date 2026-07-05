@@ -221,18 +221,18 @@ export function reduceRemoveStoneboundLocation(s, id) {
   );
 }
 
-export function reduceUpdateStoneboundLocation(s, idx, field, value) {
-  const locations = s.stonebound.locations.map((loc, i) =>
-    i === idx ? { ...loc, [field]: value } : loc
+export function reduceUpdateStoneboundLocation(s, id, field, value) {
+  const locations = s.stonebound.locations.map(loc =>
+    loc.id === id ? { ...loc, [field]: value } : loc
   );
   const newState = { ...s, stonebound: { ...s.stonebound, locations } };
+  const loc      = s.stonebound.locations.find(l => l.id === id);
 
   if (field === 'selection' && value) {
-    return addLog(newState, `Stonebound location ${idx + 1} → ${value}`);
+    return addLog(newState, `Stonebound location → ${value}`);
   }
   if (field === 'count') {
-    const loc   = s.stonebound.locations[idx];
-    const label = loc.selection || `location ${idx + 1}`;
+    const label = loc?.selection || 'location';
     return addLog(newState, `Stonebound ${label} cubes → ${value}`);
   }
   return newState;
