@@ -90,6 +90,13 @@ alter publication supabase_realtime add table public.campaigns;
 
 -- Merge two JSONB arrays. Arrays of `id`-keyed objects are merged by id;
 -- arrays of plain values are merged as a set union. (AVE-197)
+--
+-- Element deletion is handled by tombstones, not by removal: the client marks a
+-- deleted element `{ ...el, deleted: true }` and this by-id merge carries that
+-- flag onto the matching element like any other field edit, so deletes sync
+-- while concurrent adds of other ids still survive. Read sites filter tombstoned
+-- elements out. completedEncounters is stored id-keyed (`{ id, deleted? }`) for
+-- the same reason — see supabase/migrations/0004_tombstone_deletes.sql. (AVE-287)
 create or replace function public.merge_jsonb_array_by_id(existing jsonb, incoming jsonb)
 returns jsonb
 language plpgsql

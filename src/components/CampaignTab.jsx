@@ -121,7 +121,7 @@ function LocationsCard({ locations, onSetFixed, onAddDynamic, onUpdateDynamic, o
       {/* Side quests — dynamic */}
       <div className="campaign-dynamic-section">
         <div className="sec-label" style={{ marginBottom: 6 }}>Side Quests</div>
-        {(locations.sideQuests ?? []).map(entry => (
+        {(locations.sideQuests ?? []).filter(e => !e.deleted).map(entry => (
           <div key={entry.id} className="campaign-dynamic-row">
             <input
               className="campaign-location-input"
@@ -162,14 +162,17 @@ function PlansCard({ plans, onAdd, onToggle, onDelete }) {
     if (e.key === 'Enter') handleAdd();
   }
 
-  const open = plans.filter(p => !p.done);
-  const done = plans.filter(p => p.done);
+  // Tombstoned plans (deleted while a campaign is active) are never rendered
+  // or counted (AVE-287).
+  const visible = plans.filter(p => !p.deleted);
+  const open = visible.filter(p => !p.done);
+  const done = visible.filter(p => p.done);
 
   return (
     <div className="card mb-3 stash-card">
       <div className="card-title mb-3">Next Session Plans</div>
 
-      {plans.length === 0 && (
+      {visible.length === 0 && (
         <div className="log-empty" style={{ paddingTop: 16, paddingBottom: 16 }}>
           <div className="log-empty-title">No plans yet</div>
           <div className="log-empty-sub">Add tasks to remember for next session</div>

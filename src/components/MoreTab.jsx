@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
 import { CITIES, GUARD_COLOR_MAP } from '../data/constants';
+import { isEncounterCompleted } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
 import { useDialogA11y } from '../hooks/useDialogA11y';
 
@@ -193,7 +194,7 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
                 <EncounterCard
                   key={fight.id}
                   encounter={fight}
-                  completed={completedEncounters.includes(fight.id)}
+                  completed={isEncounterCompleted(completedEncounters, fight.id)}
                   onOpen={setOpenEnc}
                 />
               ))}
@@ -236,7 +237,7 @@ export function MoreTab({ log, campaign, completedEncounters, toggleEncounterCom
       {openEnc && (
         <EncounterDetailDialog
           encounter={openEnc}
-          completed={completedEncounters.includes(openEnc.id)}
+          completed={isEncounterCompleted(completedEncounters, openEnc.id)}
           onToggle={toggleEncounterComplete}
           onClose={() => setOpenEnc(null)}
         />

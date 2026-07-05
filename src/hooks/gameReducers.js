@@ -211,9 +211,17 @@ export function reduceAddStoneboundLocation(s) {
   );
 }
 
+// Soft-delete (tombstone) rather than hard-remove: whenever a campaign is
+// active the server merge is append/union-only, so a filtered-out element is
+// restored by the merge and re-applied by the Realtime echo. Marking the
+// element `deleted: true` lets the delete propagate like any other field edit
+// (the by-id merge carries the flag) and keeps concurrent-add safety. All read
+// sites filter `deleted` elements out. (AVE-287)
 export function reduceRemoveStoneboundLocation(s, id) {
   const loc       = s.stonebound.locations.find(l => l.id === id);
-  const locations = s.stonebound.locations.filter(l => l.id !== id);
+  const locations = s.stonebound.locations.map(l =>
+    l.id === id ? { ...l, deleted: true } : l
+  );
   const label     = loc?.selection || 'empty location';
   return addLog(
     { ...s, stonebound: { ...s.stonebound, locations } },
@@ -283,8 +291,13 @@ export function reduceUpdateDynamicLocation(s, type, id, label) {
   return { ...s, campaign };
 }
 
+// Tombstone rather than hard-remove so the delete survives the server merge
+// and Realtime echo while a campaign is active (AVE-287). Read sites filter out
+// `deleted` entries.
 export function reduceRemoveDynamicLocation(s, type, id) {
-  const entries   = (s.campaign.locations[type] ?? []).filter(e => e.id !== id);
+  const entries   = (s.campaign.locations[type] ?? []).map(e =>
+    e.id === id ? { ...e, deleted: true } : e
+  );
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
   return { ...s, campaign };
@@ -304,17 +317,60 @@ export function reduceTogglePlan(s, id) {
   return { ...s, campaign };
 }
 
+// Tombstone rather than hard-remove so the delete survives the server merge and
+// Realtime echo while a campaign is active (AVE-287). Read sites filter out
+// `deleted` plans.
 export function reduceDeletePlan(s, id) {
-  const plans    = s.campaign.plans.filter(p => p.id !== id);
+  const plans    = s.campaign.plans.map(p =>
+    p.id === id ? { ...p, deleted: true } : p
+  );
   const campaign = { ...s.campaign, plans };
   return { ...s, campaign };
 }
 
+// completedEncounters is an id-keyed array of { id, deleted? } objects (AVE-287).
+// An encounter is "completed" when its element is present and not tombstoned.
+// Un-completing marks the element `deleted: true` (rather than dropping it) so
+// the change propagates through the append/union-only server merge like any
+// other field edit; re-completing clears the flag. This mirrors how the other
+// id-keyed arrays (plans, side quests, stonebound locations) tombstone deletes.
+export function isEncounterCompleted(completedEncounters, id) {
+  return (completedEncounters ?? []).some(e => e.id === id && !e.deleted);
+}
+
+/**
+ * Normalize a completedEncounters value to the id-keyed { id, deleted? } shape.
+ * Pre-AVE-287 saves stored a plain array of encounter-id strings; this converts
+ * those (and tolerates already-normalized rows) so the client can read either
+ * shape. Used on load/migration and when reading a possibly-unmigrated remote row.
+ */
+export function normalizeCompletedEncounters(arr) {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const e of arr) {
+    if (typeof e === 'string') {
+      out.push({ id: e });
+    } else if (e && typeof e === 'object' && typeof e.id === 'string') {
+      out.push(e.deleted ? { id: e.id, deleted: true } : { id: e.id });
+    }
+  }
+  return out;
+}
+
 export function reduceToggleEncounterComplete(s, encounterId) {
-  const completed = s.campaign.completedEncounters;
-  const next = completed.includes(encounterId)
-    ? completed.filter(id => id !== encounterId)
-    : [...completed, encounterId];
+  const completed = s.campaign.completedEncounters ?? [];
+  const existing  = completed.find(e => e.id === encounterId);
+  let next;
+  if (existing) {
+    // Present already: flip its tombstone. Completed → mark deleted; previously
+    // un-completed → clear the flag by re-adding it as a live element.
+    const isCompleted = !existing.deleted;
+    next = completed.map(e =>
+      e.id === encounterId ? (isCompleted ? { id: e.id, deleted: true } : { id: e.id }) : e
+    );
+  } else {
+    next = [...completed, { id: encounterId }];
+  }
   return { ...s, campaign: { ...s.campaign, completedEncounters: next } };
 }
 

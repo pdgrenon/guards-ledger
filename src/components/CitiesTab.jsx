@@ -72,7 +72,7 @@ export function CitiesTab({ cities, toggleCityQuest, locations, onAddDynamic, on
       {/* Bounties list — global across all cities */}
       <div className="card mb-3 stash-card" style={{ marginTop: 16 }}>
         <div className="card-title mb-3">Bounties</div>
-        {(locations.bounties ?? []).map(entry => (
+        {(locations.bounties ?? []).filter(e => !e.deleted).map(entry => (
           <div key={entry.id} className="campaign-dynamic-row">
             <input
               className="campaign-location-input"

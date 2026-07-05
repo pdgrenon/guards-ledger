@@ -154,6 +154,27 @@ describe('normalizeRow', () => {
     expect(normalizeRow(null)).toBe(null);
     expect(normalizeRow(undefined)).toBe(undefined);
   });
+
+  it('converts a pre-AVE-287 completedEncounters string array to id-keyed objects', () => {
+    const row = {
+      id: 'WOLF42',
+      guard_0: { name: 'Grigory' },
+      campaign: { completedEncounters: ['boss-1', 'boss-2'], plans: [] },
+    };
+    const out = normalizeRow(row);
+    expect(out).not.toBe(row); // cloned, not mutated
+    expect(row.campaign.completedEncounters).toEqual(['boss-1', 'boss-2']); // original untouched
+    expect(out.campaign.completedEncounters).toEqual([{ id: 'boss-1' }, { id: 'boss-2' }]);
+  });
+
+  it('leaves an already-id-keyed completedEncounters unchanged (same reference)', () => {
+    const row = {
+      id: 'WOLF42',
+      guard_0: { name: 'Grigory' },
+      campaign: { completedEncounters: [{ id: 'boss-1' }, { id: 'boss-2', deleted: true }] },
+    };
+    expect(normalizeRow(row)).toBe(row);
+  });
 });
 
 describe('reconcileSelfEcho (AVE-314)', () => {
