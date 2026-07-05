@@ -179,7 +179,7 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowSource, searchSeed, onSeedApplied }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaignId, completedBounties, onShowSource, searchSeed, onSeedApplied }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
@@ -221,14 +221,15 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, onShowS
     [stash, activeGuards]
   );
 
-  // Build prestige map from cities prop
+  // Build prestige map from cities prop. Reputation is campaign-scoped, so the
+  // crafting discount reflects each city's standing in the active campaign.
   const prestigeMap = useMemo(() => {
     const map = {};
     for (const city of (cities ?? [])) {
-      map[city.name] = cityPrestige(city);
+      map[city.name] = cityPrestige(city, campaignId, completedBounties);
     }
     return map;
-  }, [cities]);
+  }, [cities, campaignId, completedBounties]);
 
   const cityPrestigeLevel = selectedCity ? (prestigeMap[selectedCity] ?? 0) : 0;
 

@@ -131,11 +131,11 @@ export function createInitialCampaign() {
       locations: {
         party: '', caravan: '', mainQuest: '', boat: '',
         sideQuests: [],
-        bounties:   [],
       },
       plans: [],
       ftIstraBuildings: {},
       completedEncounters: [],
+      completedBounties: [],
       campaignId: 1,
     },
   };

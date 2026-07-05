@@ -36,6 +36,7 @@ import {
   reduceTogglePlan,
   reduceDeletePlan,
   reduceToggleEncounterComplete,
+  reduceToggleBountyComplete,
   reduceSetCampaign,
   normalizeCompletedEncounters,
 } from './gameReducers';
@@ -61,11 +62,13 @@ function migrateV1(v1) {
     activeGuardIdx: createInitialGuards().activeGuardIdx,
     stash:          v1.stash          ?? createInitialStash().stash,
     stonebound:     v1.stonebound     ?? createInitialStash().stonebound,
-    // Normalize completedEncounters (string[] → { id }[]) so pre-AVE-287 saves
-    // and imports get the tombstone-capable id-keyed shape (AVE-287).
+    // Normalize completedEncounters/completedBounties (string[] → { id }[]) so
+    // pre-AVE-287 saves and imports get the tombstone-capable id-keyed shape
+    // (AVE-287); completedBounties defaults to [] on saves predating AVE-359.
     campaign:       v1.campaign
                       ? { ...v1.campaign,
-                          completedEncounters: normalizeCompletedEncounters(v1.campaign.completedEncounters) }
+                          completedEncounters: normalizeCompletedEncounters(v1.campaign.completedEncounters),
+                          completedBounties:   normalizeCompletedEncounters(v1.campaign.completedBounties) }
                       : createInitialCampaign().campaign,
     log:            v1.log            ?? [],
     settings:       v1.settings       ?? { initialized: true },
@@ -170,7 +173,8 @@ function healState(parsed) {
                              ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
                                ? parsed.campaign.ftIstraBuildings
                                : {},
-                             completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters) }
+                             completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters),
+                             completedBounties:   normalizeCompletedEncounters(parsed.campaign.completedBounties) }
                         : campInit.campaign,
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
@@ -429,6 +433,9 @@ export function useGameState() {
   const toggleEncounterComplete = useCallback((encounterId) =>
     setState(s => reduceToggleEncounterComplete(s, encounterId), 'campaign'), [setState]);
 
+  const toggleBountyComplete = useCallback((bountyId) =>
+    setState(s => reduceToggleBountyComplete(s, bountyId), 'campaign'), [setState]);
+
   const setCampaign = useCallback((campaignId) =>
     setState(s => reduceSetCampaign(s, campaignId), 'campaign'), [setState]);
 
@@ -496,6 +503,7 @@ export function useGameState() {
     addDynamicLocation, updateDynamicLocation, removeDynamicLocation,
     addPlan, togglePlan, deletePlan,
     toggleEncounterComplete,
+    toggleBountyComplete,
     setCampaign,
     setFtIstraBuilding,
     setState, exportState, importState, resetState,

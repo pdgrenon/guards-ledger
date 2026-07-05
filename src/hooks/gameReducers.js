@@ -20,6 +20,7 @@
 
 import { SATCHEL_EXPANDED_SIZE } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
+import { bountiesForCity } from '../data/bounties';
 
 export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
@@ -162,9 +163,18 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
 
 // ─── Cities ───────────────────────────────────────────────────────────────────
 
-// Prestige is always derived from the three quest booleans — never stored.
-export function cityPrestige(city) {
-  return [city.puzzleQuestDone, city.bounty1Done, city.bounty2Done].filter(Boolean).length;
+// Reputation (prestige) is always derived, never stored. For the active
+// campaign it counts the city's puzzle quest plus its two completed campaign
+// bounties (AVE-359). Bounty completion is campaign-scoped — each id in
+// `completedBounties` encodes its campaign — so moving to another campaign and
+// back preserves each campaign's reputation independently (max 3: 1 puzzle + 2
+// bounties). `campaignId`/`completedBounties` are optional so the puzzle-only
+// contribution is still derivable without campaign context.
+export function cityPrestige(city, campaignId, completedBounties) {
+  const puzzle = city.puzzleQuestDone ? 1 : 0;
+  const bounties = bountiesForCity(city.name, campaignId)
+    .filter(b => isBountyCompleted(completedBounties, b.id)).length;
+  return puzzle + bounties;
 }
 
 export function reduceToggleCityQuest(s, cityIdx, field) {
@@ -377,4 +387,29 @@ export function reduceToggleEncounterComplete(s, encounterId) {
 export function reduceSetCampaign(s, campaignId) {
   const campaign = { ...s.campaign, campaignId };
   return { ...s, campaign };
+}
+
+// completedBounties mirrors completedEncounters exactly: an id-keyed array of
+// { id, deleted? } objects living in the campaign section, so per-bounty
+// completion rides the same field-level/tombstone server merge (AVE-287) and
+// syncs via the existing five-section pattern. A bounty is "completed" when its
+// element is present and not tombstoned. Un-completing marks `deleted: true`
+// rather than dropping the element; re-completing clears the flag.
+export function isBountyCompleted(completedBounties, id) {
+  return (completedBounties ?? []).some(b => b.id === id && !b.deleted);
+}
+
+export function reduceToggleBountyComplete(s, bountyId) {
+  const completed = s.campaign.completedBounties ?? [];
+  const existing  = completed.find(b => b.id === bountyId);
+  let next;
+  if (existing) {
+    const isCompleted = !existing.deleted;
+    next = completed.map(b =>
+      b.id === bountyId ? (isCompleted ? { id: b.id, deleted: true } : { id: b.id }) : b
+    );
+  } else {
+    next = [...completed, { id: bountyId }];
+  }
+  return { ...s, campaign: { ...s.campaign, completedBounties: next } };
 }

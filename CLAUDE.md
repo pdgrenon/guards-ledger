@@ -149,9 +149,17 @@ Portrait images live in `public/guards/` named in lowercase (e.g. `grigory.webp`
 
 6 cities: Mir, Razdor, Ryba, Silny, Strofa, Vouno.
 
-City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`.
+City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`. `bounty1Done`/`bounty2Done` are legacy fields kept for save-shape compatibility but no longer drive anything — bounty completion moved to `campaign.completedBounties` (see Bounties below). Only `puzzleQuestDone` is still a live city-quest checkbox.
 
-**Prestige is never stored.** Always derive it with `cityPrestige(city)` from `gameReducers.js`, which counts the three boolean quest fields. Do not add a `prestige` field to city state.
+**Prestige (reputation) is never stored.** Always derive it with `cityPrestige(city, campaignId, completedBounties)` from `gameReducers.js`. It counts the city's puzzle quest plus its two completed **campaign bounties** for the active campaign (max 3: 1 puzzle + 2 bounties). Because bounty completion is campaign-scoped, reputation shown for each campaign is independent. Do not add a `prestige` field to city state. `CraftTab` also calls `cityPrestige` (for the prestige-≥2 crafting discount) and must be passed `campaignId` + `completedBounties`.
+
+### Bounties
+
+48 Bounty Quests (6 Inns × 4 campaigns × 2), transcribed from the physical companion book, live as **static reference data** in `src/data/bounties.js` (`BOUNTIES`; `bountiesForCity(cityName, campaignId)`). Each bounty: `{ id, inn, city, campaign, name, location, targets, conditions, rewards }` — `city` is derived from the Inn prefix (e.g. `Mir: The Clayhorn` → `Mir`) and `id` is `${slug(city)}-c${campaign}-${slug(name)}`. `targets`/`conditions`/`rewards` are verbatim freeform strings (same convention as the encounter `enemies`/`reward` fields).
+
+Bounties render on the **Cities tab** (`CitiesTab.jsx`), styled with the Training Yard / Spirit Boss `.encounter-*` primitives (card + bottom-sheet detail dialog). Each city card shows only the **two bounties for the active campaign** — bounties are Inn- and campaign-scoped, **not** cumulative.
+
+Per-bounty completion is `campaign.completedBounties`, an id-keyed tombstone array `{ id, deleted? }[]` — identical shape and mechanics to `completedEncounters` (AVE-287): it syncs via the `campaign` section, tombstones un-completes rather than dropping them, and is normalized on load via `normalizeCompletedEncounters`. Reducers: `reduceToggleBountyComplete` / `isBountyCompleted` in `gameReducers.js`.
 
 ### Stash
 
