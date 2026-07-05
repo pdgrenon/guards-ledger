@@ -81,15 +81,18 @@ create policy "anon can update campaigns" on public.campaigns for update using (
 -- Enable Realtime so postgres_changes UPDATE events are broadcast.
 alter publication supabase_realtime add table public.campaigns;
 
--- ─── Field-level merge RPC (AVE-94, AVE-197) ────────────────────────────────
--- See supabase/migrations/0002_field_level_merge.sql (object merge) and
--- supabase/migrations/0003_array_merge.sql (array merge) for the full
--- rationale. Fresh installs: the functions are defined here so they're
--- available immediately. Existing installs: run the migrations (idempotent
--- CREATE OR REPLACE).
+-- ─── Field-level merge RPC (AVE-94, AVE-197, AVE-362) ───────────────────────
+-- See supabase/migrations/0002_field_level_merge.sql (object merge),
+-- supabase/migrations/0003_array_merge.sql (array merge), and
+-- supabase/migrations/0005_plain_array_lww.sql (non-id arrays last-write-wins)
+-- for the full rationale. Fresh installs: the functions are defined here so
+-- they're available immediately. Existing installs: run the migrations
+-- (idempotent CREATE OR REPLACE).
 
 -- Merge two JSONB arrays. Arrays of `id`-keyed objects are merged by id;
--- arrays of plain values are merged as a set union. (AVE-197)
+-- arrays NOT keyed by id (guard satchel slots, activeParty) are treated as a
+-- single value — incoming replaces existing wholesale, last-write-wins.
+-- (AVE-197, AVE-362)
 --
 -- Element deletion is handled by tombstones, not by removal: the client marks a
 -- deleted element `{ ...el, deleted: true }` and this by-id merge carries that
@@ -97,6 +100,15 @@ alter publication supabase_realtime add table public.campaigns;
 -- while concurrent adds of other ids still survive. Read sites filter tombstoned
 -- elements out. completedEncounters is stored id-keyed (`{ id, deleted? }`) for
 -- the same reason — see supabase/migrations/0004_tombstone_deletes.sql. (AVE-287)
+--
+-- Non-id arrays used to merge as a set union, but a union can only ever ADD
+-- elements — clearing a satchel slot merged the old item right back in and the
+-- Realtime echo resurrected it on the deleting client, and swapping a party
+-- member unioned old + new into a 3-element party. After AVE-287 every array
+-- that needs merge semantics is id-keyed, so plain arrays are safe to replace
+-- wholesale. An empty incoming array is ambiguous (nothing to inspect for an
+-- `id`) and in this app only ever means "nothing to merge", so existing is
+-- preserved. See supabase/migrations/0005_plain_array_lww.sql. (AVE-362)
 create or replace function public.merge_jsonb_array_by_id(existing jsonb, incoming jsonb)
 returns jsonb
 language plpgsql
@@ -116,16 +128,18 @@ begin
     return incoming;
   end if;
 
-  -- Plain-value arrays (e.g. completedEncounters: an array of strings, no
-  -- "id"-keyed objects) merge as a union instead of by id.
-  if jsonb_array_length(incoming) = 0 or jsonb_typeof(incoming -> 0) <> 'object' or not ((incoming -> 0) ? 'id') then
-    select coalesce(jsonb_agg(distinct v), '[]'::jsonb) into result
-    from (
-      select v from jsonb_array_elements(existing) v
-      union
-      select v from jsonb_array_elements(incoming) v
-    ) u(v);
-    return result;
+  -- Empty incoming array: ambiguous (can't tell whether it is id-keyed), and
+  -- in this app it only ever means "nothing to merge" — keep existing.
+  if jsonb_array_length(incoming) = 0 then
+    return existing;
+  end if;
+
+  -- Arrays NOT keyed by id (guard satchel slots, activeParty) are a single
+  -- value: incoming replaces existing wholesale. The previous set-union merge
+  -- could only add elements, so a deleted satchel item was resurrected by the
+  -- write's own echo (AVE-362).
+  if jsonb_typeof(incoming -> 0) <> 'object' or not ((incoming -> 0) ? 'id') then
+    return incoming;
   end if;
 
   result := existing;
