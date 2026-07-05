@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Standing authorization: finishing a task
+
+When you finish making all the changes for a task (code committed and pushed, tests and lint passing), you are pre-authorized — no need to ask first — to complete the following wrap-up steps:
+
+1. **Create a pull request** for the branch you worked on.
+2. **Merge that pull request** into the default branch.
+3. **Close the associated Linear issue** (mark it Done).
+
+This authorization applies only once the work is genuinely complete and verified. If any step fails (e.g. merge conflicts, failing CI, or the PR is blocked), stop and report it rather than forcing it through. This covers only the PR/merge/issue-close wrap-up — it does not authorize other outward-facing actions.
+
 ## Commands
 
 ```bash
