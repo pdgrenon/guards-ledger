@@ -248,7 +248,7 @@ export function reduceSetEventToken(s, region, delta) {
   const campaign  = { ...s.campaign, eventTokens: newTokens };
   const label     = region.charAt(0).toUpperCase() + region.slice(1);
   const msg = triggered
-    ? `Campaign ${label} event triggered! Token reset to 3`
+    ? `Campaign ${label} event triggered (3/3) — resolve it`
     : `Campaign ${label} token ${delta >= 0 ? '+' : ''}${delta} → ${next}`;
   return addLog({ ...s, campaign }, msg);
 }
