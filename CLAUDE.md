@@ -102,18 +102,18 @@ Use the section factories in `migrateV1` and anywhere you need to initialize jus
 
 ### Component structure
 
-- **`App.jsx`** — shell: tab nav (`Guards`, `Cities`, `Stash`, `Crafting`, `Campaign`, `Log`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly. Passes `sync={game.sync}` to `SettingsPanel`. When a campaign is active, shows a **campaign pill** in the top bar with the campaign code and a sync-status dot (green/amber/gray/red); tapping it opens Settings scrolled directly to the Multiplayer section. Log messages are colorized via `colorizeLogMessage` — guard names are highlighted in their identity color, "Party" and "Stash" in brand ochre; each log entry also has a colored left border keyed to the same classification.
-- **`GuardPanel.jsx`** — HP number display, combat stats (Atk/Def with equipment bonuses shown), equipment, satchel, chip bag per guard
+- **`App.jsx`** — shell: tab nav (`Guards`, `Cities`, `Stash`, `Crafting`, `Campaign`, `More`), top bar, party switcher, session log view, settings overlay trigger. Also owns `sourceItem` state and renders `MaterialSourcePopup` at the app level so it overlays everything correctly. Passes `sync={game.sync}` to `SettingsPanel`. When a campaign is active, shows a **campaign pill** in the top bar with the campaign code and a sync-status dot (green/amber/gray/red); tapping it opens Settings scrolled directly to the Multiplayer section. Log messages are colorized via `colorizeLogMessage` — guard names are highlighted in their identity color, "Party" and "Stash" in brand ochre; each log entry also has a colored left border keyed to the same classification.
+- **`GuardPanel.jsx`** — HP number display, combat stats (Atk/Def with equipment bonuses shown), equipment, satchel
 - **`CitiesTab.jsx`** — city grid: prestige pips (derived, not stored) + quest checkboxes
 - **`StashTab.jsx`** — party resources (Sil/Lux), stonebound cube tracker, Fort Istra stash. Stash items show inline "upgrades into →" hints when they are a prereq for a recipe (from `PREREQ_UPGRADES_TO`). Supports custom items (arbitrary strings not in the predefined list, tracked in a separate "Custom items" category). Accepts `onShowSource` prop; tapping a material name with source data calls it.
 - **`CraftTab.jsx`** — stash-aware recipe reference; filters by type, city, star tier, and craftability; search matches item names, material names, cities, and prereq names; combines stash + active guards' satchel contents for craftability checks; applies prestige 2+ material discounts when a city is selected; shows stash-aware "have/need" quantities per ingredient with strikethrough for discounted amounts; hides guard-restricted items unless that guard is in the active party. Accepts `onShowSource` prop; tapping any ingredient name with source data calls it.
 - **`MaterialSourcePopup.jsx`** — bottom-sheet overlay showing where to acquire or sell a given material/item. Reads from `MATERIAL_SOURCES` in `materials.js`. Rendered at App level via a `fixed` backdrop. Closes on backdrop tap, ✕ button, or Escape key. No state of its own beyond the `item` prop passed from App.
-- **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP and starting chips, multiplayer (create/join/leave campaign + sync status), export/import/reset. Accepts `sync` prop from App.
+- **`SettingsPanel.jsx`** — bottom-sheet overlay: active party selectors, per-guard max HP, multiplayer (create/join/leave campaign + sync status), export/import/reset. Accepts `sync` prop from App.
 - **`Autocomplete.jsx`** — reusable searchable dropdown (no external library); max 12 results, case-insensitive
 
 ### Static data
 
-- **`src/data/constants.js`** — guard names, city names, chip types, `GUARD_COLOR_MAP` (single source of truth for guard identity colors), `FALLBACK_COLOR`, section factories, and `createInitialState()`
+- **`src/data/constants.js`** — guard names, city names, `GUARD_COLOR_MAP` (single source of truth for guard identity colors), `FALLBACK_COLOR`, section factories, and `createInitialState()`
 - **`src/data/materials.js`** — crafting material categories, `ALL_MATERIALS`, `ALL_ITEMS_WITH_CATEGORY` (pre-computed `{ item, category }` pairs for the stash UI), `RESOURCE_NODE_ITEMS`, `ENEMIES`, `WEAPONS`, `ARMOR`, `ACCESSORIES`, `ITEMS`, `WEAPON_STATS`, `ARMOR_STATS`, and `MATERIAL_SOURCES`
 - **`src/data/recipes.js`** — all 101 crafting recipes as a static `RECIPES` array; helper functions `minCraftCost`, `craftCities`, `craftCostForCity`, `availableInCity`, `craftStatus`, and `shortageCount`; and the pre-computed `PREREQ_UPGRADES_TO` map (item name → `{ name, stars, isFtIstra }` of the recipe it unlocks — used by StashTab to show inline upgrade hints). See the shape comment at the top of that file.
 - **`src/data/demoSave.json`** — loaded on first run when no localStorage key exists; uses v1 flat shape and is migrated automatically
@@ -126,7 +126,7 @@ Two guards are active at a time (`state.activeParty`, a 2-element name array). T
 
 **`activeGuardIdx` is local-only and never synced.** It represents which guard tab the local player is viewing — a per-device UI preference. `setActiveGuard` passes `null` as the section name (not `'guards'`). `handleRemoteChange` explicitly preserves the local value, and `SECTION_KEYS` in `useSupabaseSync` does not include it. Do not add it back to the sync section.
 
-Each guard in state has: `name`, `hp`, `maxHp`, `baseAtk`, `baseDef`, `expandedSatchel`, `satchel` (8-slot array of `{ item, qty }`), `equipment` (`{ weapon, armor, accessory, item }`), `chips` (`{ black, green, red, purple }`), `startingBlack`.
+Each guard in state has: `name`, `hp`, `maxHp`, `baseAtk`, `baseDef`, `expandedSatchel`, `satchel` (8-slot array of `{ item, qty }`), `equipment` (`{ weapon, armor, accessory, item }`).
 
 **Guard identity colors** are defined in `GUARD_COLOR_MAP` in `src/data/constants.js`. Each entry: `{ key, border, bg, text }` where `key` is the CSS variable suffix (e.g. `'amber'` → `--c-guard-amber-*`). Import from constants — do not redefine this map in component files.
 
