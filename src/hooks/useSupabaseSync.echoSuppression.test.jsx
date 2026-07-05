@@ -394,6 +394,97 @@ describe('self-write echo suppression while actively editing (AVE-314)', () => {
   });
 });
 
+// ─── Two-player sibling-section clobber (AVE-314) ───────────────────────────
+
+describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', () => {
+  function withGuard0Item(item) {
+    const s = createInitialState();
+    const satchel = s.guards[0].satchel.map((slot, i) => i === 0 ? { ...slot, item } : slot);
+    s.guards = s.guards.map((g, i) => i === 0 ? { ...g, satchel } : g);
+    return s;
+  }
+
+  it('applies the changed guard but leaves my typed-into guard alone', () => {
+    // Realtime delivers the FULL row on every UPDATE. When the other player
+    // edits guard_3, the payload also carries guard_0 — with an UNCHANGED
+    // timestamp — holding the server's stale value. My guard_0 keystrokes are
+    // still in flight, so that stale value must NOT overwrite them.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+
+    // Start on an empty guard_0 (server also has empty guard_0 at t0).
+    const initial = withGuard0Item('');
+    const { rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: initial } }
+    );
+
+    const channel = client.calls.channels[0].channel;
+
+    // UPDATE #1 establishes the timestamp baseline: guard_0 @ t0, guard_3 @ t0.
+    act(() => {
+      channel._trigger({ new: {
+        id: 'WOLF42',
+        guard_0: initial.guards[0], guard_0_updated_at: 't0',
+        guard_3: initial.guards[3], guard_3_updated_at: 't0',
+      } });
+    });
+    onRemoteChange.mockClear();
+
+    // I type into guard_0 locally. This is NOT yet synced, so the server still
+    // holds the empty guard_0 at t0.
+    const typing = withGuard0Item('Silverwoo');
+    rerender({ state: typing });
+
+    // UPDATE #2: the OTHER player edits guard_3 (hp 5). The payload carries the
+    // server's stale empty guard_0 with its timestamp still t0 (unchanged).
+    act(() => {
+      channel._trigger({ new: {
+        id: 'WOLF42',
+        guard_0: initial.guards[0], guard_0_updated_at: 't0', // stale, unchanged
+        guard_3: { ...initial.guards[3], hp: 5 }, guard_3_updated_at: 't1', // changed
+      } });
+    });
+
+    const merged = onRemoteChange.mock.calls[0][0];
+    // The other player's guard_3 change is applied…
+    expect(merged.guards[3].hp).toBe(5);
+    // …but my in-flight guard_0 edit is preserved, not reverted to empty.
+    expect(merged.guards[0].satchel[0].item).toBe('Silverwoo');
+  });
+
+  it('still applies a genuine remote edit to the same guard once its timestamp advances', () => {
+    // Gating must not deafen us to real changes: when guard_0's timestamp does
+    // advance (the other player really did edit guard_0), it is applied.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+
+    const initial = withGuard0Item('');
+    renderHook(() => useSupabaseSync(initial, onRemoteChange, client));
+    const channel = client.calls.channels[0].channel;
+
+    act(() => {
+      channel._trigger({ new: {
+        id: 'WOLF42',
+        guard_0: initial.guards[0], guard_0_updated_at: 't0',
+      } });
+    });
+    onRemoteChange.mockClear();
+
+    // The other player sets guard_0 to "Gold"; timestamp advances to t1.
+    const remote = withGuard0Item('Gold');
+    act(() => {
+      channel._trigger({ new: {
+        id: 'WOLF42',
+        guard_0: remote.guards[0], guard_0_updated_at: 't1',
+      } });
+    });
+
+    const merged = onRemoteChange.mock.calls[0][0];
+    expect(merged.guards[0].satchel[0].item).toBe('Gold');
+  });
+});
+
 // ─── Concurrent edits on the same device, different sections ────────────────
 
 describe('inbound updates preserve unrelated local changes', () => {

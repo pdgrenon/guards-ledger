@@ -16,6 +16,9 @@ import {
   normalizeRow,
   generateCampaignId,
   reconcileSelfEcho,
+  sectionTsColumn,
+  sectionChanged,
+  snapshotTimestamps,
 } from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
 
@@ -209,5 +212,49 @@ describe('reconcileSelfEcho (AVE-314)', () => {
     const res  = reconcileSelfEcho(list, { item: 'Silver' }, now, TTL);
     expect(res.isEcho).toBe(false);
     expect(res.list).toEqual([]);
+  });
+});
+
+describe('per-section timestamp gating (AVE-314)', () => {
+  it('names the timestamp column for a section', () => {
+    expect(sectionTsColumn('guard_0')).toBe('guard_0_updated_at');
+    expect(sectionTsColumn('resources')).toBe('resources_updated_at');
+  });
+
+  it('reports a section changed when its timestamp advanced', () => {
+    const row = { guard_0: {}, guard_0_updated_at: 't2' };
+    expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(true);
+  });
+
+  it('reports a section unchanged when its timestamp matches the baseline', () => {
+    // The core two-player case: guard_0 rides along in a guard_3 UPDATE with an
+    // unchanged timestamp — it must be treated as unchanged, not applied.
+    const row = { guard_0: {}, guard_0_updated_at: 't1' };
+    expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(false);
+  });
+
+  it('treats a section as changed when there is no baseline yet (first sighting)', () => {
+    const row = { guard_0: {}, guard_0_updated_at: 't1' };
+    expect(sectionChanged(row, 'guard_0', {})).toBe(true);
+  });
+
+  it('treats a section as changed when the row has no timestamp (pre-migration row)', () => {
+    const row = { guard_0: {} }; // no guard_0_updated_at column
+    expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(true);
+  });
+
+  it('snapshots only the present per-section timestamps', () => {
+    const row = {
+      id: 'WOLF42',
+      resources: {}, resources_updated_at: 'a',
+      guard_0: {},   guard_0_updated_at:   'b',
+      // guard_1 has no timestamp — omitted
+      created_at: 'ignored',
+    };
+    const snap = snapshotTimestamps(row);
+    expect(snap.resources).toBe('a');
+    expect(snap.guard_0).toBe('b');
+    expect(snap).not.toHaveProperty('guard_1');
+    expect(snap).not.toHaveProperty('created_at');
   });
 });

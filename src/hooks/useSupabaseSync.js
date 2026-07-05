@@ -208,6 +208,43 @@ export function reconcileSelfEcho(list, incoming, now, ttl) {
   return { isEcho: true, list: pruned.slice(0, idx).concat(pruned.slice(idx + 1)) };
 }
 
+/** Per-section timestamp column name (matches the schema: `<section>_updated_at`). */
+export function sectionTsColumn(section) { return `${section}_updated_at`; }
+
+/**
+ * Whether a remote section in this UPDATE actually changed, judged by its
+ * per-section `_updated_at` timestamp.
+ *
+ * Realtime delivers the *entire* row on every UPDATE, but `merge_section` only
+ * bumps the timestamp of the one section it wrote. So when player B edits a
+ * different guard, the payload still carries player A's section — with its
+ * timestamp unchanged — and that value may be *stale* relative to A's own
+ * in-flight local edit. Applying it would clobber A's edit (the AVE-314
+ * two-player "typing stomped every few seconds" symptom).
+ *
+ * Returns true (apply, subject to echo checks) when the timestamp advanced, or
+ * when we have no reliable baseline to compare against (first sighting, or a
+ * pre-migration row without per-section timestamps — fall back to value-based
+ * behavior). Returns false only when the timestamp is unchanged from what we
+ * last saw — the section is just riding along and must be left alone.
+ */
+export function sectionChanged(row, section, lastSeen) {
+  const ts   = row[sectionTsColumn(section)];
+  const prev = lastSeen[section];
+  if (ts == null || prev == null) return true; // no baseline → don't gate
+  return ts !== prev;
+}
+
+/** Snapshot the per-section `_updated_at` timestamps present on a row. */
+export function snapshotTimestamps(row) {
+  const out = {};
+  for (const section of ALL_SECTIONS) {
+    const ts = row[sectionTsColumn(section)];
+    if (ts != null) out[section] = ts;
+  }
+  return out;
+}
+
 // ─── Runtime helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -269,6 +306,14 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const selfWrites = useRef(new Map());
   const SELF_WRITE_TTL_MS = 15000;
 
+  // ── Per-section timestamp baseline (AVE-314) ──────────────────────────────
+  // The last `<section>_updated_at` value we've seen per section. An inbound
+  // UPDATE carries the whole row, but only the section it actually changed has
+  // a bumped timestamp — every other section is stale filler that must not be
+  // applied over a local in-flight edit. Seeded on join/create; advanced on
+  // each processed Realtime row. Map<sectionName, isoTimestamp>.
+  const lastSeenTs = useRef({});
+
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
     const list = (selfWrites.current.get(section) || []).filter(e => now - e.at < SELF_WRITE_TTL_MS);
@@ -303,18 +348,27 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         (payload) => {
             const row = normalizeRow(payload.new);
             if (!row) return;
-            // Apply each remote section on top of current local state, but
-            // skip sections whose incoming value already matches the local
-            // value — those are echoes of our own writes (or of concurrent
-            // writes that happened to converge). The earlier 3-second
-            // wall-clock window was the wrong tool: a legitimate remote
-            // change to a section we just wrote would be silently dropped
-            // (the symptom in AVE-82). Value-equality is timing-independent
-            // and correctly distinguishes "echo" from "real change."
+            // Apply each remote section on top of current local state, guarded
+            // by two independent, timing-independent filters (AVE-314):
+            //   1. a per-section timestamp gate that ignores sections this
+            //      UPDATE didn't actually change (stale full-row filler), and
+            //   2. value-based echo suppression that ignores echoes of our own
+            //      writes (current value or a recently-sent one).
+            // The earlier 3-second wall-clock window was the wrong tool: a
+            // legitimate remote change to a section we just wrote would be
+            // silently dropped (the symptom in AVE-82). Both filters here are
+            // timing-independent and correctly distinguish "echo" / "stale
+            // filler" from "real change."
             let merged = stateRef.current;
             for (const section of ALL_SECTIONS) {
               const incoming = row[section];
               if (incoming == null) continue;
+              // Timestamp gate: if this UPDATE didn't actually change the
+              // section (its `_updated_at` is unchanged), skip it. The value is
+              // just riding along in the full-row payload and may be stale
+              // relative to a local edit still in flight — applying it would
+              // clobber that edit (AVE-314, the two-player symptom).
+              if (!sectionChanged(row, section, lastSeenTs.current)) continue;
               const local = extractSection(stateRef.current, section);
               // Already converged with local — consume any matching self-write
               // entry so the buffer stays tidy, then skip.
@@ -322,10 +376,13 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
               // An echo of one of our own earlier writes: local has since moved
               // on (e.g. more keystrokes), so it no longer equals local, but we
               // must not apply it — that would revert the in-progress edit
-              // (AVE-314). Drop it and consume the entry.
+              // (AVE-314, the single-device symptom). Drop it and consume the entry.
               if (consumeSelfEcho(section, incoming)) continue;
               merged = applyRemoteSection(merged, section, incoming);
             }
+            // Advance the per-section timestamp baseline to this row so the next
+            // UPDATE can tell which sections it genuinely changed.
+            lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
             onRemoteChange(merged);
           }
       )
@@ -492,6 +549,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
       const { error } = await client.from('campaigns').insert(row);
       if (!error) {
+        // Seed the timestamp baseline from the row we just wrote so the first
+        // inbound UPDATE can gate correctly (AVE-314).
+        lastSeenTs.current = snapshotTimestamps(row);
         localStorage.setItem(CAMPAIGN_ID_KEY, id);
         setCampaignId(id);
         return { id, error: null };
@@ -533,6 +593,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     for (const section of ALL_SECTIONS) {
       merged = applyRemoteSection(merged, section, row[section]);
     }
+
+    // Seed the timestamp baseline from the fetched row so subsequent Realtime
+    // UPDATEs can tell which sections genuinely changed (AVE-314).
+    lastSeenTs.current = snapshotTimestamps(data);
 
     localStorage.setItem(CAMPAIGN_ID_KEY, id);
     setCampaignId(id);
