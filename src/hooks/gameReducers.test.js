@@ -52,6 +52,7 @@ import {
   reduceDeletePlan,
 } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
+import { healState, migrateV1 } from '../hooks/useGameState';
 import { groupEncounters } from '../data/encounters';
 import { bountiesForCity } from '../data/bounties';
 
@@ -1166,5 +1167,67 @@ describe('deriveUndoLabel', () => {
     const prev = addLog(s, 'Some action');
     const next = { ...prev, sil: 99 };
     expect(deriveUndoLabel(prev, next, 'resources')).toBe('Resources update');
+  });
+});
+
+// ─── healState / migrateV1 (import pipeline) ───────────────────────────────────
+
+describe('healState(migrateV1(...))', () => {
+  it('fills missing ftIstraBuildings on imported saves', () => {
+    const save = {
+      sil: 5, lux: 3,
+      guards: s.guards,
+      activeParty: s.activeParty,
+      campaign: { someOldKey: 'value' },
+    };
+    const healed = healState(migrateV1(save));
+    expect(healed.campaign.ftIstraBuildings).toEqual({});
+  });
+
+  it('fills missing eventTokens on imported saves', () => {
+    const save = {
+      sil: 5, lux: 3,
+      guards: s.guards,
+      activeParty: s.activeParty,
+      campaign: { completedEncounters: ['Fort_Istra_Tutorial'] },
+    };
+    const healed = healState(migrateV1(save));
+    expect(healed.campaign.eventTokens).toEqual({ mountain: 0, forest: 0, plains: 0, sea: 0 });
+  });
+
+  it('fills missing locations on imported saves', () => {
+    const save = {
+      sil: 5, lux: 3,
+      guards: s.guards,
+      activeParty: s.activeParty,
+      campaign: {},
+    };
+    const healed = healState(migrateV1(save));
+    expect(healed.campaign.locations).toBeDefined();
+    expect(healed.campaign.locations.party).toBe('');
+  });
+
+  it('fills missing plans on imported saves', () => {
+    const save = {
+      sil: 5, lux: 3,
+      guards: s.guards,
+      activeParty: s.activeParty,
+    };
+    const healed = healState(migrateV1(save));
+    expect(healed.campaign.plans).toEqual([]);
+  });
+
+  it('returns null for non-object input', () => {
+    expect(healState(null)).toBeNull();
+    expect(healState('string')).toBeNull();
+    expect(healState(42)).toBeNull();
+  });
+
+  it('passes through a valid v2 state unchanged', () => {
+    const healed = healState(migrateV1(s));
+    expect(healed.sil).toBe(s.sil);
+    expect(healed.lux).toBe(s.lux);
+    expect(healed.guards).toHaveLength(8);
+    expect(healed.campaign.ftIstraBuildings).toEqual(s.campaign.ftIstraBuildings);
   });
 });

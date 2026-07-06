@@ -50,7 +50,7 @@ const CORRUPTED_BACKUP_KEY    = 'guards_ledger_corrupted_backup';
 
 // ─── Migration ────────────────────────────────────────────────────────────────
 
-function migrateV1(v1) {
+export function migrateV1(v1) {
   return {
     sil:            v1.sil            ?? 0,
     lux:            v1.lux            ?? 0,
@@ -122,7 +122,7 @@ function healGuard(raw) {
   };
 }
 
-function healState(parsed) {
+export function healState(parsed) {
   if (!isPlainObject(parsed)) return null;
 
   const resInit    = createInitialResources();
@@ -469,7 +469,9 @@ export function useGameState() {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
-          setState(addLog(migrateV1(imported), 'Save file imported'), null);
+          const healed = healState(migrateV1(imported));
+          if (!healed) { resolve({ success: false, error: 'Invalid save file.' }); return; }
+          setState(addLog(healed, 'Save file imported'), null);
           resolve({ success: true });
         } catch {
           resolve({ success: false, error: 'Invalid save file.' });
