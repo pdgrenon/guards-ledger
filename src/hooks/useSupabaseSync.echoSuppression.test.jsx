@@ -101,10 +101,12 @@ describe('inbound Realtime updates', () => {
     expect(merged.lux).toBe(7);
   });
 
-  it('calls onRemoteChange even when every section is a no-op echo', () => {
-    // The hook should notify the parent on every Realtime event — the
-    // parent decides whether the change is meaningful. The hook's job is
-    // to never silently drop a Realtime event.
+  it('does NOT call onRemoteChange when every section is a no-op echo (AVE-371)', () => {
+    // Most Realtime events are echoes of our own writes with every section
+    // skipped. Forwarding those to the parent made useGameState wipe its
+    // undo snapshot within a second of every local action while a campaign
+    // was active, and forced a full re-render per echo. The parent is only
+    // notified when a section was actually applied.
     const client = makeMockClient();
     const onRemoteChange = vi.fn();
     renderHook(() => useSupabaseSync(createInitialState(), onRemoteChange, client));
@@ -115,11 +117,7 @@ describe('inbound Realtime updates', () => {
       channel._trigger({ new: { id: 'WOLF42', resources: { sil: 0, lux: 0 } } });
     });
 
-    expect(onRemoteChange).toHaveBeenCalledTimes(1);
-    const passedArg = onRemoteChange.mock.calls[0][0];
-    // State must be intact (no corruption from the merge loop).
-    expect(passedArg.sil).toBe(0);
-    expect(passedArg.lux).toBe(0);
+    expect(onRemoteChange).not.toHaveBeenCalled();
   });
 
   it('a component reading from state via the parent re-renders when a Realtime update arrives', () => {
@@ -188,8 +186,8 @@ describe('value-based echo suppression (replaces 3s wall-clock window)', () => {
   it('a remote change with the same value as the local state is skipped (echo)', async () => {
     // The local value is the same as the incoming remote value — this
     // is a real echo (the server rebroadcast our own write, or another
-    // client converged to the same value). The merged state should
-    // reflect the local value.
+    // client converged to the same value). Nothing is applied, so the
+    // parent is not notified at all (AVE-371) — local state stands.
     const client = makeMockClient();
     const onRemoteChange = vi.fn();
     const { result, rerender } = renderHook(
@@ -210,9 +208,7 @@ describe('value-based echo suppression (replaces 3s wall-clock window)', () => {
       channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
     });
 
-    expect(onRemoteChange).toHaveBeenCalled();
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.sil).toBe(5);
+    expect(onRemoteChange).not.toHaveBeenCalled();
   });
 
   it('a remote change to one section does not echo-suppress changes to a different section', async () => {
@@ -293,9 +289,9 @@ describe('self-write echo suppression while actively editing (AVE-314)', () => {
       channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } });
     });
 
-    // guard_0 must remain "Silverwood" — the stale echo was dropped.
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].satchel[0].item).toBe('Silverwood');
+    // The stale echo was dropped — nothing applied, parent not notified,
+    // so local state ("Silverwood") stands untouched (AVE-371).
+    expect(onRemoteChange).not.toHaveBeenCalled();
   });
 
   it('drops the echo that would revert a cleared (deleted) slot', async () => {
@@ -325,9 +321,9 @@ describe('self-write echo suppression while actively editing (AVE-314)', () => {
       channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } });
     });
 
-    // The slot stays cleared — deletion persists.
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].satchel[0].item).toBe('');
+    // The slot stays cleared — the echo was dropped without notifying the
+    // parent (AVE-371), so the deletion persists.
+    expect(onRemoteChange).not.toHaveBeenCalled();
   });
 
   it('still applies a genuine remote edit to the same guard (not a self-echo)', async () => {

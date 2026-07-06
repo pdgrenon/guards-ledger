@@ -336,6 +336,12 @@ describe('normalizeCompletedEncounters', () => {
     expect(normalizeCompletedEncounters([{ nope: 1 }, null, 5])).toEqual([]);
     expect(normalizeCompletedEncounters(undefined)).toEqual([]);
   });
+  it('dedupes same-id entries, keeping the first occurrence (AVE-370 repair)', () => {
+    // The buggy legacy puzzle-quest migration appended a live duplicate next
+    // to a tombstone on every load. The first entry is the user's real toggle.
+    expect(normalizeCompletedEncounters([{ id: 'a', deleted: true }, { id: 'a' }, { id: 'b' }]))
+      .toEqual([{ id: 'a', deleted: true }, { id: 'b' }]);
+  });
 });
 
 // ─── addLog ───────────────────────────────────────────────────────────────────
@@ -590,13 +596,16 @@ describe('reduceAdjustStash', () => {
     expect(next.stash['Iron']).toBe(2);
   });
 
-  it('removes the key when quantity reaches 0', () => {
+  it('keeps a 0-count tombstone when quantity reaches 0 (AVE-369)', () => {
+    // Deleting the key never propagates through the server's field-level
+    // merge (keys absent from the payload are preserved), so the write's own
+    // Realtime echo resurrected the item. A 0 entry syncs like any value.
     const s1   = reduceAdjustStash(s, 'Iron', 1);
     const next = reduceAdjustStash(s1, 'Iron', -1);
-    expect(Object.hasOwn(next.stash, 'Iron')).toBe(false);
+    expect(next.stash['Iron']).toBe(0);
   });
 
-  it('clamps at 0 (cannot go negative)', () => {
+  it('clamps at 0 without materializing a key for an absent item', () => {
     const next = reduceAdjustStash(s, 'Iron', -5);
     expect(Object.hasOwn(next.stash, 'Iron')).toBe(false);
   });
@@ -1189,6 +1198,17 @@ describe('compactTombstones', () => {
     expect(compacted.stonebound.locations.find(l => l.id === 2)).toBeUndefined();
   });
 
+  it('removes zero-count stash tombstones (AVE-369)', () => {
+    const state = { ...s, stash: { Iron: 2, Silver: 0, 'My Custom Thing': 0 } };
+    const compacted = compactTombstones(state);
+    expect(compacted.stash).toEqual({ Iron: 2 });
+  });
+
+  it('leaves a stash without zero counts untouched (same reference)', () => {
+    const state = { ...s, stash: { Iron: 2 } };
+    expect(compactTombstones(state).stash).toBe(state.stash);
+  });
+
   it('removes tombstoned campaign plans', () => {
     const state = {
       ...s,
@@ -1441,5 +1461,74 @@ describe('healState(migrateV1(...))', () => {
     expect(healed.lux).toBe(s.lux);
     expect(healed.guards).toHaveLength(8);
     expect(healed.campaign.ftIstraBuildings).toEqual(s.campaign.ftIstraBuildings);
+  });
+});
+
+// ─── Legacy puzzleQuestDone migration (AVE-370) ──────────────────────────────
+//
+// The legacy flag must migrate exactly once. It used to re-run on every load:
+// un-completing a migrated quest resurrected it on the next reload (and
+// appended a duplicate entry each time), and the flag re-fired under whatever
+// campaign was active, leaking completion into other campaigns.
+
+describe('legacy puzzleQuestDone migration (AVE-370)', () => {
+  function stateWithLegacyFlag(campaignId = 1) {
+    const state = createInitialState();
+    state.cities = state.cities.map(c =>
+      c.name === 'Mir' ? { ...c, puzzleQuestDone: true } : c
+    );
+    state.campaign.campaignId = campaignId;
+    return state;
+  }
+
+  it('migrates the flag into completedPuzzleQuests and clears it', () => {
+    const healed = healState(stateWithLegacyFlag(1));
+    expect(isPuzzleQuestCompleted(healed.campaign.completedPuzzleQuests, 'mir-c1-puzzle')).toBe(true);
+    expect(healed.cities.find(c => c.name === 'Mir').puzzleQuestDone).toBe(false);
+  });
+
+  it('an un-completed quest stays un-completed across reloads', () => {
+    // load → un-check in the UI → reload (healState runs again on the save)
+    let loaded = healState(stateWithLegacyFlag(1));
+    loaded = reduceTogglePuzzleQuestComplete(loaded, 'mir-c1-puzzle');
+    const reloaded = healState(JSON.parse(JSON.stringify(loaded)));
+    expect(isPuzzleQuestCompleted(reloaded.campaign.completedPuzzleQuests, 'mir-c1-puzzle')).toBe(false);
+    // …and no duplicate entries accumulate.
+    const mirEntries = reloaded.campaign.completedPuzzleQuests.filter(q => q.id === 'mir-c1-puzzle');
+    expect(mirEntries).toHaveLength(1);
+  });
+
+  it('does not leak the flag into a different campaign', () => {
+    // Save last used under campaign 2 — a campaign-1-era flag must not
+    // complete campaign 2's quest… but with no prior entry at all, the
+    // one-shot migration applies it to the active campaign (best guess).
+    // The critical case: once ANY entry exists for the city, reloading
+    // under another campaign adds nothing.
+    let loaded = healState(stateWithLegacyFlag(1));
+    expect(isPuzzleQuestCompleted(loaded.campaign.completedPuzzleQuests, 'mir-c1-puzzle')).toBe(true);
+
+    // Simulate the flag reappearing (e.g. legacy cities value from an
+    // unmigrated remote row) while the save now sits on campaign 2.
+    loaded = {
+      ...loaded,
+      cities: loaded.cities.map(c => c.name === 'Mir' ? { ...c, puzzleQuestDone: true } : c),
+      campaign: { ...loaded.campaign, campaignId: 2 },
+    };
+    const reloaded = healState(JSON.parse(JSON.stringify(loaded)));
+    expect(isPuzzleQuestCompleted(reloaded.campaign.completedPuzzleQuests, 'mir-c2-puzzle')).toBe(false);
+    // Campaign 1's completion is untouched.
+    expect(isPuzzleQuestCompleted(reloaded.campaign.completedPuzzleQuests, 'mir-c1-puzzle')).toBe(true);
+  });
+
+  it('migrateV1 applies the same one-shot migration to old saves and imports', () => {
+    const v1 = {
+      cities: createInitialCities().cities.map(c =>
+        c.name === 'Ryba' ? { ...c, puzzleQuestDone: true } : c
+      ),
+      campaign: { campaignId: 3 },
+    };
+    const migrated = migrateV1(v1);
+    expect(isPuzzleQuestCompleted(migrated.campaign.completedPuzzleQuests, 'ryba-c3-puzzle')).toBe(true);
+    expect(migrated.cities.find(c => c.name === 'Ryba').puzzleQuestDone).toBe(false);
   });
 });
