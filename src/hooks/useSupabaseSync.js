@@ -364,7 +364,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const applyRemoteRow = useCallback((rawRow) => {
     const row = normalizeRow(rawRow);
     if (!row) return;
-    let merged = stateRef.current;
+    const toApply = {};
     let applied = false;
     for (const section of ALL_SECTIONS) {
       const incoming = row[section];
@@ -373,11 +373,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       const local = extractSection(stateRef.current, section);
       if (deepEqual(incoming, local)) { consumeSelfEcho(section, incoming); continue; }
       if (consumeSelfEcho(section, incoming)) continue;
-      merged = applyRemoteSection(merged, section, incoming);
+      toApply[section] = incoming;
       applied = true;
     }
     lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
-    if (applied) onRemoteChange(merged);
+    if (applied) onRemoteChange(toApply);
   }, [onRemoteChange, consumeSelfEcho]);
 
   /**
@@ -651,9 +651,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // activeGuardIdx, so it is never touched — the joining player keeps their
     // own guard view.
     const row = normalizeRow(data);
-    let merged = stateRef.current;
+    const sections = {};
     for (const section of ALL_SECTIONS) {
-      merged = applyRemoteSection(merged, section, row[section]);
+      if (row[section] != null) sections[section] = row[section];
     }
 
     // Seed the timestamp baseline from the fetched row so subsequent Realtime
@@ -665,8 +665,8 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // Push the joined campaign state into local React state immediately.
     // Without this, the joining player keeps seeing their old local state
     // until the host's next Realtime UPDATE happens to trigger a re-render.
-    onRemoteChange(merged);
-    return { state: merged, error: null };
+    onRemoteChange(sections);
+    return { state: null, error: null };
   }, [client, onRemoteChange]);
 
   /**

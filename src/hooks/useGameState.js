@@ -43,7 +43,7 @@ import {
   normalizeCompletedEncounters,
 } from './gameReducers';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
-import { useSupabaseSync, guardColumn } from './useSupabaseSync';
+import { useSupabaseSync, guardColumn, applyRemoteSection } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
 // v1 saves (flat shape) are migrated automatically on first load.
@@ -372,15 +372,21 @@ export function useGameState() {
     // Merges remote state into local, preserving local-only keys. Invalidates
     // the undo snapshot so we never undo to a state that didn't include the
     // remote change (AVE-366).
-    const handleRemoteChange = useCallback((remoteState) => {
+    const handleRemoteChange = useCallback((sectionsToApply) => {
       undoSnapshot.current = null;
       setUndoLabel(null);
-      setRaw(prev => ({
-        ...remoteState,
-        log:            prev.log,            // local-only: session log
-        settings:       prev.settings,       // local-only: app settings
-        activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
-      }));
+      setRaw(prev => {
+        let merged = prev;
+        for (const [section, value] of Object.entries(sectionsToApply)) {
+          merged = applyRemoteSection(merged, section, value);
+        }
+        return {
+          ...merged,
+          log:            prev.log,            // local-only: session log
+          settings:       prev.settings,       // local-only: app settings
+          activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
+        };
+      });
     }, []);
 
     const sync = useSupabaseSync(state, handleRemoteChange);
