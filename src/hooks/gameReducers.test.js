@@ -20,6 +20,7 @@ import {
 } from '../data/constants';
 import {
   addLog,
+  compactTombstones,
   deriveUndoLabel,
   reduceSetPartySlot,
   reduceSetSil,
@@ -1165,6 +1166,189 @@ describe('reduceDeletePlan', () => {
     const next = reduceDeletePlan(s1, 99999);
     expect(next.campaign.plans).toHaveLength(1);
     expect(next.campaign.plans[0].deleted).toBeUndefined();
+  });
+});
+
+// ─── Tombstone compaction (solo-mode GC) ────────────────────────────────────
+
+describe('compactTombstones', () => {
+  it('removes tombstoned stonebound locations', () => {
+    const state = {
+      ...s,
+      stonebound: {
+        max: 4,
+        locations: [
+          { id: 1, selection: 'Mir', count: 1 },
+          { id: 2, selection: 'Razdor', count: 2, deleted: true },
+          { id: 3, selection: 'Silny', count: 1 },
+        ],
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.stonebound.locations).toHaveLength(2);
+    expect(compacted.stonebound.locations.find(l => l.id === 2)).toBeUndefined();
+  });
+
+  it('removes tombstoned campaign plans', () => {
+    const state = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        plans: [
+          { id: 1, text: 'Plan A', done: false },
+          { id: 2, text: 'Plan B', done: true, deleted: true },
+          { id: 3, text: 'Plan C', done: false },
+        ],
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.campaign.plans).toHaveLength(2);
+    expect(compacted.campaign.plans.find(p => p.id === 2)).toBeUndefined();
+  });
+
+  it('removes tombstoned completed encounters', () => {
+    const state = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        completedEncounters: [
+          { id: 'enc-1' },
+          { id: 'enc-2', deleted: true },
+          { id: 'enc-3' },
+        ],
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.campaign.completedEncounters).toHaveLength(2);
+    expect(compacted.campaign.completedEncounters.find(e => e.id === 'enc-2')).toBeUndefined();
+  });
+
+  it('removes tombstoned completed bounties', () => {
+    const state = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        completedBounties: [
+          { id: 'b-1' },
+          { id: 'b-2', deleted: true },
+        ],
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.campaign.completedBounties).toHaveLength(1);
+    expect(compacted.campaign.completedBounties.find(b => b.id === 'b-2')).toBeUndefined();
+  });
+
+  it('removes tombstoned entries from dynamic location arrays (sideQuests)', () => {
+    const state = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        locations: {
+          ...s.campaign.locations,
+          sideQuests: [
+            { id: 1, label: 'Thief Camp' },
+            { id: 2, label: 'Haunted Cave', deleted: true },
+          ],
+        },
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.campaign.locations.sideQuests).toHaveLength(1);
+    expect(compacted.campaign.locations.sideQuests.find(q => q.id === 2)).toBeUndefined();
+  });
+
+  it('preserves non-array location keys', () => {
+    const state = {
+      ...s,
+      campaign: {
+        ...s.campaign,
+        locations: {
+          party: 'Forest',
+          caravan: '',
+          sideQuests: [{ id: 1, label: 'Thief Camp', deleted: true }],
+        },
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.campaign.locations.party).toBe('Forest');
+    expect(compacted.campaign.locations.caravan).toBe('');
+  });
+
+  it('returns the same reference when there are no tombstones', () => {
+    const state = {
+      ...s,
+      stonebound: { max: 4, locations: [{ id: 1, selection: 'Mir', count: 1 }] },
+      campaign: {
+        ...s.campaign,
+        plans: [{ id: 1, text: 'Plan A', done: false }],
+        completedEncounters: [{ id: 'enc-1' }],
+        completedBounties: [{ id: 'b-1' }],
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted).toBe(state);
+  });
+
+  it('handles empty arrays without error', () => {
+    const compacted = compactTombstones(s);
+    expect(compacted.stonebound.locations).toEqual([]);
+    expect(compacted.campaign.plans).toEqual([]);
+    expect(compacted.campaign.completedEncounters).toEqual([]);
+    expect(compacted.campaign.completedBounties).toEqual([]);
+  });
+
+  it('handles null/undefined stonebound', () => {
+    const state = { ...s, stonebound: undefined };
+    const compacted = compactTombstones(state);
+    expect(compacted.stonebound).toBeUndefined();
+  });
+
+  it('handles null/undefined campaign', () => {
+    const state = { ...s, campaign: undefined };
+    const compacted = compactTombstones(state);
+    expect(compacted.campaign).toBeUndefined();
+  });
+
+  it('removes tombstones from all array types simultaneously', () => {
+    const state = {
+      ...s,
+      stonebound: {
+        max: 4,
+        locations: [
+          { id: 1, selection: 'Mir', count: 1 },
+          { id: 2, selection: 'Razdor', count: 2, deleted: true },
+        ],
+      },
+      campaign: {
+        ...s.campaign,
+        plans: [
+          { id: 1, text: 'A', done: false },
+          { id: 2, text: 'B', done: true, deleted: true },
+        ],
+        completedEncounters: [
+          { id: 'e1' },
+          { id: 'e2', deleted: true },
+        ],
+        completedBounties: [
+          { id: 'b1' },
+          { id: 'b2', deleted: true },
+        ],
+        locations: {
+          ...s.campaign.locations,
+          sideQuests: [
+            { id: 1, label: 'x' },
+            { id: 2, label: 'y', deleted: true },
+          ],
+        },
+      },
+    };
+    const compacted = compactTombstones(state);
+    expect(compacted.stonebound.locations).toHaveLength(1);
+    expect(compacted.campaign.plans).toHaveLength(1);
+    expect(compacted.campaign.completedEncounters).toHaveLength(1);
+    expect(compacted.campaign.completedBounties).toHaveLength(1);
+    expect(compacted.campaign.locations.sideQuests).toHaveLength(1);
   });
 });
 

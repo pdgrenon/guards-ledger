@@ -57,7 +57,7 @@ const defaultSupabase = supabaseUrl && supabaseKey
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CAMPAIGN_ID_KEY = 'guards_ledger_campaign_id';
+export const CAMPAIGN_ID_KEY = 'guards_ledger_campaign_id';
 
 // Number of guards in a campaign (Grigory … Yana). Each gets its own column.
 export const GUARD_COUNT = 8;
