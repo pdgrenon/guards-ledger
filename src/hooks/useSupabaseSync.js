@@ -10,6 +10,9 @@
  *   - Queuing upserts while offline and flushing on reconnect
  *   - Resubscribing when the page becomes visible again after being backgrounded
  *     (mobile browsers drop websockets silently when a tab is backgrounded)
+ *   - Re-fetching the campaign row on boot, reconnect, and foreground so state
+ *     missed while disconnected is pulled in (resubscribing only delivers future
+ *     events, never the UPDATEs missed while the socket was down) — see AVE-372
  *
  * Section mapping (matches Supabase columns):
  *   resources       ← { sil, lux }
@@ -347,6 +350,62 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     return isEcho;
   }, []);
 
+  // ── Apply a remote row through the gated pipeline (AVE-314 / AVE-372) ──────
+  // Shared by the Realtime UPDATE handler and refetchRow. Takes a raw Supabase
+  // row (Realtime's payload.new, or the result of a fresh SELECT), normalizes
+  // it, then applies each section on top of current local state subject to the
+  // same two timing-independent guards used everywhere:
+  //   1. per-section timestamp gate (skip sections this row didn't change), and
+  //   2. value/self-echo suppression (skip echoes of our own writes).
+  // Advances the per-section timestamp baseline to the row afterwards, and calls
+  // onRemoteChange only when at least one section was actually applied. Reusing
+  // this for the refetch (AVE-372) means a re-fetched row can never clobber an
+  // in-flight local edit — the AVE-314 protections apply identically.
+  const applyRemoteRow = useCallback((rawRow) => {
+    const row = normalizeRow(rawRow);
+    if (!row) return;
+    let merged = stateRef.current;
+    let applied = false;
+    for (const section of ALL_SECTIONS) {
+      const incoming = row[section];
+      if (incoming == null) continue;
+      if (!sectionChanged(row, section, lastSeenTs.current)) continue;
+      const local = extractSection(stateRef.current, section);
+      if (deepEqual(incoming, local)) { consumeSelfEcho(section, incoming); continue; }
+      if (consumeSelfEcho(section, incoming)) continue;
+      merged = applyRemoteSection(merged, section, incoming);
+      applied = true;
+    }
+    lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
+    if (applied) onRemoteChange(merged);
+  }, [onRemoteChange, consumeSelfEcho]);
+
+  /**
+   * Re-fetch the campaign row and push it through the same gated pipeline as a
+   * Realtime event (AVE-372).
+   *
+   * Resubscribing after a dropped socket only delivers *future* events, never
+   * the UPDATEs missed while disconnected — so after a phone lock, reconnect, or
+   * a cold boot with a campaign already active, local state can sit stale
+   * indefinitely (until the other player happens to edit again). This closes
+   * that gap by actively reading the current server state and merging it in.
+   *
+   * On a cold boot it also seeds `lastSeenTs` (otherwise only join/create seed
+   * it), so the first subsequent Realtime UPDATE has a proper timestamp baseline
+   * to gate against instead of applying blind.
+   */
+  const refetchRow = useCallback(async () => {
+    const id = campaignIdRef.current;
+    if (!client || !id) return;
+    const { data, error } = await client
+      .from('campaigns')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error || !data) return;
+    applyRemoteRow(data);
+  }, [client, applyRemoteRow]);
+
   // ── Core subscribe / unsubscribe ─────────────────────────────────────────
 
   const subscribe = useCallback((id) => {
@@ -364,52 +423,17 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'campaigns', filter: `id=eq.${id}` },
         (payload) => {
-            const row = normalizeRow(payload.new);
-            if (!row) return;
-            // Apply each remote section on top of current local state, guarded
-            // by two independent, timing-independent filters (AVE-314):
-            //   1. a per-section timestamp gate that ignores sections this
-            //      UPDATE didn't actually change (stale full-row filler), and
-            //   2. value-based echo suppression that ignores echoes of our own
-            //      writes (current value or a recently-sent one).
-            // The earlier 3-second wall-clock window was the wrong tool: a
-            // legitimate remote change to a section we just wrote would be
-            // silently dropped (the symptom in AVE-82). Both filters here are
-            // timing-independent and correctly distinguish "echo" / "stale
-            // filler" from "real change."
-            let merged = stateRef.current;
-            let applied = false;
-            for (const section of ALL_SECTIONS) {
-              const incoming = row[section];
-              if (incoming == null) continue;
-              // Timestamp gate: if this UPDATE didn't actually change the
-              // section (its `_updated_at` is unchanged), skip it. The value is
-              // just riding along in the full-row payload and may be stale
-              // relative to a local edit still in flight — applying it would
-              // clobber that edit (AVE-314, the two-player symptom).
-              if (!sectionChanged(row, section, lastSeenTs.current)) continue;
-              const local = extractSection(stateRef.current, section);
-              // Already converged with local — consume any matching self-write
-              // entry so the buffer stays tidy, then skip.
-              if (deepEqual(incoming, local)) { consumeSelfEcho(section, incoming); continue; }
-              // An echo of one of our own earlier writes: local has since moved
-              // on (e.g. more keystrokes), so it no longer equals local, but we
-              // must not apply it — that would revert the in-progress edit
-              // (AVE-314, the single-device symptom). Drop it and consume the entry.
-              if (consumeSelfEcho(section, incoming)) continue;
-              merged = applyRemoteSection(merged, section, incoming);
-              applied = true;
-            }
-            // Advance the per-section timestamp baseline to this row so the next
-            // UPDATE can tell which sections it genuinely changed.
-            lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
-            // Only notify the parent when a section was actually applied. Most
-            // events are echoes of our own writes with every section skipped;
-            // forwarding those made useGameState wipe its undo snapshot within
-            // a second of every local action while a campaign was active
-            // (AVE-371) and forced a full re-render per echo.
-            if (applied) onRemoteChange(merged);
-          }
+          // Apply the inbound row through the shared gated pipeline: a
+          // per-section timestamp gate (ignore sections this UPDATE didn't
+          // actually change — stale full-row filler) plus value/self-echo
+          // suppression (ignore echoes of our own writes). Both filters are
+          // timing-independent, correctly distinguishing "echo" / "stale
+          // filler" from "real change" (AVE-314). onRemoteChange fires only
+          // when a section was actually applied, so echoes of our own writes
+          // don't churn useGameState's undo snapshot or force re-renders
+          // (AVE-371).
+          applyRemoteRow(payload.new);
+        }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED')    setSyncStatus('idle');
@@ -417,7 +441,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       });
 
     channelRef.current = channel;
-  }, [client, onRemoteChange, consumeSelfEcho]);
+  }, [client, applyRemoteRow]);
 
   // ── Upsert helpers ────────────────────────────────────────────────────────
 
@@ -462,6 +486,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       const id = campaignIdRef.current;
       if (id) {
         subscribe(id);   // resubscribe in case the socket dropped while offline
+        refetchRow();    // pull UPDATEs missed while offline (resubscribe only gets future events) — AVE-372
         flushQueue();
       }
     }
@@ -475,7 +500,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       window.removeEventListener('online',  handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [subscribe, flushQueue]);
+  }, [subscribe, refetchRow, flushQueue]);
 
   // ── Visibility-based resubscription ──────────────────────────────────────
   // Mobile browsers silently drop WebSocket connections when a tab is
@@ -488,6 +513,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         const id = campaignIdRef.current;
         if (id && client) {
           subscribe(id);
+          // Pull any UPDATEs missed while the tab was backgrounded — the mobile
+          // browser silently drops the socket, and resubscribing only receives
+          // future events, not the ones missed while disconnected (AVE-372).
+          refetchRow();
           // Also flush any queued upserts that accumulated while hidden
           flushQueue();
         }
@@ -495,13 +524,21 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [client, subscribe, flushQueue]);
+  }, [client, subscribe, refetchRow, flushQueue]);
 
   // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
 
   useEffect(() => {
     if (campaignId) {
       subscribe(campaignId);
+      // Boot / campaign-change fetch (AVE-372): local state came purely from
+      // localStorage, which may be stale if another player edited while this
+      // app was closed. Pull the current row and merge it in through the gated
+      // pipeline. This also seeds `lastSeenTs` on a cold boot (only join/create
+      // seed it otherwise), giving the first Realtime UPDATE a real baseline.
+      // On a join the row was just fetched and applied, so this re-fetch merges
+      // nothing new — harmless and gated.
+      refetchRow();
     } else if (channelRef.current) {
       client?.removeChannel(channelRef.current);
       channelRef.current = null;
@@ -512,7 +549,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         channelRef.current = null;
       }
     };
-  }, [campaignId, client, subscribe]);
+  }, [campaignId, client, subscribe, refetchRow]);
 
   /**
    * Upsert a single section to Supabase.
