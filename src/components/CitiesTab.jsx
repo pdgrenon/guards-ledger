@@ -1,19 +1,13 @@
 import { useState } from 'react';
-import { cityPrestige, isBountyCompleted } from '../hooks/gameReducers';
+import { cityPrestige, isBountyCompleted, isPuzzleQuestCompleted } from '../hooks/gameReducers';
 import { Checkmark } from './Checkmark';
 import { MAX_PRESTIGE } from '../data/constants';
 import { bountiesForCity } from '../data/bounties';
+import { puzzleQuestForCity } from '../data/puzzleQuests';
 import { useDialogA11y } from '../hooks/useDialogA11y';
 
 // Cities use a dedicated stone-ochre accent — distinct from all 8 guard colors.
 const CITY_COLOR = 'var(--c-city)';
-
-// The two bounty slots are now the real campaign bounties (rendered below and
-// tracked in completedBounties), so the only remaining stored city quest is the
-// puzzle quest. All three still feed the city's reputation.
-const QUESTS = [
-  { field: 'puzzleQuestDone', label: 'Puzzle quest' },
-];
 
 // Compact bounty row styled after the Training Yard / Spirit Boss encounter
 // cards (AVE-359). Reuses the `.encounter-*` primitives so bounties match the
@@ -103,19 +97,22 @@ function BountyDetailDialog({ bounty, completed, onToggle, onClose }) {
   );
 }
 
-export function CitiesTab({ cities, toggleCityQuest, campaignId, completedBounties, toggleBountyComplete }) {
+export function CitiesTab({ cities, campaignId, completedBounties, toggleBountyComplete, completedPuzzleQuests, togglePuzzleQuestComplete }) {
   const [openBounty, setOpenBounty] = useState(null);
 
   return (
     <>
       <div className="cities-grid">
-        {cities.map((city, idx) => {
+        {cities.map((city) => {
           // Bounties are Inn-scoped and campaign-scoped, not cumulative: each
           // city shows only the two bounties for the currently active campaign.
           const cityBounties = bountiesForCity(city.name, campaignId);
+          // Puzzle quest location is also campaign-scoped, not cumulative.
+          const puzzleQuest = puzzleQuestForCity(city.name, campaignId);
+          const puzzleDone = puzzleQuest && isPuzzleQuestCompleted(completedPuzzleQuests, puzzleQuest.id);
           // Reputation reflects the active campaign — puzzle quest + completed
           // campaign bounties. Completing a bounty below fills a prestige pip.
-          const prestige = cityPrestige(city, campaignId, completedBounties);
+          const prestige = cityPrestige(city, campaignId, completedBounties, completedPuzzleQuests);
 
           return (
             <div
@@ -133,23 +130,25 @@ export function CitiesTab({ cities, toggleCityQuest, campaignId, completedBounti
                 ))}
               </div>
 
-              {/* Quest rows — entire row tinted green when done */}
-              {QUESTS.map(({ field, label }) => (
+              {/* Puzzle quest — campaign-scoped, entire row tinted green when done */}
+              {puzzleQuest && (
                 <div
-                  key={field}
-                  className={`quest-row${city[field] ? ' done' : ''}`}
-                  onClick={() => toggleCityQuest(idx, field)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCityQuest(idx, field); } }}
+                  className={`quest-row${puzzleDone ? ' done' : ''}`}
+                  onClick={() => togglePuzzleQuestComplete(puzzleQuest.id)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePuzzleQuestComplete(puzzleQuest.id); } }}
                   role="checkbox"
-                  aria-checked={city[field]}
+                  aria-checked={puzzleDone}
                   tabIndex={0}
                 >
-                  <div className={`quest-box${city[field] ? ' done' : ''}`}>
-                    {city[field] && <Checkmark />}
+                  <div className={`quest-box${puzzleDone ? ' done' : ''}`}>
+                    {puzzleDone && <Checkmark />}
                   </div>
-                  <span className={`quest-lbl${city[field] ? ' done' : ''}`}>{label}</span>
+                  <div className="quest-lbl-group">
+                    <span className={`quest-lbl${puzzleDone ? ' done' : ''}`}>Puzzle quest</span>
+                    <span className="quest-sub">{puzzleQuest.location}</span>
+                  </div>
                 </div>
-              ))}
+              )}
 
               {/* Bounty Quests — the two campaign-scoped bounties for this Inn */}
               {cityBounties.length > 0 && (

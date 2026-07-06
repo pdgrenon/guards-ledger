@@ -29,7 +29,8 @@ import {
   reduceAdjustGuardMaxHp,
 
   cityPrestige,
-  reduceToggleCityQuest,
+  isPuzzleQuestCompleted,
+  reduceTogglePuzzleQuestComplete,
   reduceAdjustStash,
   reduceSetStoneboundMax,
   reduceAddStoneboundLocation,
@@ -56,6 +57,7 @@ import { colorizeLogMessage } from '../utils/logUtils';
 import { healState, migrateV1 } from '../hooks/useGameState';
 import { groupEncounters } from '../data/encounters';
 import { bountiesForCity } from '../data/bounties';
+import { puzzleQuestForCity } from '../data/puzzleQuests';
 
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
@@ -498,11 +500,12 @@ describe('reduceSetCampaign', () => {
 
 describe('cityPrestige', () => {
   it('returns 0 when nothing is done', () => {
-    expect(cityPrestige(s.cities[0], 1, [])).toBe(0);
+    expect(cityPrestige(s.cities[0], 1, [], [])).toBe(0);
   });
 
   it('returns 1 when only the puzzle quest is done', () => {
-    expect(cityPrestige({ name: 'Mir', puzzleQuestDone: true }, 1, [])).toBe(1);
+    const quest = puzzleQuestForCity('Mir', 1);
+    expect(cityPrestige({ name: 'Mir' }, 1, [], [{ id: quest.id }])).toBe(1);
   });
 
   it('counts completed campaign bounties toward reputation', () => {
@@ -510,63 +513,60 @@ describe('cityPrestige', () => {
     const [b1, b2] = bountiesForCity('Mir', 1);
     const completed = [{ id: b1.id }, { id: b2.id }];
     // both campaign-1 bounties done, puzzle not done → 2
-    expect(cityPrestige(mir, 1, completed)).toBe(2);
+    expect(cityPrestige(mir, 1, completed, [])).toBe(2);
     // plus puzzle quest → 3 (max)
-    expect(cityPrestige({ ...mir, puzzleQuestDone: true }, 1, completed)).toBe(3);
+    const quest = puzzleQuestForCity('Mir', 1);
+    expect(cityPrestige(mir, 1, completed, [{ id: quest.id }])).toBe(3);
   });
 
   it('is campaign-scoped: a campaign 1 bounty does not raise campaign 2 reputation', () => {
     const mir = s.cities.find(c => c.name === 'Mir');
     const [b1] = bountiesForCity('Mir', 1);
     const completed = [{ id: b1.id }];
-    expect(cityPrestige(mir, 1, completed)).toBe(1); // visible in campaign 1
-    expect(cityPrestige(mir, 2, completed)).toBe(0); // not in campaign 2
+    expect(cityPrestige(mir, 1, completed, [])).toBe(1); // visible in campaign 1
+    expect(cityPrestige(mir, 2, completed, [])).toBe(0); // not in campaign 2
     // …and switching back to campaign 1 still reflects it (derivation is pure)
-    expect(cityPrestige(mir, 1, completed)).toBe(1);
+    expect(cityPrestige(mir, 1, completed, [])).toBe(1);
   });
 
   it('ignores tombstoned (un-completed) bounties', () => {
     const mir = s.cities.find(c => c.name === 'Mir');
     const [b1] = bountiesForCity('Mir', 1);
-    expect(cityPrestige(mir, 1, [{ id: b1.id, deleted: true }])).toBe(0);
+    expect(cityPrestige(mir, 1, [{ id: b1.id, deleted: true }], [])).toBe(0);
+  });
+
+  it('is campaign-scoped for the puzzle quest too', () => {
+    const mir = s.cities.find(c => c.name === 'Mir');
+    const questC1 = puzzleQuestForCity('Mir', 1);
+    expect(cityPrestige(mir, 1, [], [{ id: questC1.id }])).toBe(1);
+    expect(cityPrestige(mir, 2, [], [{ id: questC1.id }])).toBe(0);
+  });
+
+  it('ignores tombstoned (un-completed) puzzle quests', () => {
+    const mir = s.cities.find(c => c.name === 'Mir');
+    const quest = puzzleQuestForCity('Mir', 1);
+    expect(cityPrestige(mir, 1, [], [{ id: quest.id, deleted: true }])).toBe(0);
   });
 });
 
-describe('reduceToggleCityQuest', () => {
-  it('marks a quest as completed', () => {
-    const next = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    expect(next.cities[0].puzzleQuestDone).toBe(true);
+describe('reduceTogglePuzzleQuestComplete', () => {
+  const questId = puzzleQuestForCity('Mir', 1).id;
+
+  it('marks a puzzle quest as completed', () => {
+    const next = reduceTogglePuzzleQuestComplete(s, questId);
+    expect(isPuzzleQuestCompleted(next.campaign.completedPuzzleQuests, questId)).toBe(true);
   });
 
-  it('toggles a completed quest back to incomplete', () => {
-    const done   = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    const undone = reduceToggleCityQuest(done, 0, 'puzzleQuestDone');
-    expect(undone.cities[0].puzzleQuestDone).toBe(false);
+  it('toggles a completed quest back to incomplete via tombstone', () => {
+    const done   = reduceTogglePuzzleQuestComplete(s, questId);
+    const undone = reduceTogglePuzzleQuestComplete(done, questId);
+    expect(isPuzzleQuestCompleted(undone.campaign.completedPuzzleQuests, questId)).toBe(false);
   });
 
-  it('does not affect other cities', () => {
-    const next = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    for (let i = 1; i < next.cities.length; i++) {
-      expect(next.cities[i].puzzleQuestDone).toBe(false);
-    }
-  });
-
-  it('logs completion with city name and quest label', () => {
-    const next = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    expect(next.log[0].message).toContain(s.cities[0].name);
-    expect(next.log[0].message).toContain('puzzle quest');
-    expect(next.log[0].message).toContain('completed');
-  });
-
-  it('logs reopening', () => {
-    const done = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    const next = reduceToggleCityQuest(done, 0, 'puzzleQuestDone');
-    expect(next.log[0].message).toContain('reopened');
-  });
-
-  it('prestige increments when a quest is completed', () => {
-    const next = reduceToggleCityQuest(s, 0, 'puzzleQuestDone');
-    expect(cityPrestige(next.cities[0], 1, [])).toBe(1);
+  it('prestige increments when a puzzle quest is completed', () => {
+    const next = reduceTogglePuzzleQuestComplete(s, questId);
+    const mir  = next.cities.find(c => c.name === 'Mir');
+    expect(cityPrestige(mir, 1, [], next.campaign.completedPuzzleQuests)).toBe(1);
   });
 });
 
