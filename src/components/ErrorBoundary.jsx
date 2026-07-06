@@ -17,6 +17,12 @@
 import { Component, useState } from 'react';
 import * as Sentry from '@sentry/react';
 
+const CHUNK_LOAD_ERROR_PATTERN = /dynamically imported module|Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i;
+
+function isChunkLoadError(error) {
+  return CHUNK_LOAD_ERROR_PATTERN.test(String(error?.message ?? error ?? ''));
+}
+
 function readSaveBlob() {
   try {
     const raw = localStorage.getItem('guards_ledger_v2');
@@ -93,13 +99,27 @@ function AppLevelFallback({ error }) {
 }
 
 function TabLevelFallback({ tabName, error, reset }) {
+  const chunkError = isChunkLoadError(error);
+
+  function handleRetry() {
+    if (chunkError) {
+      // A stale chunk hash means the page's own bundle references files a
+      // new deploy has removed — re-running the same import will 404 again.
+      // Only a full reload picks up the current index.html and its hashes.
+      window.location.reload();
+      return;
+    }
+    reset();
+  }
+
   return (
     <div className="err-boundary err-boundary--tab">
       <div className="err-boundary-card err-boundary-card--small">
         <div className="err-boundary-title">{tabName || 'This tab'} failed to load</div>
         <p className="err-boundary-message">
-          The other tabs are still available. Try reloading this one, or switch
-          tabs to keep playing.
+          {chunkError
+            ? 'A new version of the app was deployed while this page was open. Reload to get the latest version.'
+            : 'The other tabs are still available. Try reloading this one, or switch tabs to keep playing.'}
         </p>
         {error && (
           <details className="err-boundary-details">
@@ -111,9 +131,9 @@ function TabLevelFallback({ tabName, error, reset }) {
           {reset && (
             <button
               className="err-boundary-btn err-boundary-btn--primary"
-              onClick={reset}
+              onClick={handleRetry}
             >
-              Retry
+              {chunkError ? 'Reload' : 'Retry'}
             </button>
           )}
         </div>
