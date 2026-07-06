@@ -465,6 +465,72 @@ describe('useSupabaseSync — offline queue', () => {
     expect(result.current.syncStatus).toBe('error');
     expect(result.current.syncError).toBe('oops');
   });
+
+  // ── AVE-376: queue flush on successful upsert ───────────────────────────
+
+  it('flushes the queued section when a subsequent upsert to the same section succeeds', async () => {
+    // Use a mutable result: first call fails, subsequent calls succeed.
+    let rpcResultOverride = { data: null, error: { message: 'timed out', code: 'TIMEOUT' } };
+    const client = makeMockClient();
+    client.rpc = (name, params) => {
+      client.calls.rpc.push({ name, params });
+      const result = rpcResultOverride;
+      rpcResultOverride = { data: null, error: null };
+      return Promise.resolve(result);
+    };
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    // First upsert: fails → queued in pendingQueue
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 9 });
+    });
+    expect(result.current.syncStatus).toBe('error');
+    expect(result.current.syncError).toBe('timed out');
+
+    // Second upsert: succeeds → deletes stale entry from queue, calls flushQueue
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 42 });
+    });
+    expect(result.current.syncStatus).toBe('idle');
+    expect(result.current.syncError).toBe(null);
+    // Two RPC calls: one failed, one succeeded. The stale queued entry was
+    // deleted before flushQueue ran, so no third RPC re-sends stale data.
+    expect(client.calls.rpc).toHaveLength(2);
+    expect(client.calls.rpc[0].params.payload.sil).toBe(9);  // failed
+    expect(client.calls.rpc[1].params.payload.sil).toBe(42); // successful, supersedes
+  });
+
+  it('flushes a failed section when a successful upsert to a different section occurs', async () => {
+    let rpcResultOverride = { data: null, error: { message: 'timed out', code: 'TIMEOUT' } };
+    const client = makeMockClient();
+    client.rpc = (name, params) => {
+      client.calls.rpc.push({ name, params });
+      const result = rpcResultOverride;
+      rpcResultOverride = { data: null, error: null };
+      return Promise.resolve(result);
+    };
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    // First upsert: resources fails → queued
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 77 });
+    });
+    expect(result.current.syncStatus).toBe('error');
+    expect(client.calls.rpc).toHaveLength(1);
+
+    // Second upsert: cities succeeds → flushQueue is called, draining resources
+    await act(async () => {
+      await result.current.upsertSection('cities', createInitialState());
+    });
+
+    // RPC calls: 1 (resources fail) + 1 (cities succeed) + 1 (resources flush)
+    expect(client.calls.rpc).toHaveLength(3);
+    expect(client.calls.rpc[0].params.section_name).toBe('resources');
+    expect(client.calls.rpc[1].params.section_name).toBe('cities');
+    expect(client.calls.rpc[2].params.section_name).toBe('resources');
+    expect(result.current.syncStatus).toBe('idle');
+    expect(result.current.syncError).toBe(null);
+  });
 });
 
 // ─── Channel subscription lifecycle ──────────────────────────────────────────

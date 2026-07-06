@@ -327,6 +327,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const selfWrites = useRef(new Map());
   const SELF_WRITE_TTL_MS = 15000;
 
+  // ── Backoff retry for error recovery (AVE-376) ─────────────────────────────
+  // When syncStatus is 'error', schedule flushQueue with exponential backoff
+  // (1s, 2s, 4s, 8s… capped at 30s). Resets when status leaves 'error'.
+  const retryCountRef = useRef(0);
+
   // ── Per-section timestamp baseline (AVE-314) ──────────────────────────────
   // The last `<section>_updated_at` value we've seen per section. An inbound
   // UPDATE carries the whole row, but only the section it actually changed has
@@ -526,6 +531,20 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [client, subscribe, refetchRow, flushQueue]);
 
+  // ── Backoff retry timer for error recovery (AVE-376) ──────────────────────
+  // When syncStatus is 'error', schedule flushQueue with exponential backoff.
+  // Resets when status leaves 'error' or campaignId changes.
+  useEffect(() => {
+    if (syncStatus !== 'error' || !client || !campaignIdRef.current) {
+      retryCountRef.current = 0;
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000);
+    retryCountRef.current += 1;
+    const timer = setTimeout(() => flushQueue(), delay);
+    return () => clearTimeout(timer);
+  }, [syncStatus, client, flushQueue]);
+
   // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
 
   useEffect(() => {
@@ -593,8 +612,13 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     } else {
       setSyncStatus('idle');
       setSyncError(null);
+      // The fresh write supersedes any queued stale payload for this section
+      // (AVE-376). Also drain any other queued sections so a failed write
+      // doesn't sit in the queue until the next online/visibility transition.
+      pendingQueue.current.delete(sectionName);
+      flushQueue();
     }
-  }, [client, campaignId, noteSelfWrite]);
+  }, [client, campaignId, noteSelfWrite, flushQueue]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 
