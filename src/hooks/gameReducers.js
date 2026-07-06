@@ -182,11 +182,20 @@ export function cityPrestige(city, campaignId, completedBounties, completedPuzzl
 
 // ─── Stash ────────────────────────────────────────────────────────────────────
 
+// A count that reaches 0 is kept as a `0` entry (a map tombstone) rather than
+// deleting the key: the server's field-level merge preserves keys absent from
+// the payload, so a deleted key never propagates — and the write's own
+// Realtime echo resurrects the item on the deleting client (AVE-369; same
+// class as the AVE-362 satchel bug). Read sites already treat 0 and absent
+// identically (`?? 0` / `> 0` filters); compactTombstones drops 0-count keys
+// in solo mode so they don't accumulate.
 export function reduceAdjustStash(s, itemName, delta) {
   const current = s.stash[itemName] ?? 0;
   const newVal  = Math.max(0, current + delta);
   const stash   = { ...s.stash, [itemName]: newVal };
-  if (newVal === 0) delete stash[itemName];
+  // Don't materialize a tombstone for an item that was never in the stash
+  // (e.g. clamping a decrement on an absent key).
+  if (newVal === 0 && !(itemName in s.stash)) delete stash[itemName];
   return addLog({ ...s, stash },
     `Stash ${itemName} ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`
   );
@@ -343,16 +352,28 @@ export function isEncounterCompleted(completedEncounters, id) {
  * Pre-AVE-287 saves stored a plain array of encounter-id strings; this converts
  * those (and tolerates already-normalized rows) so the client can read either
  * shape. Used on load/migration and when reading a possibly-unmigrated remote row.
+ *
+ * Duplicate ids keep the FIRST occurrence. Duplicates only ever came from the
+ * AVE-370 legacy puzzle-quest migration re-appending a live entry next to a
+ * tombstone — the first entry is the one that reflects the user's actual
+ * toggle, later ones were bug-added. (The toggle reducers map ALL matching
+ * entries identically, so after any manual toggle the duplicates agree and
+ * keep-first is still correct.)
  */
 export function normalizeCompletedEncounters(arr) {
   if (!Array.isArray(arr)) return [];
   const out = [];
+  const seen = new Set();
   for (const e of arr) {
+    let entry = null;
     if (typeof e === 'string') {
-      out.push({ id: e });
+      entry = { id: e };
     } else if (e && typeof e === 'object' && typeof e.id === 'string') {
-      out.push(e.deleted ? { id: e.id, deleted: true } : { id: e.id });
+      entry = e.deleted ? { id: e.id, deleted: true } : { id: e.id };
     }
+    if (!entry || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    out.push(entry);
   }
   return out;
 }
@@ -428,6 +449,14 @@ export function compactTombstones(state) {
     ? { ...state.stonebound, locations: newLocs }
     : state.stonebound;
 
+  // Zero-count stash entries are map tombstones (AVE-369) — dead weight
+  // without a server merge to defeat.
+  const oldStash = state.stash ?? {};
+  const hasZeroCounts = Object.values(oldStash).some(v => v === 0);
+  const stash = hasZeroCounts
+    ? Object.fromEntries(Object.entries(oldStash).filter(([, v]) => v !== 0))
+    : state.stash;
+
   let campaign = state.campaign;
   if (campaign) {
     const oldPlans = campaign.plans ?? [];
@@ -471,9 +500,11 @@ export function compactTombstones(state) {
     }
   }
 
-  if (stonebound === state.stonebound && campaign === state.campaign) return state;
+  if (stonebound === state.stonebound && campaign === state.campaign && stash === state.stash) {
+    return state;
+  }
 
-  return { ...state, stonebound, campaign };
+  return { ...state, stash, stonebound, campaign };
 }
 
 export function reduceToggleBountyComplete(s, bountyId) {

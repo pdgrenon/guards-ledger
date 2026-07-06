@@ -378,6 +378,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
             // timing-independent and correctly distinguish "echo" / "stale
             // filler" from "real change."
             let merged = stateRef.current;
+            let applied = false;
             for (const section of ALL_SECTIONS) {
               const incoming = row[section];
               if (incoming == null) continue;
@@ -397,11 +398,17 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
               // (AVE-314, the single-device symptom). Drop it and consume the entry.
               if (consumeSelfEcho(section, incoming)) continue;
               merged = applyRemoteSection(merged, section, incoming);
+              applied = true;
             }
             // Advance the per-section timestamp baseline to this row so the next
             // UPDATE can tell which sections it genuinely changed.
             lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
-            onRemoteChange(merged);
+            // Only notify the parent when a section was actually applied. Most
+            // events are echoes of our own writes with every section skipped;
+            // forwarding those made useGameState wipe its undo snapshot within
+            // a second of every local action while a campaign was active
+            // (AVE-371) and forced a full re-render per echo.
+            if (applied) onRemoteChange(merged);
           }
       )
       .subscribe((status) => {
