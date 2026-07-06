@@ -9,8 +9,10 @@ import {
   createInitialCampaign,
   SATCHEL_EXPANDED_SIZE,
 } from '../data/constants';
+import { CAMPAIGN_ID_KEY } from './useSupabaseSync';
 import {
   addLog,
+  compactTombstones,
   deriveUndoLabel,
   reduceSetPartySlot,
   reduceSetSil,
@@ -251,7 +253,16 @@ function saveState(state) {
 export function useGameState() {
     // loadState() does the full parse/heal/migrate pass — run it once on boot
     // and seed both pieces of state from the single result.
-    const [initial]           = useState(loadState);
+    // In solo mode (no active Supabase campaign), tombstones serve no purpose
+    // — hard-drop them immediately so they don't accumulate (AVE-368).
+    const [initial]           = useState(() => {
+      const loaded = loadState();
+      const campaignId = (() => { try { return localStorage.getItem(CAMPAIGN_ID_KEY); } catch { return null; } })();
+      if (!campaignId) {
+        return { state: compactTombstones(loaded.state), corruption: loaded.corruption };
+      }
+      return loaded;
+    });
     const [state, setRaw]     = useState(initial.state);
     const [corruption, setCorruption] = useState(initial.corruption);
     const saveTimer = useRef(null);
@@ -487,15 +498,23 @@ export function useGameState() {
     });
   }, [setState]);
 
-  const resetState = useCallback(() => {
+    const resetState = useCallback(() => {
     setState(createInitialState(), null);
   }, [setState]);
+
+    // ── Leave campaign — also compact tombstones ───────────────────────────
+    // Clearing campaignId means no merge to defeat, so tombstones become dead
+    // weight. Hard-drop them immediately (AVE-368).
+    const leaveCampaign = useCallback(() => {
+      setRaw(prev => compactTombstones(prev));
+      sync.leaveCampaign();
+    }, [sync]);
 
   return {
     state,
     corruption,             // { reason, raw } | null — drives the corruption banner
     dismissCorruption,      // hide the banner and clear the backed-up raw string
-    sync, // expose sync handle so SettingsPanel can call createCampaign / joinCampaign / leaveCampaign
+    sync: { ...sync, leaveCampaign }, // override leaveCampaign to include compaction
     setActiveGuard,
     setPartySlot,
     setSil, setLux,

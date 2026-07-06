@@ -399,6 +399,65 @@ export function isBountyCompleted(completedBounties, id) {
   return (completedBounties ?? []).some(b => b.id === id && !b.deleted);
 }
 
+// ─── Tombstone compaction (solo-mode GC) ─────────────────────────────────────
+//
+// Hard-drop tombstoned (deleted: true) elements from all id-keyed arrays.
+// In solo mode (no active Supabase campaign) the tombstone pattern serves no
+// purpose — there is no append/union server merge to defeat — so dead entries
+// can be safely purged. This prevents unbounded accumulation of soft-deleted
+// plan, side-quest, stonebound-location, encounter, and bounty entries over a
+// long campaign (AVE-368).
+export function compactTombstones(state) {
+  const oldLocs = state.stonebound?.locations ?? [];
+  const newLocs = oldLocs.filter(l => !l.deleted);
+  const stonebound = newLocs.length !== oldLocs.length
+    ? { ...state.stonebound, locations: newLocs }
+    : state.stonebound;
+
+  let campaign = state.campaign;
+  if (campaign) {
+    const oldPlans = campaign.plans ?? [];
+    const newPlans = oldPlans.filter(p => !p.deleted);
+    const oldEncs = campaign.completedEncounters ?? [];
+    const newEncs = oldEncs.filter(e => !e.deleted);
+    const oldBounts = campaign.completedBounties ?? [];
+    const newBounts = oldBounts.filter(b => !b.deleted);
+
+    let locations = campaign.locations;
+    if (locations) {
+      let changed = false;
+      const next = Object.fromEntries(
+        Object.entries(locations).map(([k, v]) => {
+          if (!Array.isArray(v)) return [k, v];
+          const filtered = v.filter(e => !e.deleted);
+          if (filtered.length !== v.length) changed = true;
+          return [k, filtered];
+        })
+      );
+      if (changed) locations = next;
+    }
+
+    if (
+      newPlans.length !== oldPlans.length ||
+      newEncs.length !== oldEncs.length ||
+      newBounts.length !== oldBounts.length ||
+      locations !== campaign.locations
+    ) {
+      campaign = {
+        ...campaign,
+        locations,
+        plans: newPlans,
+        completedEncounters: newEncs,
+        completedBounties: newBounts,
+      };
+    }
+  }
+
+  if (stonebound === state.stonebound && campaign === state.campaign) return state;
+
+  return { ...state, stonebound, campaign };
+}
+
 export function reduceToggleBountyComplete(s, bountyId) {
   const completed = s.campaign.completedBounties ?? [];
   const existing  = completed.find(b => b.id === bountyId);
