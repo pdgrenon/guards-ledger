@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES, groupEncounters } from '../data/encounters';
-import { CITIES, GUARD_COLOR_MAP } from '../data/constants';
+import { GUARD_COLOR_MAP, PARTY_TERMS } from '../data/constants';
 import { isEncounterCompleted } from '../hooks/gameReducers';
 import { colorizeLogMessage } from '../utils/logUtils';
 import { useDialogA11y } from '../hooks/useDialogA11y';
 
-const CITY_NAMES_SET = new Set(CITIES.map(c => c.name));
+const PARTY_TERMS_SET = new Set(PARTY_TERMS);
 
 function classifyEntry(message) {
   const first = message.split(' ')[0];
   if (GUARD_COLOR_MAP[first]) return { type: 'guard', guardKey: GUARD_COLOR_MAP[first].key };
-  if (first === 'Party' || first === 'Stash' || first === 'Stonebound' || CITY_NAMES_SET.has(first)) return { type: 'party' };
+  if (PARTY_TERMS_SET.has(first)) return { type: 'party' };
   return { type: 'system' };
 }
 

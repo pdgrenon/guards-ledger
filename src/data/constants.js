@@ -35,6 +35,8 @@ export const GUARD_COLOR_MAP = {
 
 export const FALLBACK_COLOR = { key: 'gold', border: 'var(--c-guard-gold-border)', bg: 'var(--c-guard-gold-bg)', text: 'var(--c-guard-gold-text)' };
 
+export const PARTY_TERMS = ['Party', 'Stash', 'Stonebound', ...CITIES.map(c => c.name)];
+
 export const SATCHEL_SIZE          = 4;
 export const SATCHEL_EXPANDED_SIZE = 8;
 export const MAX_HP                = 20;
