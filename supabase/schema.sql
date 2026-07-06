@@ -81,10 +81,11 @@ create policy "anon can update campaigns" on public.campaigns for update using (
 -- Enable Realtime so postgres_changes UPDATE events are broadcast.
 alter publication supabase_realtime add table public.campaigns;
 
--- ─── Field-level merge RPC (AVE-94, AVE-197, AVE-362) ───────────────────────
+-- ─── Field-level merge RPC (AVE-94, AVE-197, AVE-362, AVE-373) ─────────────
 -- See supabase/migrations/0002_field_level_merge.sql (object merge),
--- supabase/migrations/0003_array_merge.sql (array merge), and
--- supabase/migrations/0005_plain_array_lww.sql (non-id arrays last-write-wins)
+-- supabase/migrations/0003_array_merge.sql (array merge),
+-- supabase/migrations/0005_plain_array_lww.sql (non-id arrays last-write-wins),
+-- and supabase/migrations/0006_atomic_merge_section.sql (atomic read-merge-write)
 -- for the full rationale. Fresh installs: the functions are defined here so
 -- they're available immediately. Existing installs: run the migrations
 -- (idempotent CREATE OR REPLACE).
@@ -208,9 +209,8 @@ declare
     'guard_4', 'guard_5', 'guard_6', 'guard_7',
     'stash', 'campaign'
   ];
-  ts_col   text;
-  existing jsonb;
-  merged   jsonb;
+  ts_col text;
+  merged jsonb;
 begin
   if section_name <> all(valid_sections) then
     raise exception 'unknown section name: %', section_name
@@ -219,18 +219,24 @@ begin
 
   ts_col := quote_ident(section_name || '_updated_at');
 
-  execute format('select %I from public.campaigns where id = $1', section_name)
-    into existing
-    using campaign_id;
-
-  merged := public.deep_merge_jsonb(existing, payload);
-
+  -- Read and write in one statement (AVE-373): `c.<section>` refers to the
+  -- row version the UPDATE itself locks, not a separately-fetched earlier
+  -- read, so two concurrent merges of the same section can't clobber each
+  -- other — the second call computes its merge against the first's
+  -- already-committed result instead of overwriting it.
   execute format(
-    'insert into public.campaigns (id, %I, %s) values ($1, $2, now()) '
-    'on conflict (id) do update set %I = excluded.%I, %s = excluded.%s',
-    section_name, ts_col, section_name, section_name, ts_col, ts_col
+    'insert into public.campaigns as c (id, %I, %s) values ($1, $2, now()) '
+    'on conflict (id) do update set '
+    '  %I = public.deep_merge_jsonb(c.%I, excluded.%I), '
+    '  %s = excluded.%s '
+    'returning c.%I',
+    section_name, ts_col,
+    section_name, section_name, section_name,
+    ts_col, ts_col,
+    section_name
   )
-    using campaign_id, merged;
+    into merged
+    using campaign_id, payload;
 
   return merged;
 end;
