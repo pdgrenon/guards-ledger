@@ -796,6 +796,34 @@ describe('colorizeLogMessage', () => {
     expect(typeof result[0]).toBe('string');
   });
 
+  it('wraps Stonebound in a strong tag', () => {
+    const result = colorizeLogMessage('Stonebound cube cap → 4');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toBe('');
+    expect(result[1].type).toBe('strong');
+    expect(result[1].props.children).toBe('Stonebound');
+    expect(result[2]).toBe(' cube cap → 4');
+  });
+
+  it('wraps city names in strong tags', () => {
+    const result = colorizeLogMessage('Mir puzzle quest completed');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toBe('');
+    expect(result[1].type).toBe('strong');
+    expect(result[1].props.children).toBe('Mir');
+    expect(result[2]).toBe(' puzzle quest completed');
+  });
+
+  it('wraps multiple city names alongside guard names', () => {
+    const result = colorizeLogMessage('Alek traveled to Razdor from Mir');
+    expect(result).toHaveLength(7);
+    expect(result[1].props.children).toBe('Alek');
+    expect(result[3].props.children).toBe('Razdor');
+    expect(result[3].type).toBe('strong');
+    expect(result[5].props.children).toBe('Mir');
+    expect(result[5].type).toBe('strong');
+  });
+
   it('leaves HTML-looking user text as plain strings when next to a name', () => {
     const result = colorizeLogMessage('Alek found <script>bad()</script>');
     expect(result).toHaveLength(3);
