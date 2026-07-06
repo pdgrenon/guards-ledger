@@ -706,6 +706,41 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     setSyncError(null);
   }, []);
 
+  /**
+   * Replace EVERY section of the campaign row with the values from `state`.
+   * Unlike `upsertSection` (which deep-merges through `merge_section`), this
+   * does a raw `UPDATE` — the full row is overwritten with all sections and
+   * bumped timestamps. Intended for import/reset where the intent is explicit
+   * full replacement.
+   *
+   * Seeds `lastSeenTs` on success so the inbound Realtime echo is recognised
+   * as already-seen and skipped (timestamps match → sectionChanged returns
+   * false). No-op when no campaign is active.
+   *
+   * Returns { error: null | string }.
+   */
+  const replaceRow = useCallback(async (state) => {
+    const id = campaignIdRef.current;
+    if (!client || !id) return { error: null };
+
+    const row = buildFullRow(id, state);
+
+    setSyncStatus('syncing');
+    const { error } = await client.from('campaigns').update(row).eq('id', id);
+    if (error) {
+      setSyncError(error.message);
+      setSyncStatus('error');
+      return { error: error.message };
+    }
+
+    // Update timestamp baseline so the inbound Realtime echo is recognised
+    // as already-seen (timestamps match → sectionChanged returns false).
+    lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
+    setSyncStatus('idle');
+    setSyncError(null);
+    return { error: null };
+  }, [client]);
+
   return {
     campaignId,
     syncStatus,   // 'idle' | 'syncing' | 'error' | 'offline'
@@ -714,6 +749,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     createCampaign,
     joinCampaign,
     leaveCampaign,
+    replaceRow,
     isConfigured: !!client,
   };
 }
