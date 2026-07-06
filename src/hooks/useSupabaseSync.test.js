@@ -521,3 +521,92 @@ describe('useSupabaseSync — incoming Realtime updates', () => {
     expect(onRemoteChange).not.toHaveBeenCalled();
   });
 });
+
+// ─── Boot / reconnect / foreground row re-fetch (AVE-372) ────────────────────
+
+describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
+  it('fetches the campaign row on boot and applies fresher server state', async () => {
+    // Local state came from localStorage with sil=0; the server has sil=55
+    // because another player edited while this app was closed.
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', resources: { sil: 55, lux: 3 }, resources_updated_at: 't1' },
+        error: null,
+      },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+
+    // The boot fetch selected the row and pushed it through the gated pipeline.
+    expect(client.calls.select.length).toBeGreaterThan(0);
+    expect(onRemoteChange).toHaveBeenCalled();
+    const merged = onRemoteChange.mock.calls.at(-1)[0];
+    expect(merged.sil).toBe(55);
+    expect(merged.lux).toBe(3);
+  });
+
+  it('does not fetch or apply anything when there is no active campaign', async () => {
+    const client = makeMockClient({
+      selectResult: { data: { id: 'WOLF42', resources: { sil: 55, lux: 3 } }, error: null },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client })); // no campaignId
+    });
+    expect(client.calls.select).toHaveLength(0);
+    expect(onRemoteChange).not.toHaveBeenCalled();
+  });
+
+  it('re-fetches missed updates when the tab is foregrounded (visibilitychange)', async () => {
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', resources: { sil: 12, lux: 0 }, resources_updated_at: 't1' },
+        error: null,
+      },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+    onRemoteChange.mockClear();
+    const selectsBefore = client.calls.select.length;
+
+    // Simulate the tab returning to the foreground after a phone lock.
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(client.calls.select.length).toBeGreaterThan(selectsBefore);
+    // Same ts as the boot fetch → gated as unchanged, so no redundant apply.
+    expect(onRemoteChange).not.toHaveBeenCalled();
+  });
+
+  it('seeds lastSeenTs on boot so a later stale-timestamp Realtime event is gated out', async () => {
+    // Boot fetch carries resources at timestamp t5.
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', resources: { sil: 10, lux: 0 }, resources_updated_at: 't5' },
+        error: null,
+      },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+    expect(onRemoteChange).toHaveBeenCalledTimes(1); // boot applied sil=10
+    onRemoteChange.mockClear();
+
+    // A Realtime event now arrives carrying a *different* resources value but the
+    // SAME timestamp (t5) — stale full-row filler. Because the boot fetch seeded
+    // the baseline, the timestamp gate recognizes it as unchanged and skips it.
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({
+        new: { id: 'WOLF42', resources: { sil: 999, lux: 0 }, resources_updated_at: 't5' },
+      });
+    });
+    expect(onRemoteChange).not.toHaveBeenCalled();
+  });
+});
