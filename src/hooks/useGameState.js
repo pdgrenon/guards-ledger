@@ -278,9 +278,20 @@ export function useGameState() {
       return () => window.removeEventListener('beforeunload', flush);
     }, [state]);
 
+    // ── Undo snapshot (single-level) ─────────────────────────────────────────
+    // Captured before every undoable mutation in setState. Cleared on undo,
+    // when a new undoable action overwrites it, or when remote state arrives
+    // (undoing after a co-player's edit would revert their change).
+    const undoSnapshot = useRef(null);
+    const [undoLabel, setUndoLabel] = useState(null);
+
     // ── Remote change handler (called by useSupabaseSync on Realtime event) ──
-    // Merges remote state into local, preserving local-only keys.
+    // Merges remote state into local, preserving local-only keys. Invalidates
+    // the undo snapshot so we never undo to a state that didn't include the
+    // remote change (AVE-366).
     const handleRemoteChange = useCallback((remoteState) => {
+      undoSnapshot.current = null;
+      setUndoLabel(null);
       setRaw(prev => ({
         ...remoteState,
         log:            prev.log,            // local-only: session log
@@ -290,12 +301,6 @@ export function useGameState() {
     }, []);
 
     const sync = useSupabaseSync(state, handleRemoteChange);
-
-    // ── Undo snapshot (single-level) ─────────────────────────────────────────
-    // Captured before every undoable mutation in setState. Cleared on undo or
-    // when a new undoable action overwrites it.
-    const undoSnapshot = useRef(null);
-    const [undoLabel, setUndoLabel] = useState(null);
 
     // ── Core setState — persists locally and upserts the changed section(s) ──
     // sectionName: which Supabase column this change belongs to, or null for local-only.
