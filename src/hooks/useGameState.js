@@ -22,7 +22,6 @@ import {
   reduceSetGuardEquipment,
   reduceSetGuardSatchelItem,
 
-  reduceToggleCityQuest,
   reduceAdjustStash,
   reduceSetStoneboundMax,
   reduceAddStoneboundLocation,
@@ -39,9 +38,11 @@ import {
   reduceDeletePlan,
   reduceToggleEncounterComplete,
   reduceToggleBountyComplete,
+  reduceTogglePuzzleQuestComplete,
   reduceSetCampaign,
   normalizeCompletedEncounters,
 } from './gameReducers';
+import { puzzleQuestForCity } from '../data/puzzleQuests';
 import { useSupabaseSync, guardColumn } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
@@ -50,13 +51,32 @@ const STORAGE_KEY             = 'guards_ledger_v2';
 const STORAGE_KEY_V1          = 'guards_ledger_v1';
 const CORRUPTED_BACKUP_KEY    = 'guards_ledger_corrupted_backup';
 
+// Puzzle quest completion used to be a single non-campaign-scoped boolean
+// (`city.puzzleQuestDone`). Now that it's campaign-scoped like bounties (lives
+// in `campaign.completedPuzzleQuests`), a save carrying the old flag is
+// migrated by marking that city's puzzle quest complete for whatever campaign
+// was active in that save. `puzzleQuestDone` itself is left in place on the
+// city object as a legacy field (same treatment as bounty1Done/bounty2Done).
+function migrateLegacyPuzzleQuestDone(cities, campaignId, existing) {
+  const normalized = normalizeCompletedEncounters(existing);
+  const ids = new Set(normalized.filter(q => !q.deleted).map(q => q.id));
+  const additions = [];
+  for (const city of cities ?? []) {
+    if (!city?.puzzleQuestDone) continue;
+    const quest = puzzleQuestForCity(city.name, campaignId);
+    if (quest && !ids.has(quest.id)) additions.push({ id: quest.id });
+  }
+  return additions.length ? [...normalized, ...additions] : normalized;
+}
+
 // ─── Migration ────────────────────────────────────────────────────────────────
 
 export function migrateV1(v1) {
+  const cities = v1.cities ?? createInitialCities().cities;
   return {
     sil:            v1.sil            ?? 0,
     lux:            v1.lux            ?? 0,
-    cities:         v1.cities         ?? createInitialCities().cities,
+    cities,
     guards:         v1.guards         ?? createInitialGuards().guards,
     activeParty:    v1.activeParty    ?? createInitialGuards().activeParty,
     // activeGuardIdx is local-only UI state — always reset to default on load
@@ -70,8 +90,12 @@ export function migrateV1(v1) {
     campaign:       v1.campaign
                       ? { ...v1.campaign,
                           completedEncounters: normalizeCompletedEncounters(v1.campaign.completedEncounters),
-                          completedBounties:   normalizeCompletedEncounters(v1.campaign.completedBounties) }
-                      : createInitialCampaign().campaign,
+                          completedBounties:   normalizeCompletedEncounters(v1.campaign.completedBounties),
+                          completedPuzzleQuests: migrateLegacyPuzzleQuestDone(
+                            cities, v1.campaign.campaignId ?? 1, v1.campaign.completedPuzzleQuests
+                          ) }
+                      : { ...createInitialCampaign().campaign,
+                          completedPuzzleQuests: migrateLegacyPuzzleQuestDone(cities, 1, null) },
     log:            v1.log            ?? [],
     settings:       v1.settings       ?? { initialized: true },
   };
@@ -136,15 +160,18 @@ export function healState(parsed) {
   const guardsArr = Array.isArray(parsed.guards) ? parsed.guards : [];
   const guards = Array.from({ length: 8 }, (_, i) => healGuard(guardsArr[i]));
 
+  const cities = Array.isArray(parsed.cities) && parsed.cities.length > 0
+                    ? parsed.cities.map(c => isPlainObject(c)
+                        ? { ...citiesInit.cities[0], ...c,
+                            name: healString(c.name, citiesInit.cities[0].name) }
+                        : citiesInit.cities[0])
+                    : citiesInit.cities;
+  const campaignId = isPlainObject(parsed.campaign) ? healNumber(parsed.campaign.campaignId, 1) : 1;
+
   return {
     sil:            healNumber(parsed.sil, resInit.sil),
     lux:            healNumber(parsed.lux, resInit.lux),
-    cities:         Array.isArray(parsed.cities) && parsed.cities.length > 0
-                       ? parsed.cities.map(c => isPlainObject(c)
-                           ? { ...citiesInit.cities[0], ...c,
-                               name: healString(c.name, citiesInit.cities[0].name) }
-                           : citiesInit.cities[0])
-                       : citiesInit.cities,
+    cities,
     guards,
     activeParty:    Array.isArray(parsed.activeParty) && parsed.activeParty.length === 2
                        ? parsed.activeParty.map(healString)
@@ -176,8 +203,12 @@ export function healState(parsed) {
                                ? parsed.campaign.ftIstraBuildings
                                : {},
                              completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters),
-                             completedBounties:   normalizeCompletedEncounters(parsed.campaign.completedBounties) }
-                        : campInit.campaign,
+                             completedBounties:   normalizeCompletedEncounters(parsed.campaign.completedBounties),
+                             completedPuzzleQuests: migrateLegacyPuzzleQuestDone(
+                               cities, campaignId, parsed.campaign.completedPuzzleQuests
+                             ) }
+                        : { ...campInit.campaign,
+                            completedPuzzleQuests: migrateLegacyPuzzleQuestDone(cities, campaignId, null) },
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
   };
@@ -397,10 +428,6 @@ export function useGameState() {
       return { ...s, guards };
     }, guardColumn(guardIdx)), [setState]);
 
-  // ── Cities ───────────────────────────────────────────────────────────────
-  const toggleCityQuest = useCallback((cityIdx, field) =>
-    setState(s => reduceToggleCityQuest(s, cityIdx, field), 'cities'), [setState]);
-
   // ── Stash ────────────────────────────────────────────────────────────────
   const adjustStash = useCallback((itemName, delta) =>
     setState(s => reduceAdjustStash(s, itemName, delta), 'stash'), [setState]);
@@ -451,6 +478,9 @@ export function useGameState() {
 
   const toggleBountyComplete = useCallback((bountyId) =>
     setState(s => reduceToggleBountyComplete(s, bountyId), 'campaign'), [setState]);
+
+  const togglePuzzleQuestComplete = useCallback((puzzleQuestId) =>
+    setState(s => reduceTogglePuzzleQuestComplete(s, puzzleQuestId), 'campaign'), [setState]);
 
   const setCampaign = useCallback((campaignId) =>
     setState(s => reduceSetCampaign(s, campaignId), 'campaign'), [setState]);
@@ -521,7 +551,6 @@ export function useGameState() {
     adjustGuardHp, adjustGuardMaxHp,
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,
 
-    toggleCityQuest,
     adjustStash,
     setStoneboundMax, addStoneboundLocation, removeStoneboundLocation, updateStoneboundLocation,
     setEventToken, resetEventToken,
@@ -530,6 +559,7 @@ export function useGameState() {
     addPlan, togglePlan, deletePlan,
     toggleEncounterComplete,
     toggleBountyComplete,
+    togglePuzzleQuestComplete,
     setCampaign,
     setFtIstraBuilding,
     setState, exportState, importState, resetState,

@@ -16,5 +16,5 @@ Load this when working on CraftTab, StashTab, recipes, or MATERIAL_SOURCES.
 
 ## Derived values — never store
 
-- **City prestige (reputation)** — always derive with `cityPrestige(city, campaignId, completedBounties)` from `gameReducers.js` (puzzle quest + the two completed campaign bounties for the active campaign). Do not add a `prestige` field to city state.
+- **City prestige (reputation)** — always derive with `cityPrestige(city, campaignId, completedBounties, completedPuzzleQuests)` from `gameReducers.js` (the completed campaign puzzle quest + the two completed campaign bounties for the active campaign). Do not add a `prestige` field to city state.
 - **Equipment stats** — always look up from `WEAPON_STATS` / `ARMOR_STATS` in `materials.js` at render time. Do not store stat values in guard state.

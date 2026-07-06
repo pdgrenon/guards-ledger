@@ -69,7 +69,10 @@ function makeGuard(name) {
   };
 }
 
-// prestige is NOT stored — it is always derived from the three quest booleans.
+// prestige is NOT stored — it is always derived. puzzleQuestDone/bounty1Done/
+// bounty2Done are legacy fields kept for save-shape compatibility; they no
+// longer drive anything — quest completion is campaign-scoped and lives in
+// campaign.completedPuzzleQuests / campaign.completedBounties.
 function makeCity(id, name) {
   return {
     id, name,
@@ -138,6 +141,7 @@ export function createInitialCampaign() {
       ftIstraBuildings: {},
       completedEncounters: [],
       completedBounties: [],
+      completedPuzzleQuests: [],
       campaignId: 1,
     },
   };

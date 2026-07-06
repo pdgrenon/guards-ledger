@@ -151,9 +151,19 @@ Portrait images live in `public/guards/` named in lowercase (e.g. `grigory.webp`
 
 6 cities: Mir, Razdor, Ryba, Silny, Strofa, Vouno.
 
-City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`. `bounty1Done`/`bounty2Done` are legacy fields kept for save-shape compatibility but no longer drive anything — bounty completion moved to `campaign.completedBounties` (see Bounties below). Only `puzzleQuestDone` is still a live city-quest checkbox.
+City state shape: `{ id, name, puzzleQuestDone, bounty1Done, bounty2Done }`. All three are legacy fields kept for save-shape compatibility but no longer drive anything — quest completion moved to `campaign.completedPuzzleQuests` / `campaign.completedBounties` (see Puzzle Quests / Bounties below).
 
-**Prestige (reputation) is never stored.** Always derive it with `cityPrestige(city, campaignId, completedBounties)` from `gameReducers.js`. It counts the city's puzzle quest plus its two completed **campaign bounties** for the active campaign (max 3: 1 puzzle + 2 bounties). Because bounty completion is campaign-scoped, reputation shown for each campaign is independent. Do not add a `prestige` field to city state. `CraftTab` also calls `cityPrestige` (for the prestige-≥2 crafting discount) and must be passed `campaignId` + `completedBounties`.
+**Prestige (reputation) is never stored.** Always derive it with `cityPrestige(city, campaignId, completedBounties, completedPuzzleQuests)` from `gameReducers.js`. It counts the city's completed **campaign puzzle quest** plus its two completed **campaign bounties** for the active campaign (max 3: 1 puzzle + 2 bounties). Because both are campaign-scoped, reputation shown for each campaign is independent. Do not add a `prestige` field to city state. `CraftTab` also calls `cityPrestige` (for the prestige-≥2 crafting discount) and must be passed `campaignId` + `completedBounties` + `completedPuzzleQuests`.
+
+### Puzzle Quests
+
+24 Puzzle Quests (6 Cities × 4 campaigns, one each), transcribed from the physical companion book, live as **static reference data** in `src/data/puzzleQuests.js` (`PUZZLE_QUESTS`; `puzzleQuestForCity(cityName, campaignId)`). Each entry: `{ id, city, campaign, location }` — `id` is `${slug(city)}-c${campaign}-puzzle`. Unlike bounties, a puzzle quest only needs a location (no targets/conditions/rewards), so it renders inline on the city card rather than as its own detail card/dialog.
+
+Puzzle quests render on the **Cities tab** (`CitiesTab.jsx`) as the existing checkbox row (`.quest-row`), with the campaign's location shown as a subtitle beneath the "Puzzle quest" label. Like bounties, puzzle quests are campaign-scoped and **not** cumulative — the row shows only the active campaign's location.
+
+Per-quest completion is `campaign.completedPuzzleQuests`, an id-keyed tombstone array `{ id, deleted? }[]` — identical shape and mechanics to `completedBounties`/`completedEncounters` (AVE-287): it syncs via the `campaign` section, tombstones un-completes rather than dropping them, and is normalized on load via `normalizeCompletedEncounters`. Reducers: `reduceTogglePuzzleQuestComplete` / `isPuzzleQuestCompleted` in `gameReducers.js`.
+
+Pre-existing saves carried puzzle-quest completion as the single non-campaign-scoped `city.puzzleQuestDone` flag. On load, `migrateLegacyPuzzleQuestDone` (`useGameState.js`, used by both `migrateV1` and `healState`) converts a `true` flag into a `completedPuzzleQuests` entry for that city under whatever campaign was active in the save — `puzzleQuestDone` itself is left in place as a legacy field, same treatment as `bounty1Done`/`bounty2Done`.
 
 ### Bounties
 

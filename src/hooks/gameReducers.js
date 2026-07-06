@@ -21,6 +21,7 @@
 import { SATCHEL_EXPANDED_SIZE } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
 import { bountiesForCity } from '../data/bounties';
+import { puzzleQuestForCity } from '../data/puzzleQuests';
 
 export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
@@ -165,29 +166,18 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
 
 // Reputation (prestige) is always derived, never stored. For the active
 // campaign it counts the city's puzzle quest plus its two completed campaign
-// bounties (AVE-359). Bounty completion is campaign-scoped — each id in
-// `completedBounties` encodes its campaign — so moving to another campaign and
-// back preserves each campaign's reputation independently (max 3: 1 puzzle + 2
-// bounties). `campaignId`/`completedBounties` are optional so the puzzle-only
-// contribution is still derivable without campaign context.
-export function cityPrestige(city, campaignId, completedBounties) {
-  const puzzle = city.puzzleQuestDone ? 1 : 0;
+// bounties (AVE-359). Both puzzle-quest and bounty completion are
+// campaign-scoped — each id in `completedPuzzleQuests`/`completedBounties`
+// encodes its campaign — so moving to another campaign and back preserves
+// each campaign's reputation independently (max 3: 1 puzzle + 2 bounties).
+// `campaignId`/`completedBounties`/`completedPuzzleQuests` are optional so
+// prestige is still derivable (as 0) without campaign context.
+export function cityPrestige(city, campaignId, completedBounties, completedPuzzleQuests) {
+  const puzzleQuest = puzzleQuestForCity(city.name, campaignId);
+  const puzzle = puzzleQuest && isPuzzleQuestCompleted(completedPuzzleQuests, puzzleQuest.id) ? 1 : 0;
   const bounties = bountiesForCity(city.name, campaignId)
     .filter(b => isBountyCompleted(completedBounties, b.id)).length;
   return puzzle + bounties;
-}
-
-export function reduceToggleCityQuest(s, cityIdx, field) {
-  const city   = s.cities[cityIdx];
-  const newVal = !city[field];
-  const cities = s.cities.map((c, i) => i === cityIdx ? { ...c, [field]: newVal } : c);
-  const questLabel =
-    field === 'puzzleQuestDone' ? 'puzzle quest' :
-    field === 'bounty1Done'     ? 'bounty 1'     :
-                                  'bounty 2';
-  return addLog({ ...s, cities },
-    `${city.name} ${questLabel} ${newVal ? 'completed' : 'reopened'}`
-  );
 }
 
 // ─── Stash ────────────────────────────────────────────────────────────────────
@@ -399,6 +389,30 @@ export function isBountyCompleted(completedBounties, id) {
   return (completedBounties ?? []).some(b => b.id === id && !b.deleted);
 }
 
+// completedPuzzleQuests mirrors completedBounties exactly: an id-keyed array of
+// { id, deleted? } objects living in the campaign section, so per-city puzzle
+// quest completion is campaign-scoped and rides the same field-level/tombstone
+// server merge. A puzzle quest is "completed" when its element is present and
+// not tombstoned.
+export function isPuzzleQuestCompleted(completedPuzzleQuests, id) {
+  return (completedPuzzleQuests ?? []).some(q => q.id === id && !q.deleted);
+}
+
+export function reduceTogglePuzzleQuestComplete(s, puzzleQuestId) {
+  const completed = s.campaign.completedPuzzleQuests ?? [];
+  const existing  = completed.find(q => q.id === puzzleQuestId);
+  let next;
+  if (existing) {
+    const isCompleted = !existing.deleted;
+    next = completed.map(q =>
+      q.id === puzzleQuestId ? (isCompleted ? { id: q.id, deleted: true } : { id: q.id }) : q
+    );
+  } else {
+    next = [...completed, { id: puzzleQuestId }];
+  }
+  return { ...s, campaign: { ...s.campaign, completedPuzzleQuests: next } };
+}
+
 // ─── Tombstone compaction (solo-mode GC) ─────────────────────────────────────
 //
 // Hard-drop tombstoned (deleted: true) elements from all id-keyed arrays.
@@ -422,6 +436,8 @@ export function compactTombstones(state) {
     const newEncs = oldEncs.filter(e => !e.deleted);
     const oldBounts = campaign.completedBounties ?? [];
     const newBounts = oldBounts.filter(b => !b.deleted);
+    const oldPuzzles = campaign.completedPuzzleQuests ?? [];
+    const newPuzzles = oldPuzzles.filter(q => !q.deleted);
 
     let locations = campaign.locations;
     if (locations) {
@@ -441,6 +457,7 @@ export function compactTombstones(state) {
       newPlans.length !== oldPlans.length ||
       newEncs.length !== oldEncs.length ||
       newBounts.length !== oldBounts.length ||
+      newPuzzles.length !== oldPuzzles.length ||
       locations !== campaign.locations
     ) {
       campaign = {
@@ -449,6 +466,7 @@ export function compactTombstones(state) {
         plans: newPlans,
         completedEncounters: newEncs,
         completedBounties: newBounts,
+        completedPuzzleQuests: newPuzzles,
       };
     }
   }

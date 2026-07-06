@@ -263,10 +263,11 @@ export default function App() {
             <ErrorBoundary level="tab" tabName="Cities">
               <CitiesTab
                 cities={state.cities}
-                toggleCityQuest={game.toggleCityQuest}
                 campaignId={state.campaign.campaignId}
                 completedBounties={state.campaign.completedBounties}
                 toggleBountyComplete={game.toggleBountyComplete}
+                completedPuzzleQuests={state.campaign.completedPuzzleQuests}
+                togglePuzzleQuestComplete={game.togglePuzzleQuestComplete}
               />
             </ErrorBoundary>
           )}
@@ -300,6 +301,7 @@ export default function App() {
                 cities={state.cities}
                 campaignId={state.campaign.campaignId}
                 completedBounties={state.campaign.completedBounties}
+                completedPuzzleQuests={state.campaign.completedPuzzleQuests}
                 onShowSource={setSourceItem}
                 searchSeed={craftSeed}
                 onSeedApplied={clearCraftSeed}

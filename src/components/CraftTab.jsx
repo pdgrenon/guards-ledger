@@ -179,7 +179,7 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaignId, completedBounties, onShowSource, searchSeed, onSeedApplied }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaignId, completedBounties, completedPuzzleQuests, onShowSource, searchSeed, onSeedApplied }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
@@ -226,10 +226,10 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   const prestigeMap = useMemo(() => {
     const map = {};
     for (const city of (cities ?? [])) {
-      map[city.name] = cityPrestige(city, campaignId, completedBounties);
+      map[city.name] = cityPrestige(city, campaignId, completedBounties, completedPuzzleQuests);
     }
     return map;
-  }, [cities, campaignId, completedBounties]);
+  }, [cities, campaignId, completedBounties, completedPuzzleQuests]);
 
   const cityPrestigeLevel = selectedCity ? (prestigeMap[selectedCity] ?? 0) : 0;
 
