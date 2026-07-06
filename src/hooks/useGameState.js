@@ -326,6 +326,8 @@ export function useGameState() {
     const upsertTimer = useRef(null);
     const stateRef = useRef(state);
     useEffect(() => { stateRef.current = state; }, [state]);
+    const syncRef = useRef(sync);
+    useEffect(() => { syncRef.current = sync; }, [sync]);
 
     function dismissCorruption() {
       setCorruption(null);
@@ -341,10 +343,23 @@ export function useGameState() {
     }, [state]);
 
     useEffect(() => {
-      const flush = () => saveState(state);
+      const flush = () => {
+        flushPendingSync();
+        saveState(stateRef.current);
+      };
       window.addEventListener('beforeunload', flush);
       return () => window.removeEventListener('beforeunload', flush);
-    }, [state]);
+    }, [flushPendingSync]);
+
+    useEffect(() => {
+      const handleVisibility = () => {
+        if (document.visibilityState === 'hidden') {
+          flushPendingSync();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+      return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, [flushPendingSync]);
 
     // ── Undo snapshot (single-level) ─────────────────────────────────────────
     // Captured before every undoable mutation in setState. Cleared on undo,
@@ -377,6 +392,20 @@ export function useGameState() {
     // pending upsert is dropped.
 
       const pendingSections = useRef(new Set());
+
+      const flushPendingSync = useCallback(() => {
+        if (upsertTimer.current) {
+          clearTimeout(upsertTimer.current);
+          upsertTimer.current = null;
+        }
+        if (pendingSections.current.size > 0) {
+          const sections = Array.from(pendingSections.current);
+          pendingSections.current.clear();
+          for (const section of sections) {
+            syncRef.current.upsertSection(section, stateRef.current);
+          }
+        }
+      }, []);
 
       const setState = useCallback((updater, sectionName = null) => {
         if (sectionName) {
