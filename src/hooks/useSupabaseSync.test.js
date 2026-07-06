@@ -508,9 +508,9 @@ describe('useSupabaseSync — incoming Realtime updates', () => {
     });
 
     expect(onRemoteChange).toHaveBeenCalledTimes(1);
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.sil).toBe(99);
-    expect(merged.lux).toBe(7);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.resources.sil).toBe(99);
+    expect(sections.resources.lux).toBe(7);
   });
 
   it('does not invoke onRemoteChange when the payload is null', () => {
@@ -542,9 +542,9 @@ describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
     // The boot fetch selected the row and pushed it through the gated pipeline.
     expect(client.calls.select.length).toBeGreaterThan(0);
     expect(onRemoteChange).toHaveBeenCalled();
-    const merged = onRemoteChange.mock.calls.at(-1)[0];
-    expect(merged.sil).toBe(55);
-    expect(merged.lux).toBe(3);
+    const sections = onRemoteChange.mock.calls.at(-1)[0];
+    expect(sections.resources.sil).toBe(55);
+    expect(sections.resources.lux).toBe(3);
   });
 
   it('does not fetch or apply anything when there is no active campaign', async () => {

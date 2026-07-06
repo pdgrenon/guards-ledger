@@ -24,7 +24,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { renderHook, act, render } from '@testing-library/react';
-import { useSupabaseSync } from './useSupabaseSync';
+import { useSupabaseSync, applyRemoteSection } from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
 
 // ─── Mock client (inline; only what these tests need) ────────────────────────
@@ -96,9 +96,9 @@ describe('inbound Realtime updates', () => {
     });
 
     expect(onRemoteChange).toHaveBeenCalledTimes(1);
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.sil).toBe(99);
-    expect(merged.lux).toBe(7);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.resources.sil).toBe(99);
+    expect(sections.resources.lux).toBe(7);
   });
 
   it('does NOT call onRemoteChange when every section is a no-op echo (AVE-371)', () => {
@@ -128,8 +128,14 @@ describe('inbound Realtime updates', () => {
 
     function TestComponent() {
       const [state, setState] = React.useState(() => createInitialState());
-      const onRemoteChange = React.useCallback((remote) => {
-        setState(prev => ({ ...remote, log: prev.log, settings: prev.settings, activeGuardIdx: prev.activeGuardIdx }));
+      const onRemoteChange = React.useCallback((sections) => {
+        setState(prev => {
+          let merged = prev;
+          for (const [section, value] of Object.entries(sections)) {
+            merged = applyRemoteSection(merged, section, value);
+          }
+          return { ...merged, log: prev.log, settings: prev.settings, activeGuardIdx: prev.activeGuardIdx };
+        });
       }, []);
       useSupabaseSync(state, onRemoteChange, client);
       return <div data-testid="sil">sil={state.sil}</div>;
@@ -179,8 +185,8 @@ describe('value-based echo suppression (replaces 3s wall-clock window)', () => {
     });
 
     expect(onRemoteChange).toHaveBeenCalled();
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.sil).toBe(99);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.resources.sil).toBe(99);
   });
 
   it('a remote change with the same value as the local state is skipped (echo)', async () => {
@@ -241,10 +247,10 @@ describe('value-based echo suppression (replaces 3s wall-clock window)', () => {
     });
 
     expect(onRemoteChange).toHaveBeenCalled();
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].hp).toBe(3);
-    // Local resources value is preserved.
-    expect(merged.sil).toBe(5);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.guard_0.hp).toBe(3);
+    // Only the changed section is in the map — resources was not in the payload.
+    expect(sections.resources).toBeUndefined();
   });
 });
 
@@ -351,8 +357,8 @@ describe('self-write echo suppression while actively editing (AVE-314)', () => {
       channel._trigger({ new: { id: 'WOLF42', guard_0: remote.guards[0] } });
     });
 
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].satchel[0].item).toBe('Gold');
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.guard_0.satchel[0].item).toBe('Gold');
   });
 
   it('consumes each self-write once, so a later identical remote value is applied', async () => {
@@ -385,8 +391,8 @@ describe('self-write echo suppression while actively editing (AVE-314)', () => {
     // consumed, so this genuine change is applied.
     act(() => { channel._trigger({ new: { id: 'WOLF42', guard_0: silver.guards[0] } }); });
 
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].satchel[0].item).toBe('Silver');
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.guard_0.satchel[0].item).toBe('Silver');
   });
 });
 
@@ -442,11 +448,11 @@ describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', 
       } });
     });
 
-    const merged = onRemoteChange.mock.calls[0][0];
-    // The other player's guard_3 change is applied…
-    expect(merged.guards[3].hp).toBe(5);
-    // …but my in-flight guard_0 edit is preserved, not reverted to empty.
-    expect(merged.guards[0].satchel[0].item).toBe('Silverwoo');
+    const sections = onRemoteChange.mock.calls[0][0];
+    // The other player's guard_3 change is applied — it's in the sections map.
+    expect(sections.guard_3.hp).toBe(5);
+    // guard_0 timestamp didn't advance (stale filler), so it's NOT in the sections map.
+    expect(sections.guard_0).toBeUndefined();
   });
 
   it('still applies a genuine remote edit to the same guard once its timestamp advances', () => {
@@ -476,8 +482,8 @@ describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', 
       } });
     });
 
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].satchel[0].item).toBe('Gold');
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.guard_0.satchel[0].item).toBe('Gold');
   });
 });
 
@@ -498,9 +504,10 @@ describe('inbound updates preserve unrelated local changes', () => {
       });
     });
 
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.guards[0].hp).toBe(3);
-    expect(merged.guards[3].hp).toBe(7);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.guard_0.hp).toBe(3);
+    // guard_3 was not in the payload, so it's not in the sections map.
+    expect(sections.guard_3).toBeUndefined();
   });
 
   it('an inbound resources update does not clobber a local guard edit', () => {
@@ -517,8 +524,115 @@ describe('inbound updates preserve unrelated local changes', () => {
       });
     });
 
-    const merged = onRemoteChange.mock.calls[0][0];
-    expect(merged.sil).toBe(50);
-    expect(merged.guards[2].hp).toBe(11);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.resources.sil).toBe(50);
+    // guards are not in the resources sections map entry.
+    expect(sections.guard_2).toBeUndefined();
+  });
+});
+
+// ─── Realtime race: back-to-back UPDATEs (AVE-375) ───────────────────────────
+
+describe('back-to-back Realtime UPDATEs (AVE-375)', () => {
+  it('delivers sections from both events when two UPDATEs fire before a re-render', () => {
+    // This simulates the race condition where two Realtime UPDATEs arrive
+    // synchronously before React has a chance to re-render. Under the old code,
+    // the second UPDATE read a stale stateRef.current (missing the first
+    // UPDATE's applied sections) and the computed merged state dropped them.
+    // Under the new code, each UPDATE independently passes its changed sections
+    // to onRemoteChange; the merge happens inside the parent's setRaw updater
+    // against the true latest state, so no section is lost.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    renderHook(() => useSupabaseSync(createInitialState(), onRemoteChange, client));
+
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      // Two back-to-back UPDATEs — no re-render between them.
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 99, lux: 7 } } });
+      channel._trigger({ new: { id: 'WOLF42', guard_0: { ...createInitialState().guards[0], hp: 3 } } });
+    });
+
+    // Both events must have been forwarded to the parent.
+    expect(onRemoteChange).toHaveBeenCalledTimes(2);
+
+    const firstSections  = onRemoteChange.mock.calls[0][0];
+    const secondSections = onRemoteChange.mock.calls[1][0];
+
+    // First UPDATE: resources changed.
+    expect(firstSections.resources?.sil).toBe(99);
+    expect(firstSections.resources?.lux).toBe(7);
+    // guard_0 was not in the first payload.
+    expect(firstSections.guard_0).toBeUndefined();
+
+    // Second UPDATE: guard_0 changed.
+    expect(secondSections.guard_0?.hp).toBe(3);
+    // resources was not in the second payload.
+    expect(secondSections.resources).toBeUndefined();
+  });
+
+  it('both sections survive through onRemoteChange when the same section changes twice', () => {
+    // Two players editing the same section rapidly. Both changes flow through
+    // as separate onRemoteChange calls, ensuring neither is dropped.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const initial = createInitialState();
+    renderHook(() => useSupabaseSync(initial, onRemoteChange, client));
+
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 50, lux: 0 } } });
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 100, lux: 10 } } });
+    });
+
+    expect(onRemoteChange).toHaveBeenCalledTimes(2);
+
+    const firstSections  = onRemoteChange.mock.calls[0][0];
+    const secondSections = onRemoteChange.mock.calls[1][0];
+
+    expect(firstSections.resources.sil).toBe(50);
+    expect(secondSections.resources.sil).toBe(100);
+    expect(secondSections.resources.lux).toBe(10);
+  });
+
+  it('local keystroke interleaved with an UPDATE affecting a different section — keystroke not clobbered', () => {
+    // Simulates: user types into guard_0, a remote UPDATE for guard_3 arrives.
+    // The local guard_0 edit must survive (no clobber).
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+
+    // Initial state: guard_0 has empty satchel slot 0.
+    function makeState(slot0Item) {
+      const s = createInitialState();
+      const satchel = s.guards[0].satchel.map((slot, i) =>
+        i === 0 ? { ...slot, item: slot0Item } : slot
+      );
+      return { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, satchel } : g) };
+    }
+
+    const typing = makeState('Silverwoo');
+    const { rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: makeState('') } }
+    );
+
+    // User types into guard_0 locally (simulates keystroke between Realtime events).
+    rerender({ state: typing });
+
+    // Remote UPDATE for a different section (guard_3) arrives.
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', guard_3: { ...createInitialState().guards[3], hp: 9 } } });
+    });
+
+    // The remote guard_3 change should be forwarded…
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.guard_3?.hp).toBe(9);
+    // …and guard_0 is NOT in the sections map (different section, so the local
+    // edit is wholly untouched — the timestamp gate on the stale server value
+    // also contributes, but more fundamentally the sections map only contains
+    // what the UPDATE actually changed).
+    expect(sections.guard_0).toBeUndefined();
   });
 });
