@@ -72,7 +72,7 @@ export function reduceSetPartySlot(s, slotIdx, name) {
   const activeGuardName  = s.guards[s.activeGuardIdx]?.name;
   const activeGuardSlot  = currentParty.indexOf(activeGuardName);
   const newActiveGuardIdx = activeGuardSlot === slotIdx
-    ? s.guards.findIndex(g => g.name === newParty[0])
+    ? s.guards.findIndex(g => g.name === newParty[slotIdx])
     : s.activeGuardIdx;
 
   return { ...s, activeParty: newParty, activeGuardIdx: newActiveGuardIdx };

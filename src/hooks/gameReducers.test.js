@@ -382,9 +382,9 @@ describe('reduceSetPartySlot', () => {
   it('updates activeGuardIdx when the viewed guard is replaced', () => {
     // activeGuardIdx=0 → viewing Grigory (guards[0]), who is in party slot 1.
     // Replacing slot 1 replaces the viewed guard → activeGuardIdx should move
-    // to the first guard in the new party (newParty[0] = Alek, guards index 1).
+    // to the guard now in the changed slot (newParty[1] = Catherine, guards index 2).
     const next        = reduceSetPartySlot(s, 1, 'Catherine');
-    const expectedIdx = next.guards.findIndex(g => g.name === next.activeParty[0]);
+    const expectedIdx = next.guards.findIndex(g => g.name === next.activeParty[1]);
     expect(next.activeGuardIdx).toBe(expectedIdx);
   });
 
