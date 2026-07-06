@@ -578,7 +578,23 @@ export function useGameState() {
           const imported = JSON.parse(e.target.result);
           const healed = healState(migrateV1(imported));
           if (!healed) { resolve({ success: false, error: 'Invalid save file.' }); return; }
-          setState(addLog(healed, 'Save file imported'), null);
+
+          const newState = addLog(healed, 'Save file imported');
+
+          // Discard any pending old-state writes — the import replaces everything.
+          pendingSections.current.clear();
+          if (upsertTimer.current) {
+            clearTimeout(upsertTimer.current);
+            upsertTimer.current = null;
+          }
+
+          setState(newState, null);
+
+          // Propagate to all players when a campaign is active (AVE-374).
+          syncRef.current.replaceRow?.(newState).then(r => {
+            if (r?.error) console.error('Import failed to sync to campaign:', r.error);
+          });
+
           resolve({ success: true });
         } catch {
           resolve({ success: false, error: 'Invalid save file.' });
@@ -590,7 +606,21 @@ export function useGameState() {
   }, [setState]);
 
     const resetState = useCallback(() => {
-    setState(createInitialState(), null);
+    const newState = createInitialState();
+
+    // Discard any pending old-state writes — the reset replaces everything.
+    pendingSections.current.clear();
+    if (upsertTimer.current) {
+      clearTimeout(upsertTimer.current);
+      upsertTimer.current = null;
+    }
+
+    setState(newState, null);
+
+    // Propagate to all players when a campaign is active (AVE-374).
+    syncRef.current.replaceRow?.(newState).then(r => {
+      if (r?.error) console.error('Reset failed to sync to campaign:', r.error);
+    });
   }, [setState]);
 
     // ── Leave campaign — also compact tombstones ───────────────────────────
