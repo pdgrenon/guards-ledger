@@ -297,11 +297,17 @@ function backupCorruptedRaw(raw, reason) {
   }
 }
 
+// Returns { ok: true } on success, or { ok: false, error } when the write is
+// rejected (quota exhausted, storage blocked/disabled). The caller surfaces the
+// failure so a player never keeps editing under the false belief their progress
+// is being saved.
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return { ok: true };
   } catch (e) {
     console.error('Failed to save state', e);
+    return { ok: false, error: e };
   }
 }
 
@@ -322,6 +328,10 @@ export function useGameState() {
     });
     const [state, setRaw]     = useState(initial.state);
     const [corruption, setCorruption] = useState(initial.corruption);
+    // Set when a localStorage write is rejected (quota/blocked). Surfaced as a
+    // banner so the player knows their progress isn't being saved instead of
+    // finding out when they reload. Auto-clears on the next successful save.
+    const [saveError, setSaveError] = useState(null);
     const saveTimer = useRef(null);
     const upsertTimer = useRef(null);
     const stateRef = useRef(state);
@@ -332,10 +342,28 @@ export function useGameState() {
       try { localStorage.removeItem(CORRUPTED_BACKUP_KEY); } catch { /* ignore */ }
     }
 
+    const dismissSaveError = useCallback(() => setSaveError(null), []);
+
+    // Ask the browser to make our storage persistent so this app's only copy of
+    // the game (in solo mode, localStorage is the sole record) isn't evicted
+    // under storage pressure or Safari's ~7-day cleanup of unused sites.
+    // Best-effort and idempotent: unsupported browsers / insecure contexts and
+    // an already-persisted origin simply no-op. Runs once on mount.
+    useEffect(() => {
+      const s = navigator.storage;
+      if (!s?.persist) return;
+      Promise.resolve(s.persisted?.())
+        .then(already => { if (!already) s.persist(); })
+        .catch(() => { /* best-effort — nothing to do if the request fails */ });
+    }, []);
+
     useEffect(() => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        saveState(state);
+        const res = saveState(state);
+        setSaveError(res.ok
+          ? null
+          : 'Your changes could not be saved to this browser (storage may be full or blocked).');
       }, 400);
       return () => clearTimeout(saveTimer.current);
     }, [state]);
@@ -644,6 +672,8 @@ export function useGameState() {
     state,
     corruption,             // { reason, raw } | null — drives the corruption banner
     dismissCorruption,      // hide the banner and clear the backed-up raw string
+    saveError,              // string | null — set when a localStorage write is rejected
+    dismissSaveError,       // hide the save-error banner (reappears if the next save also fails)
     sync: { ...sync, leaveCampaign }, // override leaveCampaign to include compaction
     setActiveGuard,
     setPartySlot,

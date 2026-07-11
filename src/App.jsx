@@ -156,6 +156,30 @@ export default function App() {
           />
         )}
 
+        {game.saveError && (
+          <div className="corruption-banner" role="alert">
+            <div className="corruption-banner-icon" aria-hidden="true">⚠</div>
+            <div className="corruption-banner-body">
+              <div className="corruption-banner-title">Changes may not be saved</div>
+              <div className="corruption-banner-message">{game.saveError}</div>
+              <div className="corruption-banner-message">
+                Export a save file now so you don't lose progress, then free up browser storage.
+              </div>
+              <div className="corruption-banner-actions">
+                <button className="corruption-banner-btn" onClick={game.exportState}>
+                  Export save…
+                </button>
+                <button
+                  className="corruption-banner-btn corruption-banner-btn--ghost"
+                  onClick={game.dismissSaveError}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Top bar */}
         <div className="top-bar">
           <div className="top-bar-brand">
