@@ -326,8 +326,6 @@ export function useGameState() {
     const upsertTimer = useRef(null);
     const stateRef = useRef(state);
     useEffect(() => { stateRef.current = state; }, [state]);
-    const syncRef = useRef(sync);
-    useEffect(() => { syncRef.current = sync; }, [sync]);
 
     function dismissCorruption() {
       setCorruption(null);
@@ -341,25 +339,6 @@ export function useGameState() {
       }, 400);
       return () => clearTimeout(saveTimer.current);
     }, [state]);
-
-    useEffect(() => {
-      const flush = () => {
-        flushPendingSync();
-        saveState(stateRef.current);
-      };
-      window.addEventListener('beforeunload', flush);
-      return () => window.removeEventListener('beforeunload', flush);
-    }, [flushPendingSync]);
-
-    useEffect(() => {
-      const handleVisibility = () => {
-        if (document.visibilityState === 'hidden') {
-          flushPendingSync();
-        }
-      };
-      document.addEventListener('visibilitychange', handleVisibility);
-      return () => document.removeEventListener('visibilitychange', handleVisibility);
-    }, [flushPendingSync]);
 
     // ── Undo snapshot (single-level) ─────────────────────────────────────────
     // Captured before every undoable mutation in setState. Cleared on undo,
@@ -391,6 +370,13 @@ export function useGameState() {
 
     const sync = useSupabaseSync(state, handleRemoteChange);
 
+    // Keep a ref to the latest sync handle so async callbacks (beforeunload /
+    // visibility flush) always see the current value without stale-closure
+    // issues. Declared after `sync` — referencing it earlier is a temporal
+    // dead-zone crash that white-screens the whole app.
+    const syncRef = useRef(sync);
+    useEffect(() => { syncRef.current = sync; }, [sync]);
+
     // ── Core setState — persists locally and upserts the changed section(s) ──
     // sectionName: which Supabase column this change belongs to, or null for local-only.
     // Multiple distinct sections may be touched within one debounce window (e.g.
@@ -412,6 +398,29 @@ export function useGameState() {
           }
         }
       }, []);
+
+      // Flush pending section upserts (and persist) when the tab is closed or
+      // backgrounded, so an edit made right before leaving isn't lost (AVE-377).
+      // These effects depend on flushPendingSync, so they must be declared
+      // after it — referencing it earlier is a temporal dead-zone crash.
+      useEffect(() => {
+        const flush = () => {
+          flushPendingSync();
+          saveState(stateRef.current);
+        };
+        window.addEventListener('beforeunload', flush);
+        return () => window.removeEventListener('beforeunload', flush);
+      }, [flushPendingSync]);
+
+      useEffect(() => {
+        const handleVisibility = () => {
+          if (document.visibilityState === 'hidden') {
+            flushPendingSync();
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+      }, [flushPendingSync]);
 
       const setState = useCallback((updater, sectionName = null) => {
         if (sectionName) {
