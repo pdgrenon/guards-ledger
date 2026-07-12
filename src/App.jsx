@@ -339,6 +339,8 @@ export default function App() {
               <CampaignTab
                 campaign={state.campaign}
                 stash={state.stash}
+                guards={state.guards}
+                activeParty={state.activeParty}
                 onSetEventToken={game.setEventToken}
                 onResetEventToken={game.resetEventToken}
                 onSetCampaignLocation={game.setCampaignLocation}

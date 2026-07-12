@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CAMPAIGNS } from '../data/constants';
 import { FT_ISTRA_BUILDINGS } from '../data/buildings';
+import { buildCombined } from '../data/recipes';
 import { Checkmark } from './Checkmark';
 import { MaterialName } from './MaterialName';
 
@@ -410,6 +411,8 @@ function FtIstraBuildingsCard({ ftIstraBuildings, stash, onSetFtIstraBuilding, o
 export function CampaignTab({
   campaign,
   stash,
+  guards,
+  activeParty,
   onSetEventToken,
   onResetEventToken,
   onSetCampaignLocation,
@@ -424,6 +427,15 @@ export function CampaignTab({
   onShowSource,
 }) {
   const { eventTokens, locations, plans, ftIstraBuildings } = campaign;
+
+  const activeGuards = useMemo(
+    () => (guards ?? []).filter(g => (activeParty ?? []).includes(g.name)),
+    [guards, activeParty]
+  );
+  const combined = useMemo(
+    () => buildCombined(stash, activeGuards),
+    [stash, activeGuards]
+  );
 
   return (
     <>
@@ -451,7 +463,7 @@ export function CampaignTab({
       />
       <FtIstraBuildingsCard
         ftIstraBuildings={ftIstraBuildings}
-        stash={stash}
+        stash={combined}
         onSetFtIstraBuilding={onSetFtIstraBuilding}
         onShowSource={onShowSource}
       />
