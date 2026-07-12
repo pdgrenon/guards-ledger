@@ -311,6 +311,34 @@ function saveState(state) {
   }
 }
 
+// ─── Remote section merge (AVE-518) ──────────────────────────────────────────
+//
+// Merges inbound remote sections (from a Realtime UPDATE, a join, or a
+// refetchRow() pull) into local state, skipping any section that still has a
+// local edit sitting unflushed in the debounce window (`pendingSections`,
+// populated by setState below).
+//
+// The self-write echo buffer in useSupabaseSync (`noteSelfWrite` /
+// `consumeSelfEcho`) only records a write once it is actually dispatched to
+// Supabase, ~400ms after the optimistic local update. A remote section
+// arriving inside that window — a genuine edit from another player, or the
+// row refetchRow() re-pulls on boot/reconnect/foreground (AVE-372) — is
+// invisible to that buffer and would otherwise be applied wholesale over the
+// fresh local value, silently reverting it. This is exactly what made
+// completing a bounty right after opening/resuming the app (when the
+// foreground/boot refetch is still in flight) flip back to incomplete a
+// moment later (AVE-518). Once the debounce flushes and the write is
+// dispatched, the section leaves `pendingSections` and the existing
+// timestamp/echo gating in useSupabaseSync takes over as usual.
+export function mergeRemoteSections(prev, sectionsToApply, pendingSections) {
+  let merged = prev;
+  for (const [section, value] of Object.entries(sectionsToApply)) {
+    if (pendingSections.has(section)) continue;
+    merged = applyRemoteSection(merged, section, value);
+  }
+  return merged;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGameState() {
@@ -375,6 +403,12 @@ export function useGameState() {
     const undoSnapshot = useRef(null);
     const [undoLabel, setUndoLabel] = useState(null);
 
+    // Sections with a local edit applied but not yet sent to Supabase (still
+    // sitting inside the 400ms debounce window in setState below). Declared
+    // here, ahead of handleRemoteChange, because a remote section must be
+    // checked against it (AVE-518, see below).
+    const pendingSections = useRef(new Set());
+
     // ── Remote change handler (called by useSupabaseSync on Realtime event) ──
     // Merges remote state into local, preserving local-only keys. Invalidates
     // the undo snapshot so we never undo to a state that didn't include the
@@ -382,18 +416,12 @@ export function useGameState() {
     const handleRemoteChange = useCallback((sectionsToApply) => {
       undoSnapshot.current = null;
       setUndoLabel(null);
-      setRaw(prev => {
-        let merged = prev;
-        for (const [section, value] of Object.entries(sectionsToApply)) {
-          merged = applyRemoteSection(merged, section, value);
-        }
-        return {
-          ...merged,
-          log:            prev.log,            // local-only: session log
-          settings:       prev.settings,       // local-only: app settings
-          activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
-        };
-      });
+      setRaw(prev => ({
+        ...mergeRemoteSections(prev, sectionsToApply, pendingSections.current),
+        log:            prev.log,            // local-only: session log
+        settings:       prev.settings,       // local-only: app settings
+        activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
+      }));
     }, []);
 
     const sync = useSupabaseSync(state, handleRemoteChange);
@@ -409,9 +437,8 @@ export function useGameState() {
     // sectionName: which Supabase column this change belongs to, or null for local-only.
     // Multiple distinct sections may be touched within one debounce window (e.g.
     // edits to two different guards); each is collected and flushed, so no
-    // pending upsert is dropped.
-
-      const pendingSections = useRef(new Set());
+    // pending upsert is dropped. (pendingSections itself is declared above,
+    // ahead of handleRemoteChange, which also reads it — see AVE-518.)
 
       const flushPendingSync = useCallback(() => {
         if (upsertTimer.current) {
