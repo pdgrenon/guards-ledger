@@ -676,3 +676,53 @@ describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
     expect(onRemoteChange).not.toHaveBeenCalled();
   });
 });
+
+// ─── Stale refetch racing a newer dispatched write (AVE-518 follow-up) ───────
+
+describe('useSupabaseSync — refetchRow vs. a newer in-flight write', () => {
+  it('discards a section from a slow refetch once a newer write for it has been dispatched', async () => {
+    // The boot refetch's SELECT is dispatched but held pending (simulating a
+    // slow/mobile connection) — resolved manually later in the test.
+    let resolveSelect;
+    const selectPromise = new Promise(resolve => { resolveSelect = resolve; });
+    const client = makeMockClient({ selectResult: selectPromise });
+
+    let result, onRemoteChange;
+    await act(async () => {
+      ({ result, onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+    // Boot fetch is in flight but hasn't resolved yet.
+    expect(client.calls.select.length).toBeGreaterThan(0);
+
+    // While it's still in flight, a fresh local edit is made and dispatched —
+    // e.g. the user marked a bounty complete moments after the app opened.
+    const withCompletion = {
+      ...createInitialState(),
+      campaign: { ...createInitialState().campaign, completedBounties: [{ id: 'mir-c1-a-feud-between-guilds' }] },
+    };
+    await act(async () => {
+      await result.current.upsertSection('campaign', withCompletion);
+    });
+    expect(client.calls.rpc).toHaveLength(1); // our write has been dispatched
+
+    // Now the slow SELECT finally resolves — with the STALE, pre-completion
+    // campaign section (it reflects what the server held before our write).
+    await act(async () => {
+      resolveSelect({
+        data: {
+          id: 'WOLF42',
+          campaign: createInitialState().campaign,
+          campaign_updated_at: 't1',
+        },
+        error: null,
+      });
+      await selectPromise;
+    });
+
+    // The stale row must NOT clobber the newer, already-dispatched completion.
+    if (onRemoteChange.mock.calls.length > 0) {
+      const sections = onRemoteChange.mock.calls.at(-1)[0];
+      expect(sections.campaign).toBeUndefined();
+    }
+  });
+});

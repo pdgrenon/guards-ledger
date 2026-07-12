@@ -229,6 +229,29 @@ export function reconcileSelfEcho(list, incoming, now, ttl) {
   return { isEcho: true, list: pruned.slice(0, idx).concat(pruned.slice(idx + 1)) };
 }
 
+/**
+ * Whether a self-write was dispatched at or after `sinceTs` (AVE-518 follow-up).
+ *
+ * `refetchRow`'s SELECT is a plain HTTP request dispatched at one point in time
+ * but not necessarily *resolved* before a write that started later — on a slow
+ * (e.g. mobile) connection it can sit in flight for seconds. If the user makes
+ * an edit *after* the refetch was dispatched but the refetch's response still
+ * arrives after that edit's own write has already been sent and its echo
+ * already consumed, the stale row is invisible to both existing guards: its
+ * value doesn't match current local (which has the newer edit) and it doesn't
+ * match a buffered self-write either (it predates that write, so the values
+ * differ) — it slips through and clobbers the newer edit.
+ *
+ * This closes that window using only this device's own clock: if we dispatched
+ * a write to this section at or after `sinceTs` (when the now-resolving fetch
+ * was issued), that fetch cannot possibly reflect it, so its data for this
+ * section must be discarded — the eventual echo/confirmation of that newer
+ * write is what reconciles local state instead.
+ */
+export function hasNewerSelfWrite(list, sinceTs) {
+  return (list || []).some(e => e.at >= sinceTs);
+}
+
 /** Per-section timestamp column name (matches the schema: `<section>_updated_at`). */
 export function sectionTsColumn(section) { return `${section}_updated_at`; }
 
@@ -359,14 +382,25 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // Shared by the Realtime UPDATE handler and refetchRow. Takes a raw Supabase
   // row (Realtime's payload.new, or the result of a fresh SELECT), normalizes
   // it, then applies each section on top of current local state subject to the
-  // same two timing-independent guards used everywhere:
-  //   1. per-section timestamp gate (skip sections this row didn't change), and
-  //   2. value/self-echo suppression (skip echoes of our own writes).
+  // same guards used everywhere:
+  //   1. per-section timestamp gate (skip sections this row didn't change),
+  //   2. value/self-echo suppression (skip echoes of our own writes), and
+  //   3. staleness vs. our own outstanding writes (AVE-518 follow-up, see below).
   // Advances the per-section timestamp baseline to the row afterwards, and calls
-  // onRemoteChange only when at least one section was actually applied. Reusing
-  // this for the refetch (AVE-372) means a re-fetched row can never clobber an
-  // in-flight local edit — the AVE-314 protections apply identically.
-  const applyRemoteRow = useCallback((rawRow) => {
+  // onRemoteChange only when at least one section was actually applied.
+  //
+  // `requestedAt`, when given (refetchRow only — see below), is the time the
+  // underlying request was dispatched. A row can arrive well after that: on a
+  // slow connection, refetchRow's SELECT can still be in flight when a fresh
+  // local edit is made and fully dispatched, so by the time the SELECT finally
+  // resolves it is a stale snapshot racing a newer write. Neither of the other
+  // two guards catches this — the stale value doesn't match current local (which
+  // already has the newer edit) and doesn't match the buffered self-write either
+  // (it predates that write, so the values genuinely differ) — so it would
+  // otherwise slip through and clobber the newer edit. Skipping any section with
+  // a self-write dispatched at/after `requestedAt` closes that window using only
+  // this device's own clock (no cross-device timestamp comparison needed).
+  const applyRemoteRow = useCallback((rawRow, requestedAt) => {
     const row = normalizeRow(rawRow);
     if (!row) return;
     const toApply = {};
@@ -375,6 +409,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       const incoming = row[section];
       if (incoming == null) continue;
       if (!sectionChanged(row, section, lastSeenTs.current)) continue;
+      if (requestedAt != null && hasNewerSelfWrite(selfWrites.current.get(section), requestedAt)) continue;
       const local = extractSection(stateRef.current, section);
       if (deepEqual(incoming, local)) { consumeSelfEcho(section, incoming); continue; }
       if (consumeSelfEcho(section, incoming)) continue;
@@ -398,17 +433,22 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
    * On a cold boot it also seeds `lastSeenTs` (otherwise only join/create seed
    * it), so the first subsequent Realtime UPDATE has a proper timestamp baseline
    * to gate against instead of applying blind.
+   *
+   * Captures `requestedAt` before dispatching the SELECT so applyRemoteRow can
+   * discard any section we've since written a newer value for (AVE-518
+   * follow-up) — this request can resolve well after that on a slow connection.
    */
   const refetchRow = useCallback(async () => {
     const id = campaignIdRef.current;
     if (!client || !id) return;
+    const requestedAt = Date.now();
     const { data, error } = await client
       .from('campaigns')
       .select('*')
       .eq('id', id)
       .single();
     if (error || !data) return;
-    applyRemoteRow(data);
+    applyRemoteRow(data, requestedAt);
   }, [client, applyRemoteRow]);
 
   // ── Core subscribe / unsubscribe ─────────────────────────────────────────

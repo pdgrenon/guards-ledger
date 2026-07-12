@@ -16,6 +16,7 @@ import {
   normalizeRow,
   generateCampaignId,
   reconcileSelfEcho,
+  hasNewerSelfWrite,
   sectionTsColumn,
   sectionChanged,
   snapshotTimestamps,
@@ -233,6 +234,28 @@ describe('reconcileSelfEcho (AVE-314)', () => {
     const res  = reconcileSelfEcho(list, { item: 'Silver' }, now, TTL);
     expect(res.isEcho).toBe(false);
     expect(res.list).toEqual([]);
+  });
+});
+
+describe('hasNewerSelfWrite (AVE-518 follow-up)', () => {
+  it('is false when nothing was ever sent for this section', () => {
+    expect(hasNewerSelfWrite(undefined, 1000)).toBe(false);
+    expect(hasNewerSelfWrite([], 1000)).toBe(false);
+  });
+
+  it('is false when every self-write predates the given time', () => {
+    const list = [{ value: { sil: 5 }, at: 900 }, { value: { sil: 7 }, at: 950 }];
+    expect(hasNewerSelfWrite(list, 1000)).toBe(false);
+  });
+
+  it('is true when a self-write was dispatched at or after the given time', () => {
+    const list = [{ value: { sil: 5 }, at: 900 }, { value: { sil: 9 }, at: 1500 }];
+    expect(hasNewerSelfWrite(list, 1000)).toBe(true);
+  });
+
+  it('treats an exact-match dispatch time as newer (inclusive)', () => {
+    const list = [{ value: { sil: 5 }, at: 1000 }];
+    expect(hasNewerSelfWrite(list, 1000)).toBe(true);
   });
 });
 
