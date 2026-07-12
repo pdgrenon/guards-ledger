@@ -130,6 +130,13 @@ export const RESOURCE_NODE_ITEMS = [
   ...MATERIAL_CATEGORIES.find(c => c.id === 'timber').items,
 ].sort();
 
+const RESOURCE_NODE_ITEMS_SET = new Set(RESOURCE_NODE_ITEMS);
+
+// Ores and Timber (e.g. Iron, Dogwood) stack higher in a satchel slot than other materials.
+export function satchelStackLimit(item) {
+  return RESOURCE_NODE_ITEMS_SET.has(item) ? 8 : 4;
+}
+
 // Items that can drop from enemies — used for Stonebound cube placement.
 export const ENEMY_DROPS = [
   ...MATERIAL_CATEGORIES.find(c => c.id === 'animal').items,
