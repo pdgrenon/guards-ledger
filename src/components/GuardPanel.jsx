@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
-import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_STATS } from '../data/materials';
+import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_STATS, satchelStackLimit } from '../data/materials';
 import { Autocomplete } from './Autocomplete';
 
 const EQUIPMENT_SLOTS = [
@@ -191,7 +191,7 @@ export function GuardPanel({ guard, guardIdx, actions }) {
                     else setGuardSatchelItem(guardIdx, si, 'qty', slot.qty - 1);
                   }} aria-label={`Decrease ${slot.item || 'satchel item'} quantity`}>−</button>
                   <span className="satchel-qty-val">×{slot.qty}</span>
-                  <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(4, slot.qty + 1))} aria-label={`Increase ${slot.item || 'satchel item'} quantity`}>+</button>
+                  <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(satchelStackLimit(slot.item), slot.qty + 1))} aria-label={`Increase ${slot.item || 'satchel item'} quantity`}>+</button>
                 </div>
               )}
             </div>
