@@ -37,7 +37,7 @@ describe('mergeRemoteSections', () => {
     const merged = mergeRemoteSections(afterToggle, staleRemote, pendingSections);
 
     expect(merged.campaign).toBe(afterToggle.campaign);
-    expect(merged.campaign.completedBounties).toEqual([{ id: 'mir-c1-a-feud-between-guilds' }]);
+    expect(merged.campaign.completedBounties).toEqual([{ id: 'mir-c1-a-feud-between-guilds', deleted: false }]);
   });
 
   it('applies a remote section once it is no longer pending', () => {
@@ -50,7 +50,7 @@ describe('mergeRemoteSections', () => {
     const remoteRow = { campaign: { campaign: afterToggle.campaign } };
     const merged = mergeRemoteSections(base, remoteRow, new Set());
 
-    expect(merged.campaign.completedBounties).toEqual([{ id: 'mir-c1-a-feud-between-guilds' }]);
+    expect(merged.campaign.completedBounties).toEqual([{ id: 'mir-c1-a-feud-between-guilds', deleted: false }]);
   });
 
   it('applies sections that are not pending while skipping ones that are', () => {
