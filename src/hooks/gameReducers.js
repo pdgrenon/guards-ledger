@@ -341,8 +341,14 @@ export function reduceDeletePlan(s, id) {
 // An encounter is "completed" when its element is present and not tombstoned.
 // Un-completing marks the element `deleted: true` (rather than dropping it) so
 // the change propagates through the append/union-only server merge like any
-// other field edit; re-completing clears the flag. This mirrors how the other
-// id-keyed arrays (plans, side quests, stonebound locations) tombstone deletes.
+// other field edit. Completing writes `deleted: false` EXPLICITLY — never a bare
+// { id } with the key omitted — because the server's per-element deep merge
+// preserves keys absent from the incoming element: a bare { id } sent against a
+// server-side tombstone leaves `deleted: true` in place, and the write's own
+// Realtime echo then carries the tombstone back and reverts the completion on
+// the very client that made it, about a second later (the "A Feud between
+// Guilds won't stay completed" bug). This mirrors how the other id-keyed
+// arrays (plans, side quests, stonebound locations) tombstone deletes.
 export function isEncounterCompleted(completedEncounters, id) {
   return (completedEncounters ?? []).some(e => e.id === id && !e.deleted);
 }
@@ -369,7 +375,14 @@ export function normalizeCompletedEncounters(arr) {
     if (typeof e === 'string') {
       entry = { id: e };
     } else if (e && typeof e === 'object' && typeof e.id === 'string') {
-      entry = e.deleted ? { id: e.id, deleted: true } : { id: e.id };
+      // An explicit `deleted: false` is preserved (not stripped to a bare
+      // { id }): completions are written with the flag explicit so they can
+      // clear a server-side tombstone, and stripping it here would make a
+      // reloaded local value no longer deep-equal the server row / our own
+      // Realtime echo, defeating the value-based echo suppression.
+      if (e.deleted) entry = { id: e.id, deleted: true };
+      else if ('deleted' in e) entry = { id: e.id, deleted: false };
+      else entry = { id: e.id };
     }
     if (!entry || seen.has(entry.id)) continue;
     seen.add(entry.id);
@@ -384,13 +397,14 @@ export function reduceToggleEncounterComplete(s, encounterId) {
   let next;
   if (existing) {
     // Present already: flip its tombstone. Completed → mark deleted; previously
-    // un-completed → clear the flag by re-adding it as a live element.
+    // un-completed → explicitly clear the flag (see the shape comment above:
+    // omitting the key cannot clear a server-side tombstone).
     const isCompleted = !existing.deleted;
     next = completed.map(e =>
-      e.id === encounterId ? (isCompleted ? { id: e.id, deleted: true } : { id: e.id }) : e
+      e.id === encounterId ? { id: e.id, deleted: isCompleted } : e
     );
   } else {
-    next = [...completed, { id: encounterId }];
+    next = [...completed, { id: encounterId, deleted: false }];
   }
   return { ...s, campaign: { ...s.campaign, completedEncounters: next } };
 }
@@ -405,7 +419,9 @@ export function reduceSetCampaign(s, campaignId) {
 // completion rides the same field-level/tombstone server merge (AVE-287) and
 // syncs via the existing five-section pattern. A bounty is "completed" when its
 // element is present and not tombstoned. Un-completing marks `deleted: true`
-// rather than dropping the element; re-completing clears the flag.
+// rather than dropping the element; completing writes an explicit
+// `deleted: false` (see the completedEncounters shape comment above — an
+// omitted key cannot clear a server-side tombstone).
 export function isBountyCompleted(completedBounties, id) {
   return (completedBounties ?? []).some(b => b.id === id && !b.deleted);
 }
@@ -426,10 +442,10 @@ export function reduceTogglePuzzleQuestComplete(s, puzzleQuestId) {
   if (existing) {
     const isCompleted = !existing.deleted;
     next = completed.map(q =>
-      q.id === puzzleQuestId ? (isCompleted ? { id: q.id, deleted: true } : { id: q.id }) : q
+      q.id === puzzleQuestId ? { id: q.id, deleted: isCompleted } : q
     );
   } else {
-    next = [...completed, { id: puzzleQuestId }];
+    next = [...completed, { id: puzzleQuestId, deleted: false }];
   }
   return { ...s, campaign: { ...s.campaign, completedPuzzleQuests: next } };
 }
@@ -514,10 +530,10 @@ export function reduceToggleBountyComplete(s, bountyId) {
   if (existing) {
     const isCompleted = !existing.deleted;
     next = completed.map(b =>
-      b.id === bountyId ? (isCompleted ? { id: b.id, deleted: true } : { id: b.id }) : b
+      b.id === bountyId ? { id: b.id, deleted: isCompleted } : b
     );
   } else {
-    next = [...completed, { id: bountyId }];
+    next = [...completed, { id: bountyId, deleted: false }];
   }
   return { ...s, campaign: { ...s.campaign, completedBounties: next } };
 }

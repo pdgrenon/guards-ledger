@@ -15,6 +15,11 @@
  *      it and the client re-applies the echoed row.
  *   2. concurrent add-vs-delete: player A's delete and player B's add of a
  *      different element both survive the same merge window, in either order.
+ *   3. complete-over-tombstone: re-completing an element the server holds a
+ *      tombstone for must actively clear the flag — the merge preserves keys
+ *      absent from the incoming element, so a bare { id } payload leaves
+ *      deleted:true in place and the write's own echo reverts the completion
+ *      (the "A Feud between Guilds won't stay completed" bug).
  *
  * If the SQL merge semantics ever change, update the model here to match.
  */
@@ -25,8 +30,10 @@ import {
   reduceRemoveDynamicLocation,
   reduceRemoveStoneboundLocation,
   reduceToggleEncounterComplete,
+  reduceToggleBountyComplete,
   reduceAddPlan,
   isEncounterCompleted,
+  isBountyCompleted,
 } from './gameReducers';
 
 // ─── JS model of the server merge (mirrors 0003 + 0004) ─────────────────────
@@ -147,5 +154,52 @@ describe('tombstone merge — concurrent add and delete both survive', () => {
     const visible = server.plans.filter(p => !p.deleted);
     expect(server.plans.find(p => p.id === 2).deleted).toBe(true);
     expect(visible.map(p => p.text)).toEqual(['A', 'C']);
+  });
+});
+
+// ─── complete over a server-side tombstone ──────────────────────────────────
+//
+// Regression for the "A Feud between Guilds" revert loop: the server row held
+// a tombstone for the bounty (from an earlier un-complete). Completing it sent
+// a bare { id } — but the merge preserves keys absent from the incoming
+// element, so deleted:true survived on the server, and the write's own
+// Realtime echo (carrying the still-tombstoned element) flipped the bounty
+// back to incomplete on the completing client about a second later. Every
+// retry lost the same way, permanently. The reducers now write deleted:false
+// explicitly, which the merge applies like any other field edit.
+
+describe('tombstone merge — completing over a server-side tombstone sticks', () => {
+  it('re-completing a bounty whose element is tombstoned on the server survives the echo', () => {
+    const server = { completedBounties: [{ id: 'mir-c1-a-feud-between-guilds', deleted: true }] };
+    // Local state matches the server (the earlier un-complete already synced).
+    const local  = { campaign: { completedBounties: [{ id: 'mir-c1-a-feud-between-guilds', deleted: true }] } };
+
+    const payload = reduceToggleBountyComplete(local, 'mir-c1-a-feud-between-guilds').campaign;
+    const merged  = deepMerge(server, payload); // what the server stores AND echoes back
+
+    expect(isBountyCompleted(merged.completedBounties, 'mir-c1-a-feud-between-guilds')).toBe(true);
+  });
+
+  it('completing a bounty the local state has never seen still clears a server-side tombstone', () => {
+    // Local lost the element entirely (fresh device / reset save) while the
+    // server still holds the tombstone — the append path must also carry an
+    // explicit deleted:false so the by-id merge overwrites the flag.
+    const server = { completedBounties: [{ id: 'mir-c1-a-feud-between-guilds', deleted: true }] };
+    const local  = { campaign: { completedBounties: [] } };
+
+    const payload = reduceToggleBountyComplete(local, 'mir-c1-a-feud-between-guilds').campaign;
+    const merged  = deepMerge(server, payload);
+
+    expect(isBountyCompleted(merged.completedBounties, 'mir-c1-a-feud-between-guilds')).toBe(true);
+  });
+
+  it('re-completing an encounter over a server-side tombstone survives the echo', () => {
+    const server = { completedEncounters: [{ id: 'boss-1', deleted: true }] };
+    const local  = { campaign: { completedEncounters: [{ id: 'boss-1', deleted: true }] } };
+
+    const payload = reduceToggleEncounterComplete(local, 'boss-1').campaign;
+    const merged  = deepMerge(server, payload);
+
+    expect(isEncounterCompleted(merged.completedEncounters, 'boss-1')).toBe(true);
   });
 });

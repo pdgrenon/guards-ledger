@@ -227,9 +227,12 @@ describe('ftIstraBuildings', () => {
 // ─── Encounter completion ──────────────────────────────────────────────────────
 
 describe('reduceToggleEncounterComplete', () => {
-  it('adds an id-keyed element when the encounter is not completed', () => {
+  it('adds an id-keyed element with an explicit deleted:false when the encounter is not completed', () => {
+    // The flag must be explicit, not omitted: the server's per-element deep
+    // merge preserves keys absent from the incoming element, so a bare { id }
+    // can never clear a tombstone the server may already hold for this id.
     const next = reduceToggleEncounterComplete({ campaign: { completedEncounters: [] } }, 'be-flexible');
-    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }]);
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible', deleted: false }]);
     expect(isEncounterCompleted(next.campaign.completedEncounters, 'be-flexible')).toBe(true);
   });
 
@@ -243,10 +246,13 @@ describe('reduceToggleEncounterComplete', () => {
     expect(isEncounterCompleted(next.campaign.completedEncounters, 'be-flexible')).toBe(false);
   });
 
-  it('re-completes a previously un-completed encounter by clearing the tombstone', () => {
+  it('re-completes a previously un-completed encounter with an explicit deleted:false', () => {
+    // Regression: this used to emit a bare { id }, which the server merge
+    // treated as "no change to deleted" — the tombstone survived and the
+    // write's own Realtime echo reverted the completion a second later.
     const state = { campaign: { completedEncounters: [{ id: 'be-flexible', deleted: true }] } };
     const next = reduceToggleEncounterComplete(state, 'be-flexible');
-    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }]);
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible', deleted: false }]);
     expect(isEncounterCompleted(next.campaign.completedEncounters, 'be-flexible')).toBe(true);
   });
 
@@ -259,7 +265,7 @@ describe('reduceToggleEncounterComplete', () => {
   it('preserves other completed encounters when adding one', () => {
     const state = { campaign: { completedEncounters: [{ id: 'be-flexible' }] } };
     const next = reduceToggleEncounterComplete(state, 'ice-cold');
-    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }, { id: 'ice-cold' }]);
+    expect(next.campaign.completedEncounters).toEqual([{ id: 'be-flexible' }, { id: 'ice-cold', deleted: false }]);
   });
 });
 
@@ -279,9 +285,9 @@ describe('isEncounterCompleted', () => {
 });
 
 describe('reduceToggleBountyComplete', () => {
-  it('marks a bounty complete by adding its id', () => {
+  it('marks a bounty complete by adding its id with an explicit deleted:false', () => {
     const next = reduceToggleBountyComplete({ campaign: { completedBounties: [] } }, 'mir-c1-stone-idols');
-    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols' }]);
+    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols', deleted: false }]);
     expect(isBountyCompleted(next.campaign.completedBounties, 'mir-c1-stone-idols')).toBe(true);
   });
 
@@ -293,10 +299,14 @@ describe('reduceToggleBountyComplete', () => {
     expect(isBountyCompleted(next.campaign.completedBounties, 'mir-c1-stone-idols')).toBe(false);
   });
 
-  it('re-completes a previously un-completed bounty by clearing the tombstone', () => {
+  it('re-completes a previously un-completed bounty with an explicit deleted:false', () => {
+    // Regression ("A Feud between Guilds" revert loop): a bare { id } cannot
+    // clear a server-side tombstone — the server merge keeps deleted:true for
+    // keys absent from the payload, and the write's own Realtime echo then
+    // flips the bounty back to incomplete on the completing client.
     const state = { campaign: { completedBounties: [{ id: 'mir-c1-stone-idols', deleted: true }] } };
     const next = reduceToggleBountyComplete(state, 'mir-c1-stone-idols');
-    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols' }]);
+    expect(next.campaign.completedBounties).toEqual([{ id: 'mir-c1-stone-idols', deleted: false }]);
   });
 
   it('preserves other campaigns’ completed bounties when toggling one', () => {
@@ -306,7 +316,7 @@ describe('reduceToggleBountyComplete', () => {
     const next = reduceToggleBountyComplete(state, 'mir-c2-lurking-in-the-shadows');
     expect(next.campaign.completedBounties).toEqual([
       { id: 'mir-c1-stone-idols' },
-      { id: 'mir-c2-lurking-in-the-shadows' },
+      { id: 'mir-c2-lurking-in-the-shadows', deleted: false },
     ]);
     expect(isBountyCompleted(next.campaign.completedBounties, 'mir-c1-stone-idols')).toBe(true);
   });
@@ -331,6 +341,14 @@ describe('normalizeCompletedEncounters', () => {
   it('leaves already-normalized objects intact (including tombstones)', () => {
     expect(normalizeCompletedEncounters([{ id: 'a' }, { id: 'b', deleted: true }]))
       .toEqual([{ id: 'a' }, { id: 'b', deleted: true }]);
+  });
+  it('preserves an explicit deleted:false instead of stripping it to a bare { id }', () => {
+    // Completions are written with the flag explicit so they can clear a
+    // server-side tombstone; stripping it on load would make local state no
+    // longer deep-equal the server row / our own Realtime echo, defeating the
+    // value-based echo suppression.
+    expect(normalizeCompletedEncounters([{ id: 'a', deleted: false }, { id: 'b' }]))
+      .toEqual([{ id: 'a', deleted: false }, { id: 'b' }]);
   });
   it('drops malformed entries and non-arrays', () => {
     expect(normalizeCompletedEncounters([{ nope: 1 }, null, 5])).toEqual([]);
