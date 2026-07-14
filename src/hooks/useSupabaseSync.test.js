@@ -17,7 +17,12 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useSupabaseSync } from './useSupabaseSync';
+import {
+  useSupabaseSync,
+  PENDING_QUEUE_KEY,
+  loadPendingQueue,
+  persistPendingQueue,
+} from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
 
 // ─── Mock Supabase client ────────────────────────────────────────────────────
@@ -724,5 +729,141 @@ describe('useSupabaseSync — refetchRow vs. a newer in-flight write', () => {
       const sections = onRemoteChange.mock.calls.at(-1)[0];
       expect(sections.campaign).toBeUndefined();
     }
+  });
+});
+
+// ─── Persisted pending queue survives tab death (AVE-522) ────────────────────
+
+describe('useSupabaseSync — persisted pending queue (AVE-522)', () => {
+  // Seed the persisted pending-queue key before mounting. setupHook clears
+  // localStorage, so these tests mount the hook directly instead.
+  function mountWith({ client, campaignId, pending }) {
+    localStorage.clear();
+    if (campaignId) localStorage.setItem('guards_ledger_campaign_id', campaignId);
+    if (pending) localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(pending));
+    const onRemoteChange = vi.fn();
+    const rendered = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: createInitialState() } }
+    );
+    return { ...rendered, onRemoteChange };
+  }
+
+  it('loadPendingQueue / persistPendingQueue round-trip through localStorage', () => {
+    localStorage.clear();
+    const q = new Map([['resources', { sil: 7, lux: 2 }], ['guard_3', { name: 'Yury' }]]);
+    persistPendingQueue(q);
+    const reloaded = loadPendingQueue();
+    expect([...reloaded.entries()]).toEqual([...q.entries()]);
+    // An empty queue clears the key entirely.
+    persistPendingQueue(new Map());
+    expect(localStorage.getItem(PENDING_QUEUE_KEY)).toBeNull();
+    expect(loadPendingQueue().size).toBe(0);
+  });
+
+  it('loadPendingQueue returns an empty Map on malformed JSON', () => {
+    localStorage.setItem(PENDING_QUEUE_KEY, '{not json');
+    expect(loadPendingQueue().size).toBe(0);
+  });
+
+  it('replays a persisted pending write to the server on boot', async () => {
+    // A write was queued on a previous session that died before flushing.
+    const client = makeMockClient();
+    let hook;
+    await act(async () => {
+      hook = mountWith({
+        client,
+        campaignId: 'WOLF42',
+        pending: [['resources', { sil: 88, lux: 4 }]],
+      });
+    });
+
+    // The boot drain flushed the queued payload through merge_section.
+    const mergeCalls = client.calls.rpc.filter(r => r.name === 'merge_section');
+    expect(mergeCalls).toHaveLength(1);
+    expect(mergeCalls[0].params.section_name).toBe('resources');
+    expect(mergeCalls[0].params.payload).toEqual({ sil: 88, lux: 4 });
+    expect(hook.result.current.syncStatus).toBe('idle');
+    // A successful flush clears the persisted queue.
+    expect(loadPendingQueue().size).toBe(0);
+  });
+
+  it('does not let the boot refetch revert a queued (unsynced) edit', async () => {
+    // Local/queued value is sil=88; the server row is the older sil=0. The
+    // queued section must be skipped by the refetch guard, not applied over.
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', resources: { sil: 0, lux: 0 }, resources_updated_at: 't1' },
+        error: null,
+      },
+    });
+    let hook;
+    await act(async () => {
+      hook = mountWith({
+        client,
+        campaignId: 'WOLF42',
+        pending: [['resources', { sil: 88, lux: 4 }]],
+      });
+    });
+
+    // The stale server resources must NOT have been pushed into local state.
+    for (const call of hook.onRemoteChange.mock.calls) {
+      expect(call[0].resources).toBeUndefined();
+    }
+  });
+
+  it('persists the queue when an upsert is made offline', async () => {
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    const client = makeMockClient();
+    const { result } = mountWith({ client, campaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 33 });
+    });
+
+    expect(result.current.syncStatus).toBe('offline');
+    const persisted = loadPendingQueue();
+    expect(persisted.get('resources')).toEqual({ sil: 33, lux: 0 });
+  });
+
+  it('enqueuePendingSections synchronously captures in-debounce sections to localStorage', () => {
+    const client = makeMockClient();
+    const { result } = mountWith({ client, campaignId: 'WOLF42' });
+
+    act(() => {
+      result.current.enqueuePendingSections(
+        ['resources', 'guard_2'],
+        { ...createInitialState(), sil: 12, lux: 5 },
+      );
+    });
+
+    const persisted = loadPendingQueue();
+    expect(persisted.get('resources')).toEqual({ sil: 12, lux: 5 });
+    expect(persisted.get('guard_2')).toEqual(createInitialState().guards[2]);
+  });
+
+  it('enqueuePendingSections is a no-op outside a campaign', () => {
+    const client = makeMockClient();
+    const { result } = mountWith({ client, campaignId: null });
+
+    act(() => {
+      result.current.enqueuePendingSections(['resources'], createInitialState());
+    });
+
+    expect(loadPendingQueue().size).toBe(0);
+  });
+
+  it('leaveCampaign drops the persisted queue so it cannot replay into another campaign', async () => {
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    const client = makeMockClient();
+    const { result } = mountWith({ client, campaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 5 });
+    });
+    expect(loadPendingQueue().size).toBe(1);
+
+    act(() => { result.current.leaveCampaign(); });
+    expect(loadPendingQueue().size).toBe(0);
   });
 });
