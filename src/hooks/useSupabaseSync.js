@@ -62,6 +62,14 @@ const defaultSupabase = supabaseUrl && supabaseKey
 
 export const CAMPAIGN_ID_KEY = 'guards_ledger_campaign_id';
 
+// localStorage key backing the pending upsert queue. The queue (pendingQueue,
+// below) is otherwise memory-only, so an edit sitting in it — offline, mid-error
+// backoff, or captured out of useGameState's debounce window on tab-hide — is
+// lost if the tab dies before the flush. Persisting it lets the next boot
+// recover and replay those writes instead of `refetchRow` reverting the edit to
+// the older server value (AVE-522).
+export const PENDING_QUEUE_KEY = 'guards_ledger_pending_v1';
+
 // Number of guards in a campaign (Grigory … Yana). Each gets its own column.
 export const GUARD_COUNT = 8;
 
@@ -292,6 +300,42 @@ export function snapshotTimestamps(row) {
 // ─── Runtime helpers ──────────────────────────────────────────────────────────
 
 /**
+ * Load the persisted pending-upsert queue (AVE-522). Stored as a JSON array of
+ * [sectionName, payload] pairs — exactly `Array.from(map.entries())` — so it
+ * round-trips straight back into a Map. Returns an empty Map on any failure
+ * (absent key, malformed JSON, storage blocked): a lost queue must never crash
+ * boot.
+ */
+export function loadPendingQueue() {
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY);
+    if (!raw) return new Map();
+    const entries = JSON.parse(raw);
+    return Array.isArray(entries) ? new Map(entries) : new Map();
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Persist the pending-upsert queue to localStorage (AVE-522). Called after every
+ * mutation of `pendingQueue` so the on-disk copy always matches memory. An empty
+ * queue removes the key entirely. Best-effort — a rejected write (quota/blocked)
+ * is swallowed; the in-memory queue still drives this session.
+ */
+export function persistPendingQueue(queue) {
+  try {
+    if (queue.size === 0) {
+      localStorage.removeItem(PENDING_QUEUE_KEY);
+    } else {
+      localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(Array.from(queue.entries())));
+    }
+  } catch {
+    /* best-effort — the in-memory queue still flushes this session */
+  }
+}
+
+/**
  * Send queued section writes through the merge_section RPC. Calls happen
  * sequentially so a failure on one section doesn't roll back others. The
  * first error (if any) is returned and short-circuits the remaining calls;
@@ -331,7 +375,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
   // Pending upserts queued while offline: Map<sectionName, sectionData>
   // Using a Map means newer data for the same section overwrites older.
-  const pendingQueue  = useRef(new Map());
+  // Seeded from localStorage so writes queued before a tab death are recovered
+  // and replayed on the next boot rather than silently lost (AVE-522). Lazy
+  // init (useRef evaluates its argument every render) so the read happens once.
+  const pendingQueue  = useRef(null);
+  if (pendingQueue.current === null) pendingQueue.current = loadPendingQueue();
   const isOnline      = useRef(navigator.onLine);
   const channelRef    = useRef(null);
   // Keep a ref to the latest state and campaignId so async callbacks
@@ -378,6 +426,31 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     return isEcho;
   }, []);
 
+  // ── Persisted pending queue (AVE-522) ─────────────────────────────────────
+  // Mirror the in-memory queue to localStorage after every mutation so a write
+  // still queued when the tab dies survives to the next boot.
+  const persistQueue = useCallback(() => {
+    persistPendingQueue(pendingQueue.current);
+  }, []);
+
+  // Synchronously capture the given sections' current payloads into the pending
+  // queue and persist it (AVE-522). Called from useGameState's tab-hide /
+  // beforeunload handlers so an edit still inside the 400ms debounce window is
+  // recorded to localStorage — a synchronous, unabortable write — before the
+  // async network flush that a dying tab may never complete. A successful flush
+  // later clears the entry again. No-op outside a campaign (nothing to sync).
+  const enqueuePendingSections = useCallback((sections, currentState) => {
+    if (!campaignIdRef.current) return;
+    let changed = false;
+    for (const section of sections) {
+      let payload;
+      try { payload = extractSection(currentState, section); } catch { continue; }
+      pendingQueue.current.set(section, payload);
+      changed = true;
+    }
+    if (changed) persistQueue();
+  }, [persistQueue]);
+
   // ── Apply a remote row through the gated pipeline (AVE-314 / AVE-372) ──────
   // Shared by the Realtime UPDATE handler and refetchRow. Takes a raw Supabase
   // row (Realtime's payload.new, or the result of a fresh SELECT), normalizes
@@ -409,6 +482,12 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       const incoming = row[section];
       if (incoming == null) continue;
       if (!sectionChanged(row, section, lastSeenTs.current)) continue;
+      // A section still in the pending queue holds a local edit the server has
+      // not received yet (queued offline, mid-error backoff, or recovered from a
+      // prior tab death). The persisted local value is newer by definition — do
+      // not let a fetched/echoed server row revert it; flushQueue will send it
+      // and its own echo will reconcile afterward (AVE-522).
+      if (pendingQueue.current.has(section)) continue;
       if (requestedAt != null && hasNewerSelfWrite(selfWrites.current.get(section), requestedAt)) continue;
       const local = extractSection(stateRef.current, section);
       if (deepEqual(incoming, local)) { consumeSelfEcho(section, incoming); continue; }
@@ -518,10 +597,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       // Remove only the sections we successfully flushed; anything queued
       // since (e.g. a new offline edit) is preserved.
       for (const [section] of entries) pendingQueue.current.delete(section);
+      persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       setSyncStatus('idle');
       setSyncError(null);
     }
-  }, [client, noteSelfWrite]);
+  }, [client, noteSelfWrite, persistQueue]);
 
   // ── Online / offline detection ────────────────────────────────────────────
 
@@ -610,6 +690,18 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     };
   }, [campaignId, client, subscribe, refetchRow]);
 
+  // ── Boot / campaign-change queue drain (AVE-522) ──────────────────────────
+  // Replay any persisted pending writes as soon as a campaign is active —
+  // edits queued before a prior tab death reach the server on the next boot.
+  // Kept in its own effect (not folded into the subscribe effect above) so it
+  // depends only on the stable `flushQueue`, not on `subscribe`/`refetchRow`
+  // (whose identity tracks the caller's onRemoteChange). Draining before the
+  // boot refetchRow resolves keeps those sections in pendingQueue, so the
+  // applyRemoteRow guard skips them instead of reverting the recovered edit.
+  useEffect(() => {
+    if (campaignId && client) flushQueue();
+  }, [campaignId, client, flushQueue]);
+
   /**
    * Upsert a single section to Supabase.
    * If offline, queues it for later.
@@ -631,6 +723,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
     if (!isOnline.current) {
       pendingQueue.current.set(sectionName, sectionData);
+      persistQueue(); // survive tab death while offline (AVE-522)
       setSyncStatus('offline');
       return;
     }
@@ -649,6 +742,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       setSyncError(error.message);
       setSyncStatus('error');
       pendingQueue.current.set(sectionName, sectionData);
+      persistQueue(); // survive tab death while the write is failing (AVE-522)
     } else {
       setSyncStatus('idle');
       setSyncError(null);
@@ -656,9 +750,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       // (AVE-376). Also drain any other queued sections so a failed write
       // doesn't sit in the queue until the next online/visibility transition.
       pendingQueue.current.delete(sectionName);
+      persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       flushQueue();
     }
-  }, [client, campaignId, noteSelfWrite, flushQueue]);
+  }, [client, campaignId, noteSelfWrite, flushQueue, persistQueue]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 
@@ -710,6 +805,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       return { state: null, error: 'Campaign not found. Check the code and try again.' };
     }
 
+    // Drop any queued writes from a previous campaign so they can't replay into
+    // the one we're joining (AVE-522). Joining adopts the remote row wholesale.
+    pendingQueue.current.clear();
+    persistQueue();
+
     // Apply each synced section from the remote row (normalizing any pre-AVE-83
     // single-`guards`-blob row to per-guard columns first). No section includes
     // activeGuardIdx, so it is never touched — the joining player keeps their
@@ -731,7 +831,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // until the host's next Realtime UPDATE happens to trigger a re-render.
     onRemoteChange(sections);
     return { state: null, error: null };
-  }, [client, onRemoteChange]);
+  }, [client, onRemoteChange, persistQueue]);
 
   /**
    * Leave the current campaign.
@@ -742,9 +842,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     localStorage.removeItem(CAMPAIGN_ID_KEY);
     setCampaignId(null);
     pendingQueue.current.clear();
+    persistQueue(); // drop the persisted queue so it can't replay into another campaign (AVE-522)
     setSyncStatus('idle');
     setSyncError(null);
-  }, []);
+  }, [persistQueue]);
 
   /**
    * Replace EVERY section of the campaign row with the values from `state`.
@@ -786,6 +887,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     syncStatus,   // 'idle' | 'syncing' | 'error' | 'offline'
     syncError,
     upsertSection,
+    enqueuePendingSections, // synchronously persist in-debounce edits on tab-hide (AVE-522)
     createCampaign,
     joinCampaign,
     leaveCampaign,

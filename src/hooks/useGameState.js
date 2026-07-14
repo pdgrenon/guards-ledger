@@ -452,6 +452,15 @@ export function useGameState() {
         if (pendingSections.current.size > 0) {
           const sections = Array.from(pendingSections.current);
           pendingSections.current.clear();
+          // Synchronously persist these sections' payloads to the localStorage-
+          // backed sync queue BEFORE the async network flush (AVE-522). This
+          // path runs on beforeunload / visibility-hidden — the tab may die
+          // before the fetch completes (and the beforeunload fetch has no
+          // keepalive, so browsers routinely abort it). The localStorage write
+          // is synchronous and survives, so next boot replays the edit instead
+          // of refetchRow reverting it to the older server value. A successful
+          // flush clears the queue entry again.
+          syncRef.current.enqueuePendingSections?.(sections, stateRef.current);
           for (const section of sections) {
             syncRef.current.upsertSection(section, stateRef.current);
           }
