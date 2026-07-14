@@ -73,6 +73,12 @@ export default defineConfig({
     }),
   ],
   base: './',
+  // Use the automatic JSX runtime for esbuild's transform too (not just
+  // @vitejs/plugin-react's Babel pass). During `vite build` this is a no-op —
+  // plugin-react transforms JSX first and esbuild only sees plain JS — but it
+  // lets Vitest import JSX-authored components (e.g. Autocomplete) without a
+  // bare `import React`, which the lint config forbids.
+  esbuild: { jsx: 'automatic' },
   build: {
     rollupOptions: {
       output: {
