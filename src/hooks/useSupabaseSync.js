@@ -361,13 +361,18 @@ export function persistPendingQueue(queue) {
  * sequentially so a failure on one section doesn't roll back others. The
  * first error (if any) is returned and short-circuits the remaining calls;
  * unprocessed sections stay in the queue for the next flush.
+ *
+ * `expectedGeneration` is passed as `expected_generation` so the server no-ops
+ * a write built against a generation older than the row now holds — the case a
+ * reset/import raced (AVE-527).
  */
-async function mergeSections(client, campaignId, entries) {
+async function mergeSections(client, campaignId, entries, expectedGeneration) {
   for (const [sectionName, payload] of entries) {
     const { error } = await client.rpc('merge_section', {
-      campaign_id:  campaignId,
-      section_name: sectionName,
-      payload:      payload,
+      campaign_id:         campaignId,
+      section_name:        sectionName,
+      payload:             payload,
+      expected_generation: expectedGeneration,
     });
     if (error) return { error };
   }
@@ -431,6 +436,16 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // applied over a local in-flight edit. Seeded on join/create; advanced on
   // each processed Realtime row. Map<sectionName, isoTimestamp>.
   const lastSeenTs = useRef({});
+
+  // ── Last seen row generation (AVE-527) ────────────────────────────────────
+  // The `generation` column bumps only on a full replacement (replaceRow —
+  // reset/import). Tracked so every merge_section write can carry it as
+  // `expected_generation` (a stale-generation write no-ops server-side), and so
+  // an inbound row with a HIGHER generation than we last saw is recognized as a
+  // full replacement — applyRemoteRow then treats every section as changed,
+  // bypassing the per-section timestamp gate. Seeded on join/create/boot;
+  // advanced (monotonically) whenever a processed row carries a higher value.
+  const lastSeenGen = useRef(0);
 
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
@@ -497,12 +512,20 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const applyRemoteRow = useCallback((rawRow, requestedAt) => {
     const row = normalizeRow(rawRow);
     if (!row) return;
+    // A higher generation than we last saw means a full replacement landed on
+    // the server (a co-player's reset/import). Bypass the per-section timestamp
+    // gate so every section is reconsidered — the replacement's timestamps may
+    // not out-rank a value an in-flight remote UPDATE clobbered onto local a
+    // moment earlier, and the reset must still win. Value-equality / self-echo
+    // suppression below still keep a no-op echo from churning. (AVE-527)
+    const incomingGen = typeof row.generation === 'number' ? row.generation : null;
+    const genBumped   = incomingGen != null && incomingGen > lastSeenGen.current;
     const toApply = {};
     let applied = false;
     for (const section of ALL_SECTIONS) {
       const incoming = row[section];
       if (incoming == null) continue;
-      if (!sectionChanged(row, section, lastSeenTs.current)) continue;
+      if (!genBumped && !sectionChanged(row, section, lastSeenTs.current)) continue;
       // A section still in the pending queue holds a local edit the server has
       // not received yet (queued offline, mid-error backoff, or recovered from a
       // prior tab death). The persisted local value is newer by definition — do
@@ -522,6 +545,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // would be gated against a baseline older than what we already applied and
     // could itself be dropped (AVE-526).
     lastSeenTs.current = mergeSeenTimestamps(lastSeenTs.current, snapshotTimestamps(row));
+    // Advance the generation baseline monotonically so a later stale row can't
+    // regress it and re-trigger a spurious full-replacement pass (AVE-527).
+    if (incomingGen != null && incomingGen > lastSeenGen.current) lastSeenGen.current = incomingGen;
     if (applied) onRemoteChange(toApply);
   }, [onRemoteChange, consumeSelfEcho]);
 
@@ -613,7 +639,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // Record each queued write so its Realtime echo is recognized on flush
     // (AVE-314), same as the online upsertSection path.
     for (const [section, payload] of entries) noteSelfWrite(section, payload);
-    const { error } = await mergeSections(client, campaignIdRef.current, entries);
+    const { error } = await mergeSections(client, campaignIdRef.current, entries, lastSeenGen.current);
 
     if (error) {
       // Leave the sections queued so the next flush retries them.
@@ -758,10 +784,13 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // Remember what we sent so the inbound Realtime echo of this write can be
     // recognized and dropped even after local state moves on (AVE-314).
     noteSelfWrite(sectionName, sectionData);
+    // Carry the last seen generation so this write no-ops server-side if a
+    // reset/import bumped the row's generation in between (AVE-527).
     const { error } = await client.rpc('merge_section', {
-      campaign_id:  campaignId,
-      section_name: sectionName,
-      payload:      sectionData,
+      campaign_id:         campaignId,
+      section_name:        sectionName,
+      payload:             sectionData,
+      expected_generation: lastSeenGen.current,
     });
 
     if (error) {
@@ -797,8 +826,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       const { error } = await client.from('campaigns').insert(row);
       if (!error) {
         // Seed the timestamp baseline from the row we just wrote so the first
-        // inbound UPDATE can gate correctly (AVE-314).
-        lastSeenTs.current = snapshotTimestamps(row);
+        // inbound UPDATE can gate correctly (AVE-314). A freshly inserted row
+        // starts at generation 0 (column default) — seed the counter to match
+        // so our own writes carry the right expected_generation (AVE-527).
+        lastSeenTs.current  = snapshotTimestamps(row);
+        lastSeenGen.current = 0;
         localStorage.setItem(CAMPAIGN_ID_KEY, id);
         setCampaignId(id);
         return { id, error: null };
@@ -847,8 +879,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     }
 
     // Seed the timestamp baseline from the fetched row so subsequent Realtime
-    // UPDATEs can tell which sections genuinely changed (AVE-314).
-    lastSeenTs.current = snapshotTimestamps(data);
+    // UPDATEs can tell which sections genuinely changed (AVE-314), and the
+    // generation baseline so our writes carry the right expected_generation and
+    // a later reset is recognized as a bump (AVE-527).
+    lastSeenTs.current  = snapshotTimestamps(data);
+    lastSeenGen.current = typeof data.generation === 'number' ? data.generation : 0;
 
     localStorage.setItem(CAMPAIGN_ID_KEY, id);
     setCampaignId(id);
@@ -880,9 +915,23 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
    * bumped timestamps. Intended for import/reset where the intent is explicit
    * full replacement.
    *
-   * Seeds `lastSeenTs` on success so the inbound Realtime echo is recognised
-   * as already-seen and skipped (timestamps match → sectionChanged returns
-   * false). No-op when no campaign is active.
+   * Bumps the `generation` column (AVE-527): every in-flight `merge_section`
+   * write from a co-player carries the generation it last saw as
+   * `expected_generation`, so once this replacement lands those stale writes
+   * no-op server-side instead of deep-merging the pre-reset campaign back in.
+   * The generation is read first, then written as read+1 — `generation` only
+   * ever changes here (merge_section never touches it), so this read can be
+   * stale only relative to another concurrent replaceRow, an
+   * astronomically-rare reset-vs-reset race whose outcome (one reset wins, the
+   * row is fully reset either way) is acceptable.
+   *
+   * Seeds `lastSeenTs` on success but deliberately does NOT seed `lastSeenGen`:
+   * the inbound Realtime echo carries the bumped generation, and letting it
+   * register as a generation bump lets applyRemoteRow re-apply the replacement
+   * over any stale value an in-flight remote UPDATE clobbered onto local in the
+   * meantime (the secondary same-device divergence window in AVE-527). In the
+   * normal case every section deep-equals local, so the echo is a value-equal
+   * no-op. No-op when no campaign is active.
    *
    * Returns { error: null | string }.
    */
@@ -890,9 +939,23 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     const id = campaignIdRef.current;
     if (!client || !id) return { error: null };
 
-    const row = buildFullRow(id, state);
-
     setSyncStatus('syncing');
+
+    // Read the current generation so the replacement can bump it.
+    const { data: cur, error: readErr } = await client
+      .from('campaigns')
+      .select('generation')
+      .eq('id', id)
+      .single();
+    if (readErr) {
+      setSyncError(readErr.message);
+      setSyncStatus('error');
+      return { error: readErr.message };
+    }
+    const nextGen = (typeof cur?.generation === 'number' ? cur.generation : 0) + 1;
+
+    const row = { ...buildFullRow(id, state), generation: nextGen };
+
     const { error } = await client.from('campaigns').update(row).eq('id', id);
     if (error) {
       setSyncError(error.message);
@@ -900,8 +963,8 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       return { error: error.message };
     }
 
-    // Update timestamp baseline so the inbound Realtime echo is recognised
-    // as already-seen (timestamps match → sectionChanged returns false).
+    // Update timestamp baseline so unrelated future events gate correctly. Do
+    // NOT seed lastSeenGen — see the doc comment above (AVE-527).
     lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
     setSyncStatus('idle');
     setSyncError(null);

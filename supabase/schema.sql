@@ -35,6 +35,11 @@ create table if not exists public.campaigns (
   stash       jsonb,
   campaign    jsonb,
 
+  -- Monotonic full-replacement counter (AVE-527). Bumped only by replaceRow
+  -- (reset/import); merge_section gates on it via expected_generation so a
+  -- stale in-flight write can't resurrect the pre-reset row.
+  generation  bigint not null default 0,
+
   resources_updated_at timestamptz,
   cities_updated_at    timestamptz,
   party_updated_at     timestamptz,
@@ -81,11 +86,12 @@ create policy "anon can update campaigns" on public.campaigns for update using (
 -- Enable Realtime so postgres_changes UPDATE events are broadcast.
 alter publication supabase_realtime add table public.campaigns;
 
--- ─── Field-level merge RPC (AVE-94, AVE-197, AVE-362, AVE-373) ─────────────
+-- ─── Field-level merge RPC (AVE-94, AVE-197, AVE-362, AVE-373, AVE-527) ─────
 -- See supabase/migrations/0002_field_level_merge.sql (object merge),
 -- supabase/migrations/0003_array_merge.sql (array merge),
 -- supabase/migrations/0005_plain_array_lww.sql (non-id arrays last-write-wins),
--- and supabase/migrations/0006_atomic_merge_section.sql (atomic read-merge-write)
+-- supabase/migrations/0006_atomic_merge_section.sql (atomic read-merge-write),
+-- and supabase/migrations/0007_row_generation.sql (generation gate)
 -- for the full rationale. Fresh installs: the functions are defined here so
 -- they're available immediately. Existing installs: run the migrations
 -- (idempotent CREATE OR REPLACE).
@@ -195,9 +201,10 @@ end;
 $$;
 
 create or replace function public.merge_section(
-  campaign_id  text,
-  section_name text,
-  payload      jsonb
+  campaign_id         text,
+  section_name        text,
+  payload             jsonb,
+  expected_generation bigint default null
 ) returns jsonb
 language plpgsql
 security invoker
@@ -224,11 +231,19 @@ begin
   -- read, so two concurrent merges of the same section can't clobber each
   -- other — the second call computes its merge against the first's
   -- already-committed result instead of overwriting it.
+  --
+  -- The WHERE gates the merge on generation (AVE-527): a null
+  -- expected_generation always fires (backward compatible); a value that no
+  -- longer matches the row's generation (a reset/import landed in between)
+  -- skips the DO UPDATE entirely, so the stale full-section payload never lands
+  -- and `merged` is null. merge_section never modifies generation itself, so
+  -- two normal concurrent writes (same generation) are unaffected.
   execute format(
     'insert into public.campaigns as c (id, %I, %s) values ($1, $2, now()) '
     'on conflict (id) do update set '
     '  %I = public.deep_merge_jsonb(c.%I, excluded.%I), '
     '  %s = excluded.%s '
+    'where c.generation = coalesce($3, c.generation) '
     'returning c.%I',
     section_name, ts_col,
     section_name, section_name, section_name,
@@ -236,12 +251,12 @@ begin
     section_name
   )
     into merged
-    using campaign_id, payload;
+    using campaign_id, payload, expected_generation;
 
   return merged;
 end;
 $$;
 
-grant execute on function public.merge_jsonb_array_by_id(jsonb, jsonb) to anon, authenticated;
-grant execute on function public.deep_merge_jsonb(jsonb, jsonb)        to anon, authenticated;
-grant execute on function public.merge_section(text, text, jsonb)      to anon, authenticated;
+grant execute on function public.merge_jsonb_array_by_id(jsonb, jsonb)     to anon, authenticated;
+grant execute on function public.deep_merge_jsonb(jsonb, jsonb)            to anon, authenticated;
+grant execute on function public.merge_section(text, text, jsonb, bigint)  to anon, authenticated;
