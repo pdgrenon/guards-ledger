@@ -14,7 +14,7 @@
  * AVE-377) shipped to main precisely because nothing exercised this path.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useGameState } from './useGameState';
 
 describe('useGameState smoke', () => {
@@ -34,6 +34,29 @@ describe('useGameState smoke', () => {
     const before = result.current.state.sil;
     act(() => result.current.setSil(3));
     expect(result.current.state.sil).toBe(before + 3);
+  });
+});
+
+describe('useGameState undo-across-replacement', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('clears the undo snapshot when a save is imported (AVE-524)', async () => {
+    const { result } = renderHook(() => useGameState());
+
+    // An undoable edit leaves an active Undo label behind.
+    act(() => result.current.setSil(3));
+    expect(result.current.undoLabel).toBeTruthy();
+
+    // Importing a valid save replaces the entire state tree — the snapshot
+    // predating it must be dropped so Undo can't discard the import.
+    const validExport = JSON.stringify(result.current.state);
+    const file = new File([validExport], 'save.json', { type: 'application/json' });
+    await act(async () => {
+      await result.current.importState(file);
+    });
+    await waitFor(() => expect(result.current.undoLabel).toBeNull());
   });
 });
 

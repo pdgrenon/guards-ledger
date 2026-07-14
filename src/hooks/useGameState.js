@@ -672,6 +672,10 @@ export function useGameState() {
             upsertTimer.current = null;
           }
 
+          // Drop the undo snapshot — it predates the state replacement (AVE-524).
+          undoSnapshot.current = null;
+          setUndoLabel(null);
+
           setState(newState, null);
 
           // Propagate to all players when a campaign is active (AVE-374).
@@ -698,6 +702,10 @@ export function useGameState() {
       clearTimeout(upsertTimer.current);
       upsertTimer.current = null;
     }
+
+    // Drop the undo snapshot — it predates the state replacement (AVE-524).
+    undoSnapshot.current = null;
+    setUndoLabel(null);
 
     setState(newState, null);
 
