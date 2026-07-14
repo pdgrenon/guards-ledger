@@ -537,3 +537,99 @@ export function reduceToggleBountyComplete(s, bountyId) {
   }
   return { ...s, campaign: { ...s.campaign, completedBounties: next } };
 }
+
+// ── Undo tombstones (AVE-523) ───────────────────────────────────────────────
+//
+// Undoing an *add* expresses the change by omitting the added element. But the
+// server merge (merge_jsonb_array_by_id / deep_merge_jsonb) preserves anything
+// the payload omits — existing array elements and object keys survive — so the
+// element stays on the server and the write's own Realtime echo resurrects it
+// locally. The delete reducers avoid this with tombstones ({ deleted: true })
+// and 0-count stash keys; the undo path bypasses that discipline entirely.
+//
+// `withUndoTombstones(prevState, currentState)` returns `prevState` augmented so
+// that everything present in `currentState` but missing from `prevState` is
+// explicitly negated: id-keyed array elements gain a { id, deleted: true }
+// tombstone, and new stash keys are pinned to 0 (the map-tombstone convention,
+// AVE-369). Everything else passes through from `prevState` unchanged — scalar
+// fields and guard objects are explicit-value writes that already merge right.
+// Side-effect free; safe unconditionally (compactTombstones GCs solo state and
+// all read sites filter `deleted` / treat 0 as absent).
+
+// Append { id, deleted: true } for every id present in `curr` but absent from
+// `prev`. Both default to [] so a missing array on either side is handled.
+function appendUndoArrayTombstones(prev, curr) {
+  const prevArr = prev ?? [];
+  const currArr = curr ?? [];
+  const prevIds = new Set(prevArr.map(e => e?.id));
+  const tombstones = currArr
+    .filter(e => e && 'id' in e && !prevIds.has(e.id))
+    .map(e => ({ id: e.id, deleted: true }));
+  return tombstones.length ? [...prevArr, ...tombstones] : prevArr;
+}
+
+export function withUndoTombstones(prevState, currentState) {
+  if (!prevState || !currentState) return prevState;
+
+  const result = { ...prevState };
+
+  // stonebound.locations
+  const prevStone = prevState.stonebound;
+  const currStone = currentState.stonebound;
+  if (prevStone || currStone) {
+    const locations = appendUndoArrayTombstones(
+      prevStone?.locations,
+      currStone?.locations,
+    );
+    if (locations !== (prevStone?.locations ?? [])) {
+      result.stonebound = { ...prevStone, locations };
+    }
+  }
+
+  // stash map: pin every key added since prevState back to 0.
+  const prevStash = prevState.stash ?? {};
+  const currStash = currentState.stash ?? {};
+  const addedStashKeys = Object.keys(currStash).filter(k => !(k in prevStash));
+  if (addedStashKeys.length) {
+    result.stash = { ...prevStash };
+    for (const k of addedStashKeys) result.stash[k] = 0;
+  }
+
+  // campaign id-keyed arrays
+  const prevCamp = prevState.campaign;
+  const currCamp = currentState.campaign;
+  if (prevCamp && currCamp) {
+    const campaign = { ...prevCamp };
+    let campChanged = false;
+
+    for (const key of ['plans', 'completedEncounters', 'completedBounties', 'completedPuzzleQuests']) {
+      const merged = appendUndoArrayTombstones(prevCamp[key], currCamp[key]);
+      if (merged !== (prevCamp[key] ?? [])) {
+        campaign[key] = merged;
+        campChanged = true;
+      }
+    }
+
+    const prevLocs = prevCamp.locations;
+    const currLocs = currCamp.locations;
+    if (prevLocs || currLocs) {
+      const locations = { ...prevLocs };
+      let locsChanged = false;
+      for (const key of ['sideQuests', 'bounties']) {
+        const merged = appendUndoArrayTombstones(prevLocs?.[key], currLocs?.[key]);
+        if (merged !== (prevLocs?.[key] ?? [])) {
+          locations[key] = merged;
+          locsChanged = true;
+        }
+      }
+      if (locsChanged) {
+        campaign.locations = locations;
+        campChanged = true;
+      }
+    }
+
+    if (campChanged) result.campaign = campaign;
+  }
+
+  return result;
+}

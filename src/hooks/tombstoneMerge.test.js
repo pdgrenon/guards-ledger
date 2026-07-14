@@ -32,6 +32,8 @@ import {
   reduceToggleEncounterComplete,
   reduceToggleBountyComplete,
   reduceAddPlan,
+  reduceAdjustStash,
+  withUndoTombstones,
   isEncounterCompleted,
   isBountyCompleted,
 } from './gameReducers';
@@ -201,5 +203,106 @@ describe('tombstone merge — completing over a server-side tombstone sticks', (
     const merged  = deepMerge(server, payload);
 
     expect(isEncounterCompleted(merged.completedEncounters, 'boss-1')).toBe(true);
+  });
+});
+
+// ─── undo of an add survives the server merge (AVE-523) ──────────────────────
+//
+// Undoing an add restores the pre-add snapshot, which *omits* the added element.
+// The server merge preserves anything the payload omits, so a raw pre-add
+// snapshot leaves the element on the server and its echo resurrects it locally.
+// withUndoTombstones augments the snapshot with explicit negations — id-array
+// tombstones and 0-count stash keys — so the undo propagates through the merge.
+
+describe('undo tombstones — undoing an add propagates through the server merge', () => {
+  it('undoing an added plan tombstones it after the merge (visible list excludes it)', () => {
+    const preAdd  = { campaign: { plans: [{ id: 1, text: 'A', done: false }] } };
+    const added   = reduceAddPlan(preAdd, 'B');
+    const addedId = added.campaign.plans.find(p => p.text === 'B').id;
+
+    // Server already holds the added plan (the add's debounced write flushed).
+    const server  = added.campaign;
+    const payload = withUndoTombstones(preAdd, added).campaign;
+
+    const merged  = deepMerge(server, payload);
+    const visible = merged.plans.filter(p => !p.deleted);
+
+    expect(merged.plans.find(p => p.id === addedId).deleted).toBe(true);
+    expect(visible.map(p => p.id)).toEqual([1]);
+  });
+
+  it('undoing a stash +1 that created a new key pins it to 0 after the merge', () => {
+    const preAdd  = { stash: { Iron: 2 }, log: [] };
+    const added   = reduceAdjustStash(preAdd, 'Copper', 1); // brand-new key
+
+    const server  = { Iron: 2, Copper: 1 };
+    const payload = withUndoTombstones(preAdd, added).stash;
+
+    const merged  = deepMerge(server, payload);
+
+    expect(merged.Copper).toBe(0);
+    expect(merged.Iron).toBe(2);
+  });
+
+  it('undoing an added side quest tombstones it after the merge', () => {
+    const preAdd  = { campaign: { locations: { sideQuests: [{ id: 1, label: 'x' }] } } };
+    const added   = { campaign: { locations: { sideQuests: [{ id: 1, label: 'x' }, { id: 2, label: 'y' }] } } };
+
+    const server  = added.campaign;
+    const payload = withUndoTombstones(preAdd, added).campaign;
+
+    const merged  = deepMerge(server, payload);
+    const visible = merged.locations.sideQuests.filter(e => !e.deleted);
+
+    expect(visible.map(e => e.id)).toEqual([1]);
+  });
+
+  it('undoing an added stonebound location tombstones it after the merge', () => {
+    const preAdd  = { stonebound: { max: 6, locations: [{ id: 1, selection: 'Mir', count: 1 }] } };
+    const added   = { stonebound: { max: 6, locations: [{ id: 1, selection: 'Mir', count: 1 }, { id: 2, selection: 'Iron', count: 2 }] } };
+
+    const server  = added.stonebound;
+    const payload = withUndoTombstones(preAdd, added).stonebound;
+
+    const merged  = deepMerge(server, payload);
+    const visible = merged.locations.filter(l => !l.deleted);
+
+    expect(visible.map(l => l.id)).toEqual([1]);
+  });
+});
+
+// ─── withUndoTombstones — plain reducer output ───────────────────────────────
+
+describe('withUndoTombstones — negates elements/keys added since the snapshot', () => {
+  it('add-plan → plans gains a { id, deleted: true } tombstone for the added plan', () => {
+    const preAdd  = { campaign: { plans: [{ id: 1, text: 'A', done: false }] } };
+    const added   = reduceAddPlan(preAdd, 'B');
+    const addedId = added.campaign.plans.find(p => p.text === 'B').id;
+
+    const result = withUndoTombstones(preAdd, added);
+
+    expect(result.campaign.plans).toEqual([
+      { id: 1, text: 'A', done: false },
+      { id: addedId, deleted: true },
+    ]);
+  });
+
+  it('new stash key → snapshot gains that key at 0', () => {
+    const preAdd = { stash: { Iron: 2 }, log: [] };
+    const added  = reduceAdjustStash(preAdd, 'Copper', 1);
+
+    const result = withUndoTombstones(preAdd, added);
+
+    expect(result.stash).toEqual({ Iron: 2, Copper: 0 });
+  });
+
+  it('no additions → returns the snapshot arrays/maps untouched', () => {
+    const preAdd = { campaign: { plans: [{ id: 1, text: 'A', done: false }] }, stash: { Iron: 2 } };
+    const same   = { campaign: { plans: [{ id: 1, text: 'A', done: false }] }, stash: { Iron: 2 } };
+
+    const result = withUndoTombstones(preAdd, same);
+
+    expect(result.campaign.plans).toBe(preAdd.campaign.plans);
+    expect(result.stash).toBe(preAdd.stash);
   });
 });

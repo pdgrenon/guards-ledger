@@ -41,6 +41,7 @@ import {
   reduceTogglePuzzleQuestComplete,
   reduceSetCampaign,
   normalizeCompletedEncounters,
+  withUndoTombstones,
 } from './gameReducers';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
 import { useSupabaseSync, guardColumn, applyRemoteSection } from './useSupabaseSync';
@@ -508,9 +509,16 @@ export function useGameState() {
     const snapshot = undoSnapshot.current;
     if (!snapshot) return;
     const { prevState, sectionName, label } = snapshot;
-    setRaw(addLog(prevState, `Undo: ${label}`));
+    // Undoing an *add* omits the added element, but the server merge preserves
+    // anything the payload omits, so the add survives and its echo resurrects it
+    // locally (AVE-523). withUndoTombstones negates elements/keys present in the
+    // current state but missing from prevState (id-array tombstones, 0-count
+    // stash keys). Apply it before both setRaw and upsertSection so local state
+    // and the sent payload agree — critical for echo suppression.
+    const restored = withUndoTombstones(prevState, stateRef.current);
+    setRaw(addLog(restored, `Undo: ${label}`));
     if (sectionName) {
-      sync.upsertSection(sectionName, prevState);
+      sync.upsertSection(sectionName, restored);
     }
     undoSnapshot.current = null;
     setUndoLabel(null);
