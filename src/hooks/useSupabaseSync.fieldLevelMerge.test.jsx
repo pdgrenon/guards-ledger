@@ -97,9 +97,10 @@ describe('upsertSection — RPC call shape', () => {
     const r = client.calls.rpc[0];
     expect(r.name).toBe('merge_section');
     expect(r.params).toEqual({
-      campaign_id:  'WOLF42',
-      section_name: 'resources',
-      payload:      { sil: 42, lux: 7 },
+      campaign_id:         'WOLF42',
+      section_name:        'resources',
+      payload:             { sil: 42, lux: 7 },
+      expected_generation: 0, // no reset seen yet → the row is at generation 0 (AVE-527)
     });
   });
 

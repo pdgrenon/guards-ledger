@@ -788,6 +788,124 @@ describe('useSupabaseSync — refetchRow vs. a newer in-flight write', () => {
   });
 });
 
+// ─── Generation gate: reset/import racing a co-player's write (AVE-527) ──────
+
+describe('useSupabaseSync — generation gate (AVE-527)', () => {
+  it('carries the last seen generation as expected_generation on every merge_section write', async () => {
+    const client = makeMockClient();
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 3 });
+    });
+
+    const r = client.calls.rpc.find(c => c.name === 'merge_section');
+    // No reset seen yet → the row is at the default generation 0.
+    expect(r.params).toHaveProperty('expected_generation', 0);
+  });
+
+  it('a higher-generation inbound row bypasses the per-section timestamp gate; a same-generation stale one does not', async () => {
+    const base = createInitialState().campaign;
+    // Boot fetch seeds generation 2 and campaign timestamp t5.
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', campaign: base, campaign_updated_at: 't5', generation: 2 },
+        error: null,
+      },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+    onRemoteChange.mockClear();
+
+    const channel = client.calls.channels[0].channel;
+
+    // Same generation (2) + the same (stale) timestamp, but different data —
+    // classic stale full-row filler. The timestamp gate rejects it.
+    const filler = { ...base, completedBounties: [{ id: 'stale', deleted: false }] };
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', campaign: filler, campaign_updated_at: 't5', generation: 2 } });
+    });
+    expect(onRemoteChange).not.toHaveBeenCalled();
+
+    // Higher generation (3) — a reset/import landed. Even with the same stale
+    // timestamp, the generation bump forces the section to be reconsidered and,
+    // differing from local, applied.
+    const reset = { ...base, completedBounties: [{ id: 'reset', deleted: false }] };
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', campaign: reset, campaign_updated_at: 't5', generation: 3 } });
+    });
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    expect(onRemoteChange.mock.calls.at(-1)[0].campaign).toEqual(reset);
+  });
+
+  it('a merge_section write made after a co-player reset carries the bumped generation', async () => {
+    const base = createInitialState().campaign;
+    const client = makeMockClient({
+      selectResult: { data: { id: 'WOLF42', generation: 0 }, error: null },
+    });
+    let result;
+    await act(async () => {
+      ({ result } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+
+    // A co-player's reset lands as an inbound row at generation 5.
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', campaign: base, campaign_updated_at: 't5', generation: 5 } });
+    });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 1 });
+    });
+
+    const r = client.calls.rpc.filter(c => c.name === 'merge_section').at(-1);
+    // Our write must be built against the post-reset generation, not the stale 0.
+    expect(r.params.expected_generation).toBe(5);
+  });
+
+  it('replaceRow reads the current generation and writes generation + 1', async () => {
+    const client = makeMockClient({
+      selectResult: { data: { id: 'WOLF42', generation: 4 }, error: null },
+    });
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.replaceRow(createInitialState());
+    });
+
+    const upd = client.calls.update.find(c => c.table === 'campaigns');
+    expect(upd.payload.generation).toBe(5);
+  });
+
+  it('does not seed lastSeenGen — the replacement echo re-applies over a stale local value', async () => {
+    const base = createInitialState().campaign;
+    const client = makeMockClient({
+      selectResult: { data: { id: 'WOLF42', generation: 0 }, error: null },
+    });
+    let result, onRemoteChange;
+    await act(async () => {
+      ({ result, onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+
+    await act(async () => { await result.current.replaceRow(createInitialState()); });
+    onRemoteChange.mockClear();
+
+    // The echo of the replacement arrives at generation 1, carrying a value that
+    // differs from local (as if an in-flight remote UPDATE had clobbered local in
+    // the divergence window). Because replaceRow did NOT seed lastSeenGen, this
+    // registers as a generation bump and re-applies — correcting the divergence.
+    const reset = { ...base, completedBounties: [{ id: 'corrected', deleted: false }] };
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', campaign: reset, campaign_updated_at: 't9', generation: 1 } });
+    });
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    expect(onRemoteChange.mock.calls.at(-1)[0].campaign).toEqual(reset);
+  });
+});
+
 // ─── Persisted pending queue survives tab death (AVE-522) ────────────────────
 
 describe('useSupabaseSync — persisted pending queue (AVE-522)', () => {
