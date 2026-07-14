@@ -730,6 +730,62 @@ describe('useSupabaseSync — refetchRow vs. a newer in-flight write', () => {
       expect(sections.campaign).toBeUndefined();
     }
   });
+
+  it('does not let a slow refetch roll back another player\'s just-applied update (AVE-526)', async () => {
+    // Boot fetch's SELECT is dispatched but held pending (slow connection).
+    let resolveSelect;
+    const selectPromise = new Promise(resolve => { resolveSelect = resolve; });
+    const client = makeMockClient({ selectResult: selectPromise });
+
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+
+    const base = createInitialState().campaign;
+    const bountyDone = { ...base, completedBounties: [{ id: 'mir-c1-a-feud-between-guilds', deleted: false }] };
+
+    // While the refetch is still in flight, Player B's edit arrives via the
+    // resubscribed Realtime channel and is applied (newer timestamp, no baseline
+    // yet since the boot SELECT hasn't resolved).
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({
+        new: { id: 'WOLF42', campaign: bountyDone, campaign_updated_at: '2026-01-01T00:00:10Z' },
+      });
+    });
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    expect(onRemoteChange.mock.calls.at(-1)[0].campaign).toEqual(bountyDone);
+    onRemoteChange.mockClear();
+
+    // Now the slow SELECT — dispatched *before* B's edit — finally resolves,
+    // carrying the STALE pre-edit campaign with an OLDER timestamp.
+    await act(async () => {
+      resolveSelect({
+        data: { id: 'WOLF42', campaign: base, campaign_updated_at: '2026-01-01T00:00:05Z' },
+        error: null,
+      });
+      await selectPromise;
+    });
+
+    // The stale refetch must NOT re-apply the pre-edit campaign.
+    for (const call of onRemoteChange.mock.calls) {
+      expect(call[0].campaign).toBeUndefined();
+    }
+    onRemoteChange.mockClear();
+
+    // And the baseline must not have regressed: a subsequent, genuinely newer
+    // event still applies (it would be dropped if lastSeenTs fell back to :05Z
+    // — but it correctly stayed at :10Z, and :15Z > :10Z).
+    const nextDone = { ...base, completedBounties: [{ id: 'mir-c1-a-feud-between-guilds', deleted: true }] };
+    act(() => {
+      channel._trigger({
+        new: { id: 'WOLF42', campaign: nextDone, campaign_updated_at: '2026-01-01T00:00:15Z' },
+      });
+    });
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    expect(onRemoteChange.mock.calls.at(-1)[0].campaign).toEqual(nextDone);
+  });
 });
 
 // ─── Persisted pending queue survives tab death (AVE-522) ────────────────────
