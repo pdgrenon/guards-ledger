@@ -1,22 +1,27 @@
 import { useState, useRef, useEffect, useId } from 'react';
 
-export function Autocomplete({ value, onChange, options, placeholder, className }) {
+export function Autocomplete({ value, onChange, options, placeholder, className, allowFreeText = false }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value || '');
-  const [prevValue, setPrevValue] = useState(value);
+  // `draft === null` means "not editing" — the input renders the committed
+  // `value` prop. While the user is typing, `draft` holds the in-flight text and
+  // `onChange` is NOT called, so partially-typed garbage never becomes real state
+  // (and we don't spam an undo snapshot + sync write per keystroke). It is
+  // resolved to a single `onChange` at a commit point: select / Enter / blur.
+  const [draft, setDraft] = useState(null);
   const [activeIdx, setActiveIdx] = useState(-1);
   const ref = useRef(null);
   const inputRef = useRef(null);
+  // Set while an option tap is in flight: option onMouseDown/onTouchEnd fire
+  // before the input's blur, so the blur handler checks this to skip its
+  // revert logic when a selection is landing.
+  const selectingRef = useRef(false);
   // Instance-scoped ids so multiple Autocompletes on one page (the Guards tab
   // mounts ~12 of them) don't share DOM ids and break their ARIA wiring.
   const baseId = useId();
   const listboxId = `${baseId}-listbox`;
   const optionId = i => `${baseId}-opt-${i}`;
 
-  if (value !== prevValue) {
-    setPrevValue(value);
-    setQuery(value || '');
-  }
+  const inputValue = draft !== null ? draft : (value || '');
 
   useEffect(() => {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
@@ -25,34 +30,69 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
     return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler); };
   }, []);
 
-  const filtered = query.length === 0 ? [] : options.filter(o => o.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
+  const filtered = inputValue.length === 0 ? [] : options.filter(o => o.toLowerCase().includes(inputValue.toLowerCase())).slice(0, 12);
 
-  function select(opt) {
-    setQuery(opt);
-    onChange(opt);
+  function commit(finalValue) {
+    onChange(finalValue);
+    setDraft(null);
     setOpen(false);
     setActiveIdx(-1);
   }
 
+  function select(opt) {
+    commit(opt);
+  }
+
+  // Resolve the current draft at a non-selection commit point (Enter / blur).
+  function resolveDraft() {
+    if (draft === null) { setOpen(false); setActiveIdx(-1); return; }
+    const trimmed = draft.trim();
+    const canonical = options.find(o => o.toLowerCase() === trimmed.toLowerCase());
+    if (canonical) {
+      commit(canonical);              // exact match (any case) → canonical option string
+    } else if (trimmed === '') {
+      commit('');                     // cleared a slot
+    } else if (allowFreeText) {
+      commit(trimmed);                // custom item — free text is a feature here
+    } else {
+      setDraft(null);                 // unknown text in a constrained field → revert
+      setOpen(false);
+      setActiveIdx(-1);
+    }
+  }
+
   function handleChange(e) {
-    setQuery(e.target.value);
-    onChange(e.target.value);
+    setDraft(e.target.value);
     setOpen(true);
     setActiveIdx(-1);
   }
 
   function handleFocus() {
-    if (query.length > 0) setOpen(true);
+    selectingRef.current = false;
+    if (inputValue.length > 0) setOpen(true);
+  }
+
+  function handleBlur() {
+    if (selectingRef.current) { selectingRef.current = false; return; }
+    resolveDraft();
   }
 
   function handleKeyDown(e) {
-    if (!open || filtered.length === 0) {
-      if (e.key === 'Escape' && open) {
-        setOpen(false);
-        setActiveIdx(-1);
-      }
+    if (e.key === 'Escape') {
+      if (open || draft !== null) e.preventDefault();
+      setDraft(null);                 // cancel the edit, keep the committed value
+      setOpen(false);
+      setActiveIdx(-1);
       return;
     }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (open && activeIdx >= 0 && activeIdx < filtered.length) select(filtered[activeIdx]);
+      else if (open && filtered.length > 0) select(filtered[0]);   // top match
+      else resolveDraft();            // no dropdown match → revert / free-text
+      return;
+    }
+    if (!open || filtered.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
@@ -62,17 +102,6 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
       case 'ArrowUp':
         e.preventDefault();
         setActiveIdx(i => Math.max(i - 1, 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (activeIdx >= 0 && activeIdx < filtered.length) {
-          select(filtered[activeIdx]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setOpen(false);
-        setActiveIdx(-1);
         break;
     }
   }
@@ -86,9 +115,10 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
       <input
         ref={inputRef}
         className="autocomplete-input"
-        value={query}
+        value={inputValue}
         onChange={handleChange}
         onFocus={handleFocus}
+        onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder={placeholder || 'Search…'}
         autoComplete="off"
@@ -109,8 +139,8 @@ export function Autocomplete({ value, onChange, options, placeholder, className 
               className={`autocomplete-option${i === activeIdx ? ' active' : ''}`}
               role="option"
               aria-selected={i === activeIdx}
-              onMouseDown={() => select(opt)}
-              onTouchEnd={() => select(opt)}
+              onMouseDown={() => { selectingRef.current = true; select(opt); }}
+              onTouchEnd={() => { selectingRef.current = true; select(opt); }}
               onMouseEnter={() => setActiveIdx(i)}
             >
               {opt}
