@@ -157,10 +157,13 @@ function healGuard(raw) {
     baseAtk:           healNumber(raw.baseAtk, fresh.baseAtk),
     baseDef:           healNumber(raw.baseDef, fresh.baseDef),
     expandedSatchel:   !!raw.expandedSatchel,
-    satchel:           Array.isArray(raw.satchel) && raw.satchel.length === SATCHEL_EXPANDED_SIZE
-                         ? raw.satchel.map(s => isPlainObject(s)
-                             ? { item: healString(s.item), qty: healNumber(s.qty, 1) }
-                             : { item: '', qty: 1 })
+    satchel:           Array.isArray(raw.satchel)
+                         ? Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => {
+                             const s = raw.satchel[k];
+                             return isPlainObject(s)
+                               ? { item: healString(s.item), qty: healNumber(s.qty, 1) }
+                               : { item: '', qty: 1 };
+                           })
                          : fresh.satchel,
     equipment:         isPlainObject(raw.equipment)
                          ? { weapon:    healString(raw.equipment.weapon),
