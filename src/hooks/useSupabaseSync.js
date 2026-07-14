@@ -277,14 +277,19 @@ export function sectionTsColumn(section) { return `${section}_updated_at`; }
  * Returns true (apply, subject to echo checks) when the timestamp advanced, or
  * when we have no reliable baseline to compare against (first sighting, or a
  * pre-migration row without per-section timestamps — fall back to value-based
- * behavior). Returns false only when the timestamp is unchanged from what we
- * last saw — the section is just riding along and must be left alone.
+ * behavior). Returns false when the timestamp is unchanged from — or *older
+ * than* — what we last saw: the section is just riding along (a stale value on
+ * an unrelated section's UPDATE) or an out-of-order arrival (a slow refetch
+ * resolving after a newer Realtime event already applied), and must be left
+ * alone. Timestamps are ISO-8601 strings from the same Postgres clock
+ * (`merge_section` writes `now()`), so lexicographic ordering is chronological
+ * — only a *strictly newer* section is a real change to apply (AVE-526).
  */
 export function sectionChanged(row, section, lastSeen) {
   const ts   = row[sectionTsColumn(section)];
   const prev = lastSeen[section];
   if (ts == null || prev == null) return true; // no baseline → don't gate
-  return ts !== prev;
+  return ts > prev;                            // only strictly newer sections apply
 }
 
 /** Snapshot the per-section `_updated_at` timestamps present on a row. */
@@ -293,6 +298,22 @@ export function snapshotTimestamps(row) {
   for (const section of ALL_SECTIONS) {
     const ts = row[sectionTsColumn(section)];
     if (ts != null) out[section] = ts;
+  }
+  return out;
+}
+
+/**
+ * Merge a fresh timestamp snapshot into the running `lastSeenTs` baseline,
+ * keeping the *later* value per section (lexicographic string comparison, valid
+ * for the same-clock ISO-8601 stamps). Monotonic so a stale, out-of-order row
+ * can never regress the baseline and weaken the gate for the next event
+ * (AVE-526).
+ */
+export function mergeSeenTimestamps(prev, incoming) {
+  const out = { ...prev };
+  for (const section in incoming) {
+    const ts = incoming[section];
+    if (out[section] == null || ts > out[section]) out[section] = ts;
   }
   return out;
 }
@@ -495,7 +516,12 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       toApply[section] = incoming;
       applied = true;
     }
-    lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
+    // Advance the baseline *monotonically* — keep max(existing, incoming) per
+    // section. A stale row (a slow refetch resolving after a newer event) must
+    // not regress `lastSeenTs` to its older timestamps, or the next real event
+    // would be gated against a baseline older than what we already applied and
+    // could itself be dropped (AVE-526).
+    lastSeenTs.current = mergeSeenTimestamps(lastSeenTs.current, snapshotTimestamps(row));
     if (applied) onRemoteChange(toApply);
   }, [onRemoteChange, consumeSelfEcho]);
 

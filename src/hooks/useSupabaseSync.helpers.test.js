@@ -20,6 +20,7 @@ import {
   sectionTsColumn,
   sectionChanged,
   snapshotTimestamps,
+  mergeSeenTimestamps,
 } from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
 
@@ -287,6 +288,14 @@ describe('per-section timestamp gating (AVE-314)', () => {
     expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(true);
   });
 
+  it('reports a section unchanged when its timestamp is OLDER than the baseline (AVE-526)', () => {
+    // A slow refetch resolving after a newer Realtime event already applied
+    // carries a *stale* (older) timestamp. Inequality would wrongly re-apply it;
+    // ordering must reject it so it can't roll back the newer value.
+    const row = { guard_0: {}, guard_0_updated_at: 't1' };
+    expect(sectionChanged(row, 'guard_0', { guard_0: 't2' })).toBe(false);
+  });
+
   it('snapshots only the present per-section timestamps', () => {
     const row = {
       id: 'WOLF42',
@@ -300,5 +309,29 @@ describe('per-section timestamp gating (AVE-314)', () => {
     expect(snap.guard_0).toBe('b');
     expect(snap).not.toHaveProperty('guard_1');
     expect(snap).not.toHaveProperty('created_at');
+  });
+});
+
+describe('mergeSeenTimestamps (AVE-526)', () => {
+  it('keeps the newer timestamp per section', () => {
+    const merged = mergeSeenTimestamps({ guard_0: 't2' }, { guard_0: 't5' });
+    expect(merged.guard_0).toBe('t5');
+  });
+
+  it('does NOT regress a section to an older incoming timestamp', () => {
+    // A stale refetch snapshot must never pull the baseline backward.
+    const merged = mergeSeenTimestamps({ campaign: 't5' }, { campaign: 't1' });
+    expect(merged.campaign).toBe('t5');
+  });
+
+  it('adds sections absent from the existing baseline', () => {
+    const merged = mergeSeenTimestamps({ guard_0: 't1' }, { resources: 't3' });
+    expect(merged).toEqual({ guard_0: 't1', resources: 't3' });
+  });
+
+  it('does not mutate the input baseline', () => {
+    const prev = { guard_0: 't1' };
+    mergeSeenTimestamps(prev, { guard_0: 't9' });
+    expect(prev.guard_0).toBe('t1');
   });
 });
