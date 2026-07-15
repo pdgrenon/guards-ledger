@@ -78,6 +78,19 @@ export function reduceSetPartySlot(s, slotIdx, name) {
   return { ...s, activeParty: newParty, activeGuardIdx: newActiveGuardIdx };
 }
 
+/**
+ * Derive a safe activeGuardIdx that is guaranteed to point at a guard in the
+ * active party. If the current index is valid, it is returned unchanged;
+ * otherwise it falls back to the first party guard (AVE-531).
+ */
+export function safeActiveGuardIdx(guards, activeParty, activeGuardIdx) {
+  const party = activeParty ?? ['Alek', 'Grigory'];
+  const idx   = activeGuardIdx ?? 0;
+  return party.includes(guards[idx]?.name)
+    ? idx
+    : Math.max(0, guards.findIndex(g => g.name === party[0]));
+}
+
 // ─── Party resources ──────────────────────────────────────────────────────────
 
 export function reduceSetSil(s, delta) {

@@ -43,6 +43,7 @@ import {
   reduceToggleBountyComplete,
   isBountyCompleted,
   reduceSetCampaign,
+  safeActiveGuardIdx,
 
   reduceSetEventToken,
   reduceResetEventToken,
@@ -1696,6 +1697,51 @@ describe('activeGuardIdx on reload (AVE-531)', () => {
     };
     const migrated = migrateV1(v1);
     expect(migrated.activeGuardIdx).toBe(0);
+  });
+});
+
+// ─── safeActiveGuardIdx (AVE-585) ──────────────────────────────────────────────
+//
+// The render-time fallback that keeps the guard tab valid when the stored
+// activeGuardIdx points at a guard no longer in the active party (e.g. after
+// a remote party change).
+
+describe('safeActiveGuardIdx', () => {
+  const guards = [
+    { name: 'Grigory' },
+    { name: 'Alek' },
+    { name: 'Catherine' },
+    { name: 'Yury' },
+    { name: 'Kharzin' },
+    { name: 'Vera' },
+    { name: 'Pavel' },
+    { name: 'Yana' },
+  ];
+
+  it('returns the current index when it points at a party member', () => {
+    expect(safeActiveGuardIdx(guards, ['Alek', 'Grigory'], 0)).toBe(0);
+  });
+
+  it('returns the current index even when it is not the first party member', () => {
+    expect(safeActiveGuardIdx(guards, ['Alek', 'Grigory'], 1)).toBe(1);
+  });
+
+  it('falls back to the first party guard when the index points outside the party', () => {
+    // activeGuardIdx=2 (Catherine) but party is [Alek, Grigory]
+    // Alek is at guards[1], so the fallback is 1.
+    expect(safeActiveGuardIdx(guards, ['Alek', 'Grigory'], 2)).toBe(1);
+  });
+
+  it('returns 0 when the first party guard name is not found in guards', () => {
+    expect(safeActiveGuardIdx(guards, ['Nobody', 'Alek'], 2)).toBe(0);
+  });
+
+  it('defaults activeParty when undefined', () => {
+    expect(safeActiveGuardIdx(guards, undefined, 5)).toBe(1); // Alek is GUARDS[1], default party[0]
+  });
+
+  it('defaults activeGuardIdx when undefined', () => {
+    expect(safeActiveGuardIdx(guards, ['Alek', 'Grigory'], undefined)).toBe(0);
   });
 });
 

@@ -8,6 +8,7 @@ import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CorruptionBanner } from './components/CorruptionBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
+import { safeActiveGuardIdx } from './hooks/gameReducers';
 
 // Heavier / less-frequently-used surfaces are split into their own chunks so
 // they aren't part of the initial download (AVE-292). Each loads on first use.
@@ -107,13 +108,8 @@ export default function App() {
 
   const onboardingRef = useDialogA11y(!state.settings.hasSeenOnboarding, dismissOnboarding);
 
-  const activeParty = state.activeParty ?? ['Alek', 'Grigory'];
-  const activeIdx   = state.activeGuardIdx ?? 0;
-  // Defensive: if activeGuardIdx points at a guard not in the party (e.g. after
-  // a remote party change), fall back to the first party guard (AVE-531).
-  const safeActiveIdx = activeParty.includes(state.guards[activeIdx]?.name)
-    ? activeIdx
-    : Math.max(0, state.guards.findIndex(g => g.name === activeParty[0]));
+  const activeParty  = state.activeParty ?? ['Alek', 'Grigory'];
+  const safeActiveIdx = safeActiveGuardIdx(state.guards, activeParty, state.activeGuardIdx);
   const activeGuard = state.guards[safeActiveIdx];
   const activeColor = GUARD_COLOR_MAP[activeGuard?.name] ?? FALLBACK_COLOR;
 
