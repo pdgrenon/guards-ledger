@@ -789,13 +789,33 @@ export function useGameState() {
       setUndoLabel(null);
     }, [sync, flushPendingSync]);
 
+    // ── Join campaign — clear pending state before adopting remote ──────────
+    // Joining means adopting the campaign's state wholesale. A local edit still
+    // sitting inside the 400ms debounce window (pendingSections) would
+    // otherwise be skipped by mergeRemoteSections (the AVE-518 guard), and its
+    // debounce timer would no-op because upsertSection captured campaignId =
+    // null — the edit would be silently lost and the section would stay
+    // divergent for the whole session (AVE-529). Clearing the pending state
+    // before the join ensures every section from the remote row is applied
+    // cleanly, and no stale timer fires afterwards.
+    const joinCampaign = useCallback(async (code) => {
+      if (upsertTimer.current) {
+        clearTimeout(upsertTimer.current);
+        upsertTimer.current = null;
+      }
+      pendingSections.current.clear();
+      undoSnapshot.current = null;
+      setUndoLabel(null);
+      return sync.joinCampaign(code);
+    }, [sync]);
+
   return {
     state,
     corruption,             // { reason, raw } | null — drives the corruption banner
     dismissCorruption,      // hide the banner and clear the backed-up raw string
     saveError,              // string | null — set when a localStorage write is rejected
     dismissSaveError,       // hide the save-error banner (reappears if the next save also fails)
-    sync: { ...sync, leaveCampaign }, // override leaveCampaign to include compaction
+    sync: { ...sync, leaveCampaign, joinCampaign }, // override leaveCampaign and joinCampaign
     setActiveGuard,
     setPartySlot,
     setSil, setLux,
