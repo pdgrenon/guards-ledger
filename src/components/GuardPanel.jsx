@@ -198,6 +198,11 @@ export function GuardPanel({ guard, guardIdx, actions }) {
           );
         })}
       </div>
+      {!guard.expandedSatchel && (() => {
+        const hiddenCount = (guard.satchel ?? []).slice(4).reduce((sum, s) => sum + (s.item ? (s.qty || 1) : 0), 0);
+        if (hiddenCount === 0) return null;
+        return <div className="text-xs text-muted mt-1">{hiddenCount} {hiddenCount === 1 ? 'item' : 'items'} stored in expanded slots</div>;
+      })()}
 
     </div>
   );
