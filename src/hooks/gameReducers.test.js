@@ -1550,3 +1550,94 @@ describe('legacy puzzleQuestDone migration (AVE-370)', () => {
     expect(migrated.cities.find(c => c.name === 'Ryba').puzzleQuestDone).toBe(false);
   });
 });
+
+// ─── Legacy bounty1Done/bounty2Done migration (AVE-547) ─────────────────────
+//
+// Like puzzleQuestDone, these flags were never migrated to the modern
+// campaign-scoped completedBounties, causing upgraded saves to silently lose
+// bounty-derived reputation. Mirror the AVE-370 one-shot guard.
+
+describe('legacy bounty1Done/bounty2Done migration (AVE-547)', () => {
+  function stateWithLegacyFlags(campaignId = 1) {
+    const state = createInitialState();
+    state.cities = state.cities.map(c =>
+      c.name === 'Mir' ? { ...c, bounty1Done: true, bounty2Done: true } : c
+    );
+    state.campaign.campaignId = campaignId;
+    return state;
+  }
+
+  it('migrates bounty1Done into completedBounties and clears the flag', () => {
+    const [b1] = bountiesForCity('Mir', 1);
+    const healed = healState(stateWithLegacyFlags(1));
+    expect(isBountyCompleted(healed.campaign.completedBounties, b1.id)).toBe(true);
+    expect(healed.cities.find(c => c.name === 'Mir').bounty1Done).toBe(false);
+  });
+
+  it('migrates both bounties for a city when both flags are true', () => {
+    const [b1, b2] = bountiesForCity('Mir', 1);
+    const healed = healState(stateWithLegacyFlags(1));
+    expect(isBountyCompleted(healed.campaign.completedBounties, b1.id)).toBe(true);
+    expect(isBountyCompleted(healed.campaign.completedBounties, b2.id)).toBe(true);
+  });
+
+  it('migrates bounty1Done only when bounty2Done is false', () => {
+    const state = createInitialState();
+    state.cities = state.cities.map(c =>
+      c.name === 'Mir' ? { ...c, bounty1Done: true, bounty2Done: false } : c
+    );
+    state.campaign.campaignId = 1;
+    const [b1] = bountiesForCity('Mir', 1);
+    const healed = healState(state);
+    expect(isBountyCompleted(healed.campaign.completedBounties, b1.id)).toBe(true);
+    const mirBounties = healed.campaign.completedBounties.filter(
+      b => b.id.startsWith('mir-c1-')
+    );
+    expect(mirBounties).toHaveLength(1);
+  });
+
+  it('cityPrestige reflects the migrated bounties', () => {
+    const [b1, b2] = bountiesForCity('Mir', 1);
+    const healed = healState(stateWithLegacyFlags(1));
+    const mir = healed.cities.find(c => c.name === 'Mir');
+    expect(isBountyCompleted(healed.campaign.completedBounties, b1.id)).toBe(true);
+    expect(isBountyCompleted(healed.campaign.completedBounties, b2.id)).toBe(true);
+    expect(cityPrestige(mir, 1, healed.campaign.completedBounties, [])).toBe(2);
+  });
+
+  it('does not re-migrate when completedBounties already has entries for the city (one-shot)', () => {
+    const state = stateWithLegacyFlags(1);
+    // Complete one bounty manually first, then let healState run
+    const [b1] = bountiesForCity('Mir', 1);
+    state.campaign.completedBounties = [{ id: b1.id }];
+    const healed = healState(state);
+    // b2 should NOT have been added — the one-shot guard skips the city
+    const mirBounties = healed.campaign.completedBounties.filter(
+      b => b.id.startsWith('mir-c')
+    );
+    expect(mirBounties).toHaveLength(1);
+    expect(mirBounties[0].id).toBe(b1.id);
+  });
+
+  it('is idempotent — re-running healState on the result changes nothing', () => {
+    const healed = healState(JSON.parse(JSON.stringify(stateWithLegacyFlags(1))));
+    const reHealed = healState(JSON.parse(JSON.stringify(healed)));
+    expect(reHealed.campaign.completedBounties).toEqual(healed.campaign.completedBounties);
+    expect(reHealed.cities).toEqual(healed.cities);
+  });
+
+  it('migrateV1 applies the same migration to old v1 saves', () => {
+    const v1 = {
+      cities: createInitialCities().cities.map(c =>
+        c.name === 'Ryba' ? { ...c, bounty1Done: true, bounty2Done: true } : c
+      ),
+      campaign: { campaignId: 2 },
+    };
+    const [b1, b2] = bountiesForCity('Ryba', 2);
+    const migrated = migrateV1(v1);
+    expect(isBountyCompleted(migrated.campaign.completedBounties, b1.id)).toBe(true);
+    expect(isBountyCompleted(migrated.campaign.completedBounties, b2.id)).toBe(true);
+    expect(migrated.cities.find(c => c.name === 'Ryba').bounty1Done).toBe(false);
+    expect(migrated.cities.find(c => c.name === 'Ryba').bounty2Done).toBe(false);
+  });
+});
