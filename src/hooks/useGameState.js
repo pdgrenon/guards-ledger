@@ -45,6 +45,7 @@ import {
 } from './gameReducers';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
 import { BOUNTIES, bountiesForCity } from '../data/bounties';
+import { satchelStackLimit } from '../data/materials';
 import { useSupabaseSync, guardColumn, applyRemoteSection } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
@@ -206,9 +207,12 @@ function healGuard(raw) {
     satchel:           Array.isArray(raw.satchel)
                          ? Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => {
                              const s = raw.satchel[k];
-                             return isPlainObject(s)
-                               ? { item: healString(s.item), qty: healNumber(s.qty, 1) }
-                               : { item: '', qty: 1 };
+                             if (!isPlainObject(s)) return { item: '', qty: 1 };
+                             const item = healString(s.item);
+                             const qty  = item
+                               ? Math.min(healNumber(s.qty, 1), satchelStackLimit(item))
+                               : 1;
+                             return { item, qty };
                            })
                          : fresh.satchel,
     equipment:         isPlainObject(raw.equipment)
