@@ -356,29 +356,6 @@ export function persistPendingQueue(queue) {
   }
 }
 
-/**
- * Send queued section writes through the merge_section RPC. Calls happen
- * sequentially so a failure on one section doesn't roll back others. The
- * first error (if any) is returned and short-circuits the remaining calls;
- * unprocessed sections stay in the queue for the next flush.
- *
- * `expectedGeneration` is passed as `expected_generation` so the server no-ops
- * a write built against a generation older than the row now holds — the case a
- * reset/import raced (AVE-527).
- */
-async function mergeSections(client, campaignId, entries, expectedGeneration) {
-  for (const [sectionName, payload] of entries) {
-    const { error } = await client.rpc('merge_section', {
-      campaign_id:         campaignId,
-      section_name:        sectionName,
-      payload:             payload,
-      expected_generation: expectedGeneration,
-    });
-    if (error) return { error };
-  }
-  return { error: null };
-}
-
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -450,6 +427,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
     const list = (selfWrites.current.get(section) || []).filter(e => now - e.at < SELF_WRITE_TTL_MS);
+    // Skip when the most recent entry for this section already deep-equals
+    // the value — protects against double-noting from undo/debounce races
+    // (AVE-528).
+    if (list.length > 0 && deepEqual(list.at(-1).value, value)) return;
     list.push({ value, at: now });
     selfWrites.current.set(section, list);
   }, []);
@@ -621,37 +602,58 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
   // ── Upsert helpers ────────────────────────────────────────────────────────
 
+  // ── Re-entrancy guard for flushQueue (AVE-528) ──────────────────────────────
+  // Prevents overlapping flushQueue invocations from the online handler, the
+  // visibility handler, and upsertSection's post-success drain from iterating
+  // the same queue snapshot and double-sending + double-noting entries.
+  const flushInFlight = useRef(false);
+
   /** Flush all queued section upserts. Called on reconnect / visibility restore. */
   const flushQueue = useCallback(async () => {
     if (!client || !campaignIdRef.current || pendingQueue.current.size === 0) return;
+    if (flushInFlight.current) return;
+    flushInFlight.current = true;
 
-    // Snapshot the queued sections. Each is sent through merge_section
-    // individually (rather than a single multi-column update) because the
-    // RPC's per-section deep-merge is exactly the concurrent-write safety
-    // we want — if the server has fresher state in some keys than we do,
-    // those keys are preserved while ours are applied.
-    //
-    // We do not clear the queue up front: if a write fails the data stays
-    // queued so a later flush can retry it instead of silently dropping
-    // the edits.
-    const entries = Array.from(pendingQueue.current.entries());
-    setSyncStatus('syncing');
-    // Record each queued write so its Realtime echo is recognized on flush
-    // (AVE-314), same as the online upsertSection path.
-    for (const [section, payload] of entries) noteSelfWrite(section, payload);
-    const { error } = await mergeSections(client, campaignIdRef.current, entries, lastSeenGen.current);
+    try {
+      // Snapshot the queued sections. Each is sent through merge_section
+      // individually (rather than a single multi-column update) because the
+      // RPC's per-section deep-merge is exactly the concurrent-write safety
+      // we want — if the server has fresher state in some keys than we do,
+      // those keys are preserved while ours are applied.
+      //
+      // We do not clear the queue up front: if a write fails the data stays
+      // queued so a later flush can retry it instead of silently dropping
+      // the edits.
+      const entries = Array.from(pendingQueue.current.entries());
+      setSyncStatus('syncing');
 
-    if (error) {
-      // Leave the sections queued so the next flush retries them.
-      setSyncError(error.message);
-      setSyncStatus('error');
-    } else {
-      // Remove only the sections we successfully flushed; anything queued
-      // since (e.g. a new offline edit) is preserved.
+      // Send each entry individually, noting the self-write immediately
+      // before its RPC is dispatched (not for the whole batch up front).
+      // On error the remaining entries stay queued and will be retried on
+      // the next flush — but they were never noted, so the retry won't
+      // double-note them (AVE-528).
+      for (const [sectionName, payload] of entries) {
+        noteSelfWrite(sectionName, payload);
+        const { error } = await client.rpc('merge_section', {
+          campaign_id:         campaignIdRef.current,
+          section_name:        sectionName,
+          payload:             payload,
+          expected_generation: lastSeenGen.current,
+        });
+        if (error) {
+          setSyncError(error.message);
+          setSyncStatus('error');
+          return;
+        }
+      }
+
+      // All succeeded — remove flushed entries from the queue.
       for (const [section] of entries) pendingQueue.current.delete(section);
       persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       setSyncStatus('idle');
       setSyncError(null);
+    } finally {
+      flushInFlight.current = false;
     }
   }, [client, noteSelfWrite, persistQueue]);
 

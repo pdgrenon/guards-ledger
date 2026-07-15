@@ -636,3 +636,146 @@ describe('back-to-back Realtime UPDATEs (AVE-375)', () => {
     expect(sections.guard_0).toBeUndefined();
   });
 });
+
+// ─── Duplicate self-write buffer entries (AVE-528) ──────────────────────────
+
+describe('duplicate self-write buffer entries (AVE-528)', () => {
+  it('consolidates duplicate self-writes for the same value so a later identical remote change is applied', async () => {
+    // Two upsertSection calls with the same value should produce only one
+    // self-write entry. With fix #3 (deep-equal skip in noteSelfWrite), the
+    // second call is a no-op. The echo consumes the single entry; a subsequent
+    // genuine remote event carrying the same value is applied, not consumed.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: createInitialState() } }
+    );
+
+    // First upsert with sil=5
+    const withSil5 = { ...createInitialState(), sil: 5, lux: 0 };
+    await act(async () => {
+      await result.current.upsertSection('resources', withSil5);
+      rerender({ state: withSil5 });
+    });
+    onRemoteChange.mockClear();
+
+    // Second upsert with the identical value — fix #3 skips the duplicate note
+    await act(async () => {
+      await result.current.upsertSection('resources', withSil5);
+    });
+
+    // Echo of that write arrives — consumes the single note
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
+    });
+    expect(onRemoteChange).not.toHaveBeenCalled(); // echo dropped
+
+    // Local state moves on (clears resources back to 0/0)
+    const cleared = createInitialState();
+    rerender({ state: cleared });
+    onRemoteChange.mockClear();
+
+    // A genuine remote change carrying sil=5 arrives — must be applied
+    // (without the fix a stale duplicate self-write entry would consume it)
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
+    });
+
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.resources.sil).toBe(5);
+  });
+
+  it('flush retry after an error does not double-note — a later identical remote change is applied', async () => {
+    // FlushQueue with an entry where the first merge_section RPC errors.
+    // On retry (the backoff timer), the entry is sent and the echo arrives.
+    // Without the AVE-528 fix, the retry would note the write a second time,
+    // leaving a stale entry in the buffer that consumes a later genuine
+    // remote event with the same value.
+    //
+    // The test simulates this by:
+    //   1. Start offline so the pending queue accumulates an entry.
+    //   2. Stub merge_section to fail on the first call and succeed after.
+    //   3. Go online → flushQueue runs → RPC errors → entry stays queued.
+    //   4. Go offline → online again → flushQueue retries → RPC succeeds.
+    //   5. Send the echo → consumed cleanly.
+    //   6. Clear local, send the same value as a genuine remote change → APPLIED.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: createInitialState() } }
+    );
+
+    // Intercept rpc so the first merge_section call errors, subsequent succeed.
+    let firstFail = true;
+    const origRpc = client.rpc;
+    client.rpc = (name, params) => {
+      if (name === 'merge_section' && firstFail) {
+        firstFail = false;
+        return Promise.resolve({ data: null, error: { message: 'timeout', code: 'TIMEOUT' } });
+      }
+      return origRpc(name, params);
+    };
+
+    // Step 1: offline upsert to queue an entry.
+    // The navigator stub must be in place before the hook renders for
+    // `isOnline.current` to read the right value at init, and an 'offline'
+    // event is dispatched to update the ref and syncStatus.
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    await act(async () => { window.dispatchEvent(new Event('offline')); });
+    const withSil5 = { ...createInitialState(), sil: 5, lux: 0 };
+    await act(async () => {
+      await result.current.upsertSection('resources', withSil5);
+      rerender({ state: withSil5 });
+    });
+    expect(result.current.syncStatus).toBe('offline');
+
+    // Step 2: go online — flushQueue runs, first merge_section errors
+    vi.stubGlobal('navigator', { ...navigator, onLine: true });
+    onRemoteChange.mockClear();
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+      await new Promise(r => setTimeout(r, 50));
+    });
+    // The first RPC errored, so syncStatus is 'error', entry stayed queued
+    expect(result.current.syncStatus).toBe('error');
+
+    // Step 3: trigger another flush by going offline → online again
+    // (mock already swapped to succeeding, so this flush succeeds)
+    vi.stubGlobal('navigator', { ...navigator, onLine: false });
+    await act(async () => { window.dispatchEvent(new Event('offline')); });
+    await new Promise(r => setTimeout(r, 50));
+    vi.stubGlobal('navigator', { ...navigator, onLine: true });
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+      await new Promise(r => setTimeout(r, 50));
+    });
+
+    // Flush succeeded — status back to idle
+    expect(result.current.syncStatus).toBe('idle');
+
+    // Step 4: the Realtime echo of the successful write arrives
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
+    });
+    expect(onRemoteChange).not.toHaveBeenCalled(); // echo dropped
+
+    // Step 5: local clears, a genuine remote "sil=5" arrives
+    const cleared = createInitialState();
+    rerender({ state: cleared });
+    onRemoteChange.mockClear();
+
+    act(() => {
+      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
+    });
+
+    // Must be applied — without the fix the stale duplicate note would consume it
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    const sections = onRemoteChange.mock.calls[0][0];
+    expect(sections.resources.sil).toBe(5);
+  });
+});
