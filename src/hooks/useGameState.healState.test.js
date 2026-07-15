@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { healState, migrateV1 } from './useGameState';
 import { SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { satchelStackLimit } from '../data/materials';
 import demoSave from '../data/demoSave.json';
 
 const EMPTY_SLOT = { item: '', qty: 1 };
@@ -39,10 +40,10 @@ describe('healState — guard satchel (AVE-521)', () => {
     ]);
   });
 
-  it('leaves a full 8-slot satchel unchanged', () => {
+  it('leaves a full 8-slot satchel with valid qtys unchanged', () => {
     const full = Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => ({
-      item: `Item ${k}`,
-      qty: k + 1,
+      item: k < 4 ? `Iron` : `Item ${k}`,
+      qty: k < 4 ? 8 : 4,
     }));
     expect(healSatchel(full)).toEqual(full);
   });
@@ -102,5 +103,19 @@ describe('healState — guard satchel (AVE-521)', () => {
     const after = healed.guards.reduce(
       (n, g) => n + g.satchel.filter(s => s.item).length, 0);
     expect(after).toBe(before);
+  });
+
+  it('clamps satchel qty to the item stack limit on heal (AVE-541)', () => {
+    const healed = healState({
+      guards: [{ name: 'Grigory', satchel: [
+        { item: 'Health Potion', qty: 8 },
+        { item: 'Iron', qty: 99 },
+        { item: '', qty: 5 },
+      ]}],
+    });
+    const satchel = healed.guards[0].satchel;
+    expect(satchel[0]).toEqual({ item: 'Health Potion', qty: satchelStackLimit('Health Potion') });
+    expect(satchel[1]).toEqual({ item: 'Iron', qty: satchelStackLimit('Iron') });
+    expect(satchel[2]).toEqual({ item: '', qty: 1 });
   });
 });

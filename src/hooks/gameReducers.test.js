@@ -27,6 +27,7 @@ import {
   reduceSetLux,
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
+  reduceSetGuardSatchelItem,
 
   cityPrestige,
   isPuzzleQuestCompleted,
@@ -53,6 +54,7 @@ import {
   reduceTogglePlan,
   reduceDeletePlan,
 } from '../hooks/gameReducers';
+import { satchelStackLimit } from '../data/materials';
 import { colorizeLogMessage } from '../utils/logUtils';
 import { healState, migrateV1 } from '../hooks/useGameState';
 import { groupEncounters } from '../data/encounters';
@@ -502,6 +504,36 @@ describe('reduceAdjustGuardMaxHp', () => {
   it('reduces current HP to new max when max drops below current', () => {
     const next = reduceAdjustGuardMaxHp(s, 0, -5);
     expect(next.guards[0].hp).toBeLessThanOrEqual(next.guards[0].maxHp);
+  });
+});
+
+// ─── Guard satchel ──────────────────────────────────────────────────────────────
+
+describe('reduceSetGuardSatchelItem', () => {
+  it('clamps qty when changing item to one with a lower stack limit', () => {
+    s.guards[0].satchel[0] = { item: 'Iron', qty: 8 };
+    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Health Potion');
+    expect(next.guards[0].satchel[0].item).toBe('Health Potion');
+    expect(next.guards[0].satchel[0].qty).toBe(4);
+  });
+
+  it('allows qty at the new item limit', () => {
+    s.guards[0].satchel[0] = { item: 'Health Potion', qty: 4 };
+    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
+    expect(next.guards[0].satchel[0].item).toBe('Iron');
+    expect(next.guards[0].satchel[0].qty).toBe(4);
+  });
+
+  it('clamps qty when setting qty above the item limit', () => {
+    s.guards[0].satchel[0] = { item: 'Health Potion', qty: 1 };
+    const next = reduceSetGuardSatchelItem(s, 0, 0, 'qty', 99);
+    expect(next.guards[0].satchel[0].qty).toBe(satchelStackLimit('Health Potion'));
+  });
+
+  it('clamps qty at the ore limit when setting qty above 8', () => {
+    s.guards[0].satchel[0] = { item: 'Iron', qty: 1 };
+    const next = reduceSetGuardSatchelItem(s, 0, 0, 'qty', 99);
+    expect(next.guards[0].satchel[0].qty).toBe(8);
   });
 });
 

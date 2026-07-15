@@ -19,7 +19,7 @@
  */
 
 import { SATCHEL_EXPANDED_SIZE } from '../data/constants';
-import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS } from '../data/materials';
+import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, satchelStackLimit } from '../data/materials';
 import { bountiesForCity } from '../data/bounties';
 import { puzzleQuestForCity } from '../data/puzzleQuests';
 
@@ -141,9 +141,17 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
     const full    = Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) =>
       gi.satchel[k] ?? { item: '', qty: 1 }
     );
-    const satchel = full.map((slot, si) =>
-      si === slotIdx ? { ...slot, [field]: value } : slot
-    );
+    const satchel = full.map((slot, si) => {
+      if (si !== slotIdx) return slot;
+      const updated = { ...slot, [field]: value };
+      if (field === 'item' && value) {
+        updated.qty = Math.min(updated.qty, satchelStackLimit(value));
+      }
+      if (field === 'qty') {
+        updated.qty = Math.min(updated.qty, satchelStackLimit(slot.item || ''));
+      }
+      return updated;
+    });
     return { ...gi, satchel };
   });
   const newState = { ...s, guards };
