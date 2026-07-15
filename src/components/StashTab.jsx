@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, ALL_KNOWN_ITEMS_LOWER, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS_LOWER, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
 import { CITIES } from '../data/constants';
 import { PREREQ_UPGRADES_TO } from '../data/recipes';
 import { MaterialName } from './MaterialName';
@@ -27,12 +27,20 @@ export function StashTab({
   const cubesAvailable = stonebound.max - cubesUsed;
   const overBudget = cubesAvailable < 0;
 
+  const stashLower = useMemo(() => {
+    const map = {};
+    for (const key of Object.keys(stash)) {
+      map[key.toLowerCase()] = (map[key.toLowerCase()] || 0) + (stash[key] ?? 0);
+    }
+    return map;
+  }, [stash]);
+
   const predefinedAddResults = useMemo(() => addSearch.length > 0
     ? ALL_ITEMS_WITH_CATEGORY.filter(({ item }) =>
         item.toLowerCase().includes(addSearch.toLowerCase()) &&
-        (stash[item] ?? 0) === 0
+        (stashLower[item.toLowerCase()] ?? 0) === 0
       ).slice(0, 12)
-    : [], [addSearch, stash]);
+    : [], [addSearch, stashLower]);
 
   const trimmedSearch = addSearch.trim();
   const trimmedLower = trimmedSearch.toLowerCase();
@@ -60,7 +68,7 @@ export function StashTab({
       .filter(cat => cat.items.length > 0);
 
     const customItems = Object.keys(stash)
-      .filter(key => !ALL_KNOWN_ITEMS.has(key) && (stash[key] ?? 0) > 0)
+      .filter(key => !ALL_KNOWN_ITEMS_LOWER.has(key.toLowerCase()) && (stash[key] ?? 0) > 0)
       .sort();
     if (customItems.length > 0) {
       grouped.push({ label: CUSTOM_CATEGORY_LABEL, items: customItems });
