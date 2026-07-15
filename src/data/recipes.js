@@ -1136,7 +1136,8 @@ export function shortageCount(recipe, stash, useDiscount = false) {
 export function buildCombined(stash, activeGuards) {
   const combined = { ...stash };
   for (const guard of activeGuards) {
-    for (const slot of (guard.satchel ?? [])) {
+    const slots = (guard.satchel ?? []).slice(0, guard.expandedSatchel ? 8 : 4);
+    for (const slot of slots) {
       if (slot.item) {
         combined[slot.item] = (combined[slot.item] ?? 0) + slot.qty;
       }

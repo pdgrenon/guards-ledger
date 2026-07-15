@@ -321,6 +321,40 @@ describe('buildCombined', () => {
     buildCombined(stash, guards);
     expect(stash).toEqual({ Iron: 3 });
   });
+
+  it('respects expandedSatchel — collapsed guard ignores hidden slots', () => {
+    const guard = {
+      expandedSatchel: false,
+      satchel: [
+        { item: 'Iron', qty: 2 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+        { item: 'Iron', qty: 4 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+      ],
+    };
+    expect(buildCombined({}, [guard])).toEqual({ Iron: 2 });
+  });
+
+  it('respects expandedSatchel — expanded guard counts all slots', () => {
+    const guard = {
+      expandedSatchel: true,
+      satchel: [
+        { item: 'Iron', qty: 2 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+        { item: 'Iron', qty: 4 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+        { item: '', qty: 1 },
+      ],
+    };
+    expect(buildCombined({}, [guard])).toEqual({ Iron: 6 });
+  });
 });
 
 // ─── PREREQ_UPGRADES_TO ──────────────────────────────────────────────────────
