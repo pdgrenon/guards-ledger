@@ -23,6 +23,8 @@
 //               qty2R — reduced quantity at prestige 2+ in a qualifying city;
 //               null means no discount applies (Ft. Istra, speaking-stone items, etc.)
 
+import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE } from '../data/constants';
+
 export const RECIPES = [
   // ── ARMOR ────────────────────────────────────────────────────────────────
   {
@@ -1136,7 +1138,7 @@ export function shortageCount(recipe, stash, useDiscount = false) {
 export function buildCombined(stash, activeGuards) {
   const combined = { ...stash };
   for (const guard of activeGuards) {
-    const slots = (guard.satchel ?? []).slice(0, guard.expandedSatchel ? 8 : 4);
+    const slots = (guard.satchel ?? []).slice(0, guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE);
     for (const slot of slots) {
       if (slot.item) {
         combined[slot.item] = (combined[slot.item] ?? 0) + slot.qty;
