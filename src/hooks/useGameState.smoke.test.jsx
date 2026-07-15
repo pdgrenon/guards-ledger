@@ -60,6 +60,73 @@ describe('useGameState undo-across-replacement', () => {
   });
 });
 
+let capturedOnRemoteChange;
+
+vi.mock('./useSupabaseSync', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useSupabaseSync: vi.fn((_state, onRemoteChange) => {
+      capturedOnRemoteChange = onRemoteChange;
+      return {
+        campaignId: null,
+        syncStatus: 'idle',
+        syncError:  null,
+        createCampaign:  vi.fn(),
+        joinCampaign:    vi.fn(),
+        leaveCampaign:   vi.fn(),
+        upsertSection:   vi.fn(),
+        flushQueue:      vi.fn(),
+        pendingSize:     0,
+      };
+    }),
+  };
+});
+
+describe('useGameState undo-preserving through no-op remote changes', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    capturedOnRemoteChange = null;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('preserves undo label when remote change touches only a pending section (AVE-530)', () => {
+    const { result } = renderHook(() => useGameState());
+
+    // Make an edit — that puts the 'resources' section into pendingSections
+    // and sets an undo label.
+    act(() => result.current.setSil(3));
+    expect(result.current.undoLabel).toBeTruthy();
+
+    // Deliver a remote change that only touches the pending 'resources' section.
+    // Since the section is still pending, mergeRemoteSections will skip it,
+    // and the merged result is the same reference → handleRemoteChange must
+    // NOT clear the undo snapshot.
+    act(() => {
+      capturedOnRemoteChange({ resources: { sil: 99, lux: 99 } });
+    });
+
+    expect(result.current.undoLabel).toBeTruthy();
+  });
+
+  it('clears undo label when remote change touches a non-pending section', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => result.current.setSil(3));
+    expect(result.current.undoLabel).toBeTruthy();
+
+    // Deliver a remote change touching a section that is NOT pending.
+    act(() => {
+      capturedOnRemoteChange({ campaign: { campaign: result.current.state.campaign } });
+    });
+
+    expect(result.current.undoLabel).toBeNull();
+  });
+});
+
 describe('useGameState save-failure surfacing', () => {
   beforeEach(() => {
     localStorage.clear();

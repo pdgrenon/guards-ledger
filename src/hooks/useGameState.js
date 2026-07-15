@@ -481,14 +481,18 @@ export function useGameState() {
     // the undo snapshot so we never undo to a state that didn't include the
     // remote change (AVE-366).
     const handleRemoteChange = useCallback((sectionsToApply) => {
-      undoSnapshot.current = null;
-      setUndoLabel(null);
-      setRaw(prev => ({
-        ...mergeRemoteSections(prev, sectionsToApply, pendingSections.current),
-        log:            prev.log,            // local-only: session log
-        settings:       prev.settings,       // local-only: app settings
-        activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
-      }));
+      setRaw(prev => {
+        const merged = mergeRemoteSections(prev, sectionsToApply, pendingSections.current);
+        if (merged === prev) return prev; // every section filtered → true no-op (AVE-530)
+        undoSnapshot.current = null;
+        setUndoLabel(null);
+        return {
+          ...merged,
+          log:            prev.log,            // local-only: session log
+          settings:       prev.settings,       // local-only: app settings
+          activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
+        };
+      });
     }, []);
 
     const sync = useSupabaseSync(state, handleRemoteChange);
