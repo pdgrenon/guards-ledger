@@ -21,6 +21,10 @@ const FOCUSABLE = [
 
 export function useDialogA11y(active, onClose) {
   const dialogRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  // Keep the ref current without triggering the main effect.
+  useEffect(() => { onCloseRef.current = onClose; });
 
   useEffect(() => {
     if (!active) return;
@@ -42,7 +46,7 @@ export function useDialogA11y(active, onClose) {
     function onKeyDown(e) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -71,7 +75,7 @@ export function useDialogA11y(active, onClose) {
         previouslyFocused.focus();
       }
     };
-  }, [active, onClose]);
+  }, [active]);
 
   return dialogRef;
 }
