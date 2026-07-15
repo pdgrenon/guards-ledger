@@ -133,6 +133,8 @@ export const ALL_ITEMS_WITH_CATEGORY = MATERIAL_CATEGORIES.flatMap(cat =>
 
 // Set of all known item names — used for custom item detection in StashTab.
 export const ALL_KNOWN_ITEMS = new Set(ALL_MATERIALS);
+// Case-insensitive variant — lets StashTab match "iron" → "Iron" without offering a duplicate custom row (AVE-537).
+export const ALL_KNOWN_ITEMS_LOWER = new Set([...ALL_KNOWN_ITEMS].map(n => n.toLowerCase()));
 
 export const RESOURCE_NODE_ITEMS = [
   ...MATERIAL_CATEGORIES.find(c => c.id === 'ores').items,
