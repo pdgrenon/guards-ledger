@@ -38,11 +38,11 @@ export const ACCESSORIES = [
 ];
 
 export const ITEMS = [
-  'Aged Drink', 'Barrier Tonic', 'Bottled Courage', 'Cooked Fish',
+  'Aged Drink', 'Barrier Tonic', 'Bottled Courage',
   'Expanded Satchel', 'Invigorating Potion', 'Natural Remedies Volume 1',
   'Natural Remedies Volume 2', 'Natural Remedies Volume 3', 'Order from Chaos',
   'Pickaxe', 'Purifying Dust', 'Ruinous Dust', 'Smoke Bomb',
-  'Spicy Stew', 'Tent', 'The Foundations of Telios', 'Wood Chopping Axe',
+  'Spicy Stew', 'The Foundations of Telios', 'Wood Chopping Axe',
   'Zamar', "Zoya's Elixir",
 ];
 
@@ -118,8 +118,17 @@ export const MATERIAL_CATEGORIES = [
 export const ALL_MATERIALS = MATERIAL_CATEGORIES.flatMap(c => c.items).sort();
 
 // Pre-computed { item, category } pairs for the stash UI — avoids re-deriving in components.
+// Deduped by name with first-category-wins so an item listed in two categories (e.g.
+// "Cooked Fish" in Fish & food and Gear, "Tent" in Market & misc and Gear — AVE-546)
+// produces only one row. The root cause entries are kept out of ITEMS; this Set guard
+// future-proofs against the same mistake.
+const seen = new Set();
 export const ALL_ITEMS_WITH_CATEGORY = MATERIAL_CATEGORIES.flatMap(cat =>
-  cat.items.map(item => ({ item, category: cat.label }))
+  cat.items.flatMap(item => {
+    if (seen.has(item)) return [];
+    seen.add(item);
+    return [{ item, category: cat.label }];
+  })
 );
 
 // Set of all known item names — used for custom item detection in StashTab.
