@@ -443,10 +443,19 @@ export default function App() {
                 <p className="onboarding-line">
                   For multiplayer, open Settings and connect to a campaign.
                 </p>
+                <p className="onboarding-line onboarding-line--choice">
+                  How would you like to start?
+                </p>
               </div>
               <div className="onboarding-actions">
                 <button className="onboarding-btn" onClick={dismissOnboarding}>
-                  Got it
+                  Start fresh
+                </button>
+                <button
+                  className="onboarding-btn onboarding-btn--ghost"
+                  onClick={game.loadDemoData}
+                >
+                  Load demo data
                 </button>
               </div>
             </div>
