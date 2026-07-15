@@ -64,12 +64,19 @@ function EventTokensCard({ eventTokens, onAdjust, onReset }) {
               {/* Controls */}
               <div className="campaign-token-controls">
                 {triggered ? (
-                  <button
-                    className="campaign-event-resolve-btn"
-                    onClick={() => onReset(key)}
-                  >
-                    Resolve event
-                  </button>
+                  <div className="adj-row" style={{ justifyContent: 'center' }}>
+                    <button
+                      className="adj-btn minus"
+                      onClick={() => onAdjust(key, -1)}
+                      aria-label={`Decrease ${label} token`}
+                    >−</button>
+                    <button
+                      className="campaign-event-resolve-btn"
+                      onClick={() => onReset(key)}
+                    >
+                      Resolve event
+                    </button>
+                  </div>
                 ) : (
                   <div className="adj-row" style={{ justifyContent: 'center' }}>
                     <button
