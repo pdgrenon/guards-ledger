@@ -797,7 +797,10 @@ export function useGameState() {
       }
       undoSnapshot.current = null;
       setUndoLabel(null);
-      setState(demoState, null);
+      setState({
+        ...demoState,
+        settings: { ...demoState.settings, hasSeenOnboarding: true },
+      }, null);
     }, [setState]);
 
   return {
