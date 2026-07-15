@@ -349,8 +349,9 @@ function loadState() {
     return { state: createInitialState(), corruption: { reason: 'v1-invalid-shape', raw: rawV1 } };
   }
 
-  // First run, no save at all.
-  return { state: migrateV1(demoSave), corruption: null };
+  // First run, no save at all — start from a clean ledger and let the
+  // onboarding overlay offer to load demo data.
+  return { state: createInitialState(), corruption: null };
 }
 
 function backupCorruptedRaw(raw, reason) {
@@ -786,6 +787,19 @@ export function useGameState() {
       sync.leaveCampaign();
     }, [sync]);
 
+    // ── Load demo data (first-run choice) ──────────────────────────────────
+    const loadDemoData = useCallback(() => {
+      const demoState = migrateV1(demoSave);
+      pendingSections.current.clear();
+      if (upsertTimer.current) {
+        clearTimeout(upsertTimer.current);
+        upsertTimer.current = null;
+      }
+      undoSnapshot.current = null;
+      setUndoLabel(null);
+      setState(demoState, null);
+    }, [setState]);
+
   return {
     state,
     corruption,             // { reason, raw } | null — drives the corruption banner
@@ -810,7 +824,7 @@ export function useGameState() {
     togglePuzzleQuestComplete,
     setCampaign,
     setFtIstraBuilding,
-    setState, exportState, importState, resetState,
+    setState, exportState, importState, resetState, loadDemoData,
     undoLabel, undoLastAction,
   };
 }

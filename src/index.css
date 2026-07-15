@@ -2705,6 +2705,21 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .onboarding-btn:active { opacity: 0.8; }
 
+.onboarding-line--choice {
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.onboarding-btn--ghost {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--c-text);
+  border-color: var(--c-border);
+}
+.onboarding-btn--ghost:hover,
+.onboarding-btn--ghost:active { background: var(--c-bg2); }
+
 /* ── Source trigger — tappable material name, no visual decoration ───────────
    Resets all browser button defaults so it is visually identical to the
    <span> it replaces. font-size and color are NOT set here — they come
