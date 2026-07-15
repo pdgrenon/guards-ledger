@@ -772,6 +772,13 @@ describe('reduceUpdateStoneboundLocation', () => {
     expect(next.stonebound.locations[0].selection).toBe('');
     expect(next.stonebound.locations[1].selection).toBe('Mir');
   });
+
+  it('returns the same state reference when value is unchanged (no-op guard)', () => {
+    const beforeLen = s1.log.length;
+    const next = reduceUpdateStoneboundLocation(s1, id, 'count', 1);
+    expect(next).toBe(s1);
+    expect(next.log).toHaveLength(beforeLen);
+  });
 });
 
 // ─── colorizeLogMessage (XSS prevention) ─────────────────────────────────────
