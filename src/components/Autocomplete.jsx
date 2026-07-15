@@ -15,6 +15,7 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
   // before the input's blur, so the blur handler checks this to skip its
   // revert logic when a selection is landing.
   const selectingRef = useRef(false);
+  const touchStartRef = useRef(null);
   // Instance-scoped ids so multiple Autocompletes on one page (the Guards tab
   // mounts ~12 of them) don't share DOM ids and break their ARIA wiring.
   const baseId = useId();
@@ -140,7 +141,20 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
               role="option"
               aria-selected={i === activeIdx}
               onMouseDown={() => { selectingRef.current = true; select(opt); }}
-              onTouchEnd={() => { selectingRef.current = true; select(opt); }}
+              onTouchStart={e => {
+                const t = e.touches[0];
+                touchStartRef.current = { x: t.clientX, y: t.clientY };
+              }}
+              onTouchEnd={e => {
+                const t = e.changedTouches[0];
+                const s = touchStartRef.current;
+                const moved = s && (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10);
+                touchStartRef.current = null;
+                if (moved) return;
+                e.preventDefault();
+                selectingRef.current = true;
+                select(opt);
+              }}
               onMouseEnter={() => setActiveIdx(i)}
             >
               {opt}
