@@ -174,54 +174,12 @@
     }
   ],
   "cities": [
-    {
-      "id": "mir",
-      "name": "Mir",
-      "prestige": 3,
-      "puzzleQuestDone": true,
-      "bounty1Done": true,
-      "bounty2Done": true
-    },
-    {
-      "id": "razdor",
-      "name": "Razdor",
-      "prestige": 3,
-      "puzzleQuestDone": true,
-      "bounty1Done": true,
-      "bounty2Done": true
-    },
-    {
-      "id": "ryba",
-      "name": "Ryba",
-      "prestige": 2,
-      "puzzleQuestDone": false,
-      "bounty1Done": true,
-      "bounty2Done": true
-    },
-    {
-      "id": "silny",
-      "name": "Silny",
-      "prestige": 1,
-      "puzzleQuestDone": true,
-      "bounty1Done": false,
-      "bounty2Done": false
-    },
-    {
-      "id": "strofa",
-      "name": "Strofa",
-      "prestige": 1,
-      "puzzleQuestDone": false,
-      "bounty1Done": true,
-      "bounty2Done": false
-    },
-    {
-      "id": "vouno",
-      "name": "Vouno",
-      "prestige": 0,
-      "puzzleQuestDone": false,
-      "bounty1Done": false,
-      "bounty2Done": false
-    }
+    { "id": "mir",    "name": "Mir" },
+    { "id": "razdor", "name": "Razdor" },
+    { "id": "ryba",   "name": "Ryba" },
+    { "id": "silny",  "name": "Silny" },
+    { "id": "strofa", "name": "Strofa" },
+    { "id": "vouno",  "name": "Vouno" }
   ],
   "stash": {
     "Iron": 8,
@@ -304,6 +262,20 @@
       "formation-breaker",
       "taste-of-your-own-medicine",
       "going-green"
+    ],
+    "completedBounties": [
+      { "id": "mir-c2-lurking-in-the-shadows" },
+      { "id": "mir-c2-order-of-the-poison-hearts" },
+      { "id": "razdor-c2-expecting-you" },
+      { "id": "razdor-c2-barinov-no-more" },
+      { "id": "ryba-c2-the-vipers" },
+      { "id": "ryba-c2-discord-on-the-beach" },
+      { "id": "strofa-c2-got-my-eye-on-you" }
+    ],
+    "completedPuzzleQuests": [
+      { "id": "mir-c2-puzzle" },
+      { "id": "razdor-c2-puzzle" },
+      { "id": "silny-c2-puzzle" }
     ]
   },
   "log": [

@@ -44,6 +44,7 @@ import {
   withUndoTombstones,
 } from './gameReducers';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
+import { BOUNTIES, bountiesForCity } from '../data/bounties';
 import { useSupabaseSync, guardColumn, applyRemoteSection } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
@@ -93,17 +94,54 @@ function migrateLegacyPuzzleQuestDone(cities, campaignId, existing) {
   };
 }
 
+// Legacy bounty completion flags (bounty1Done/bounty2Done) were never migrated
+// to campaign-scoped completedBounties — the same bug class as AVE-370 for
+// puzzle quests. Mirror migrateLegacyPuzzleQuestDone exactly:
+//   1. For each city with bounty1Done/bounty2Done true: look up the city's
+//      bounties for the save's active campaign and append their ids.
+//   2. One-shot guard: skip a city if ANY completedBounty entry for it already
+//      exists (live or tombstoned, any campaign).
+//   3. Clear the flags after converting so migration never re-runs.
+//   4. Run through normalizeCompletedEncounters after appending (dedupe safety).
+function migrateLegacyBountyDone(cities, campaignId, existing) {
+  const normalized = normalizeCompletedEncounters(existing);
+  const allIds = new Set(normalized.map(b => b.id));
+  const additions = [];
+  let migrated = false;
+  const outCities = (cities ?? []).map(city => {
+    if (!city?.bounty1Done && !city?.bounty2Done) return city;
+    migrated = true;
+    const alreadyTracked = BOUNTIES.some(b => b.city === city.name && allIds.has(b.id));
+    if (!alreadyTracked) {
+      const bounties = bountiesForCity(city.name, campaignId);
+      if (city.bounty1Done && bounties[0]) additions.push({ id: bounties[0].id });
+      if (city.bounty2Done && bounties[1]) additions.push({ id: bounties[1].id });
+    }
+    return { ...city, bounty1Done: false, bounty2Done: false };
+  });
+  return {
+    cities: migrated ? outCities : (cities ?? []),
+    completedBounties: additions.length
+      ? normalizeCompletedEncounters([...normalized, ...additions])
+      : normalized,
+  };
+}
+
 // ─── Migration ────────────────────────────────────────────────────────────────
 
 export function migrateV1(v1) {
   const rawCities = v1.cities ?? createInitialCities().cities;
-  const { cities, completedPuzzleQuests } = migrateLegacyPuzzleQuestDone(
-    rawCities, v1.campaign?.campaignId ?? 1, v1.campaign?.completedPuzzleQuests
+  const campaignId = v1.campaign?.campaignId ?? 1;
+  const pqMigrated = migrateLegacyPuzzleQuestDone(
+    rawCities, campaignId, v1.campaign?.completedPuzzleQuests
+  );
+  const bountyMigrated = migrateLegacyBountyDone(
+    pqMigrated.cities, campaignId, v1.campaign?.completedBounties
   );
   return {
     sil:            v1.sil            ?? 0,
     lux:            v1.lux            ?? 0,
-    cities,
+    cities:         bountyMigrated.cities,
     guards:         v1.guards         ?? createInitialGuards().guards,
     activeParty:    v1.activeParty    ?? createInitialGuards().activeParty,
     // activeGuardIdx is local-only UI state — always reset to default on load
@@ -117,10 +155,11 @@ export function migrateV1(v1) {
     campaign:       v1.campaign
                       ? { ...v1.campaign,
                           completedEncounters: normalizeCompletedEncounters(v1.campaign.completedEncounters),
-                          completedBounties:   normalizeCompletedEncounters(v1.campaign.completedBounties),
-                          completedPuzzleQuests }
+                          completedBounties:   bountyMigrated.completedBounties,
+                          completedPuzzleQuests: pqMigrated.completedPuzzleQuests }
                       : { ...createInitialCampaign().campaign,
-                          completedPuzzleQuests },
+                          completedPuzzleQuests: pqMigrated.completedPuzzleQuests,
+                          completedBounties:     bountyMigrated.completedBounties },
     log:            v1.log            ?? [],
     settings:       v1.settings       ?? { initialized: true },
   };
@@ -195,15 +234,19 @@ export function healState(parsed) {
                         : citiesInit.cities[0])
                     : citiesInit.cities;
   const campaignId = isPlainObject(parsed.campaign) ? healNumber(parsed.campaign.campaignId, 1) : 1;
-  const { cities, completedPuzzleQuests } = migrateLegacyPuzzleQuestDone(
+  const pqMigrated = migrateLegacyPuzzleQuestDone(
     healedCities, campaignId,
     isPlainObject(parsed.campaign) ? parsed.campaign.completedPuzzleQuests : null
+  );
+  const bountyMigrated = migrateLegacyBountyDone(
+    pqMigrated.cities, campaignId,
+    isPlainObject(parsed.campaign) ? parsed.campaign.completedBounties : null
   );
 
   return {
     sil:            healNumber(parsed.sil, resInit.sil),
     lux:            healNumber(parsed.lux, resInit.lux),
-    cities,
+    cities:         bountyMigrated.cities,
     guards,
     activeParty:    Array.isArray(parsed.activeParty) && parsed.activeParty.length === 2
                        ? parsed.activeParty.map(healString)
@@ -234,11 +277,12 @@ export function healState(parsed) {
                              ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
                                ? parsed.campaign.ftIstraBuildings
                                : {},
-                             completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters),
-                             completedBounties:   normalizeCompletedEncounters(parsed.campaign.completedBounties),
-                             completedPuzzleQuests }
+                              completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters),
+                              completedBounties:   bountyMigrated.completedBounties,
+                              completedPuzzleQuests: pqMigrated.completedPuzzleQuests }
                         : { ...campInit.campaign,
-                            completedPuzzleQuests },
+                            completedPuzzleQuests: pqMigrated.completedPuzzleQuests,
+                            completedBounties:     bountyMigrated.completedBounties },
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
   };
