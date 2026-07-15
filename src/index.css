@@ -1187,6 +1187,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   max-width: 480px;
   max-height: 85vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--c-surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 0 16px 24px;
@@ -1368,6 +1369,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 /* Scrollable content below header */
 .settings-panel-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px 16px 24px;
   flex: 1;
 }
