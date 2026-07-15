@@ -239,11 +239,13 @@ export function reduceRemoveStoneboundLocation(s, id) {
 }
 
 export function reduceUpdateStoneboundLocation(s, id, field, value) {
-  const locations = s.stonebound.locations.map(loc =>
-    loc.id === id ? { ...loc, [field]: value } : loc
+  const loc = s.stonebound.locations.find(l => l.id === id);
+  if (loc && loc[field] === value) return s;
+
+  const locations = s.stonebound.locations.map(l =>
+    l.id === id ? { ...l, [field]: value } : l
   );
   const newState = { ...s, stonebound: { ...s.stonebound, locations } };
-  const loc      = s.stonebound.locations.find(l => l.id === id);
 
   if (field === 'selection' && value) {
     return addLog(newState, `Stonebound location → ${value}`);

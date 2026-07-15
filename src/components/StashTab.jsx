@@ -159,6 +159,7 @@ export function StashTab({
                   <div className="sb-inline-controls">
                     <button
                       className="adj-btn sb-count-btn"
+                      disabled={loc.count <= 1}
                       onClick={() => updateStoneboundLocation(loc.id, 'count', Math.max(1, loc.count - 1))}
                       aria-label={`Decrease ${loc.selection || 'location'} count`}
                     >−</button>
