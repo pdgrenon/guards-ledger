@@ -148,7 +148,7 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
         updated.qty = Math.min(updated.qty, satchelStackLimit(value));
       }
       if (field === 'qty') {
-        updated.qty = Math.min(updated.qty, satchelStackLimit(slot.item || ''));
+        updated.qty = Math.min(Math.max(1, Math.trunc(updated.qty)), satchelStackLimit(slot.item || ''));
       }
       return updated;
     });

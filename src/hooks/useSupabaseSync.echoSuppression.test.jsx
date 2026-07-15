@@ -640,11 +640,14 @@ describe('back-to-back Realtime UPDATEs (AVE-375)', () => {
 // ─── Duplicate self-write buffer entries (AVE-528) ──────────────────────────
 
 describe('duplicate self-write buffer entries (AVE-528)', () => {
-  it('consolidates duplicate self-writes for the same value so a later identical remote change is applied', async () => {
-    // Two upsertSection calls with the same value should produce only one
-    // self-write entry. With fix #3 (deep-equal skip in noteSelfWrite), the
-    // second call is a no-op. The echo consumes the single entry; a subsequent
-    // genuine remote event carrying the same value is applied, not consumed.
+  it('notes each dispatch separately so every echo is consumed and a later genuine remote change is applied', async () => {
+    // One note per dispatch (AVE-528 follow-up / AVE-578): two upsertSection
+    // calls with the same value take TWO self-write notes and produce TWO
+    // Realtime echoes. Each echo consumes one note; once both are drained a
+    // subsequent genuine remote change carrying the same value is applied, not
+    // swallowed by a leftover note. (The old deep-equal skip took only one note
+    // for the two sends, which under-counted the echoes — see the AVE-578
+    // regression test below.)
     const client = makeMockClient();
     const onRemoteChange = vi.fn();
     const { result, rerender } = renderHook(
@@ -652,33 +655,31 @@ describe('duplicate self-write buffer entries (AVE-528)', () => {
       { initialProps: { state: createInitialState() } }
     );
 
-    // First upsert with sil=5
+    // Two dispatches of the identical value → two notes.
     const withSil5 = { ...createInitialState(), sil: 5, lux: 0 };
     await act(async () => {
       await result.current.upsertSection('resources', withSil5);
       rerender({ state: withSil5 });
     });
-    onRemoteChange.mockClear();
-
-    // Second upsert with the identical value — fix #3 skips the duplicate note
     await act(async () => {
       await result.current.upsertSection('resources', withSil5);
     });
+    onRemoteChange.mockClear();
 
-    // Echo of that write arrives — consumes the single note
+    // Both echoes arrive (one per dispatch); local is still sil=5, so each is
+    // value-equal and consumes one note.
     const channel = client.calls.channels[0].channel;
-    act(() => {
-      channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
-    });
-    expect(onRemoteChange).not.toHaveBeenCalled(); // echo dropped
+    act(() => { channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } }); });
+    act(() => { channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } }); });
+    expect(onRemoteChange).not.toHaveBeenCalled(); // both echoes dropped
 
-    // Local state moves on (clears resources back to 0/0)
+    // Local state moves on (clears resources back to 0/0).
     const cleared = createInitialState();
     rerender({ state: cleared });
     onRemoteChange.mockClear();
 
-    // A genuine remote change carrying sil=5 arrives — must be applied
-    // (without the fix a stale duplicate self-write entry would consume it)
+    // A genuine remote change carrying sil=5 arrives — both notes are drained,
+    // so it must be applied.
     act(() => {
       channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } });
     });
@@ -686,6 +687,41 @@ describe('duplicate self-write buffer entries (AVE-528)', () => {
     expect(onRemoteChange).toHaveBeenCalledTimes(1);
     const sections = onRemoteChange.mock.calls[0][0];
     expect(sections.resources.sil).toBe(5);
+  });
+
+  it('both echoes of a doubly-dispatched value are suppressed even after local moves on (AVE-578)', async () => {
+    // The regression the deep-equal note-skip caused: a path that dispatches the
+    // same value twice (undo firing alongside the original edit's still-pending
+    // debounce) produces two echoes, but only one note was buffered. Once local
+    // has advanced to a NEWER value, the second, unrecognized echo is applied —
+    // reverting that newer edit. With one note per dispatch, both echoes are
+    // recognized as our own and dropped, so the newer local value stands.
+    const client = makeMockClient();
+    const onRemoteChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ state }) => useSupabaseSync(state, onRemoteChange, client),
+      { initialProps: { state: createInitialState() } }
+    );
+
+    const withSil5 = { ...createInitialState(), sil: 5, lux: 0 };
+    await act(async () => {
+      await result.current.upsertSection('resources', withSil5);
+      rerender({ state: withSil5 });
+      await result.current.upsertSection('resources', withSil5); // duplicate dispatch
+    });
+
+    // Local advances to a newer value before either stale echo lands.
+    const withSil9 = { ...createInitialState(), sil: 9, lux: 0 };
+    rerender({ state: withSil9 });
+    onRemoteChange.mockClear();
+
+    // Both stale echoes of sil=5 arrive; local is now sil=9 (value-inequal), so
+    // each must be recognized as our own echo and dropped — NOT applied over 9.
+    const channel = client.calls.channels[0].channel;
+    act(() => { channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } }); });
+    act(() => { channel._trigger({ new: { id: 'WOLF42', resources: { sil: 5, lux: 0 } } }); });
+
+    expect(onRemoteChange).not.toHaveBeenCalled();
   });
 
   it('flush retry after an error does not double-note — a later identical remote change is applied', async () => {

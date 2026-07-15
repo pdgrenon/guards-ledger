@@ -2,7 +2,6 @@ import demoSave from '../data/demoSave.json';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   createInitialState,
-  createInitialResources,
   createInitialCities,
   createInitialGuards,
   createInitialStash,
@@ -192,6 +191,22 @@ function healString(v, fallback = '') {
   return typeof v === 'string' ? v : fallback;
 }
 
+// A save predating the onboarding feature carries no `hasSeenOnboarding` key at
+// all — the feature always writes it (createInitialState seeds it and every save
+// persists it). healState only ever runs for a RETURNING player: a genuine first
+// run has no save and boots straight from createInitialState, skipping heal. So
+// a missing key means an existing player from before onboarding — treat them as
+// already onboarded, otherwise the first-run overlay (which now offers a
+// destructive "Load demo data") reappears over their real ledger (AVE-489
+// follow-up). A key that IS present is respected: a brand-new player who saw the
+// overlay but reloaded without dismissing it still has `hasSeenOnboarding: false`
+// saved and should see it again.
+function healSettings(raw) {
+  if (!isPlainObject(raw)) return { initialized: true, hasSeenOnboarding: true };
+  if (!('hasSeenOnboarding' in raw)) return { ...raw, hasSeenOnboarding: true };
+  return raw;
+}
+
 function healGuard(raw) {
   const fresh = createInitialGuards().guards[0];
   if (!isPlainObject(raw)) return fresh;
@@ -202,8 +217,8 @@ function healGuard(raw) {
     name:              healString(raw.name, fresh.name),
     hp:                Math.min(Math.max(0, healNumber(raw.hp, fresh.hp)), healedMaxHp),
     maxHp:             healedMaxHp,
-    baseAtk:           healNumber(raw.baseAtk, fresh.baseAtk),
-    baseDef:           healNumber(raw.baseDef, fresh.baseDef),
+    baseAtk:           Math.max(0, Math.trunc(healNumber(raw.baseAtk, fresh.baseAtk))),
+    baseDef:           Math.max(0, Math.trunc(healNumber(raw.baseDef, fresh.baseDef))),
     expandedSatchel:   !!raw.expandedSatchel,
     satchel:           Array.isArray(raw.satchel)
                          ? Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => {
@@ -211,7 +226,7 @@ function healGuard(raw) {
                              if (!isPlainObject(s)) return { item: '', qty: 1 };
                              const item = healString(s.item);
                              const qty  = item
-                               ? Math.min(healNumber(s.qty, 1), satchelStackLimit(item))
+                               ? Math.min(Math.max(1, Math.trunc(healNumber(s.qty, 1))), satchelStackLimit(item))
                                : 1;
                              return { item, qty };
                            })
@@ -229,7 +244,6 @@ function healGuard(raw) {
 export function healState(parsed) {
   if (!isPlainObject(parsed)) return null;
 
-  const resInit    = createInitialResources();
   const citiesInit = createInitialCities();
   const guardsInit = createInitialGuards();
   const stashInit  = createInitialStash();
@@ -245,7 +259,7 @@ export function healState(parsed) {
                         : citiesInit.cities[0])
                     : citiesInit.cities;
   const campaignId = isPlainObject(parsed.campaign)
-    ? Math.min(4, Math.max(1, Number(parsed.campaign.campaignId) || 1))
+    ? Math.min(4, Math.max(1, Math.trunc(Number(parsed.campaign.campaignId)) || 1))
     : 1;
   const pqMigrated = migrateLegacyPuzzleQuestDone(
     healedCities, campaignId,
@@ -267,8 +281,8 @@ export function healState(parsed) {
   })();
 
   return {
-    sil:            healNumber(parsed.sil, resInit.sil),
-    lux:            healNumber(parsed.lux, resInit.lux),
+    sil:            Math.max(0, Math.trunc(Number(parsed.sil) || 0)),
+    lux:            Math.max(0, Math.trunc(Number(parsed.lux) || 0)),
     cities:         bountyMigrated.cities,
     guards,
     activeParty,
@@ -320,7 +334,7 @@ export function healState(parsed) {
                             completedPuzzleQuests: pqMigrated.completedPuzzleQuests,
                             completedBounties:     bountyMigrated.completedBounties },
     log:            Array.isArray(parsed.log) ? parsed.log : [],
-    settings:       isPlainObject(parsed.settings) ? parsed.settings : { initialized: true },
+    settings:       healSettings(parsed.settings),
   };
 }
 
@@ -499,17 +513,24 @@ export function useGameState() {
     // the undo snapshot so we never undo to a state that didn't include the
     // remote change (AVE-366).
     const handleRemoteChange = useCallback((sectionsToApply) => {
-      setRaw(prev => {
-        const merged = mergeRemoteSections(prev, sectionsToApply, pendingSections.current);
-        if (merged === prev) return prev; // every section filtered → true no-op (AVE-530)
-        undoSnapshot.current = null;
-        setUndoLabel(null);
-        return {
-          ...merged,
-          log:            prev.log,            // local-only: session log
-          settings:       prev.settings,       // local-only: app settings
-          activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
-        };
+      // Compute the merge against the latest committed state (stateRef) OUTSIDE
+      // the setRaw updater so the updater stays a pure value, not a function
+      // with side effects. Mutating undoSnapshot / calling setUndoLabel inside
+      // the updater ran them twice under StrictMode's double-invoke and could
+      // desync from a render React later discards under concurrent mode
+      // (AVE-530 follow-up). stateRef.current is the freshest committed state
+      // here — Realtime events arrive as discrete tasks with a React commit
+      // between them, the same assumption flushPendingSync already relies on.
+      const prev   = stateRef.current;
+      const merged = mergeRemoteSections(prev, sectionsToApply, pendingSections.current);
+      if (merged === prev) return; // every section filtered → true no-op (AVE-530)
+      undoSnapshot.current = null;
+      setUndoLabel(null);
+      setRaw({
+        ...merged,
+        log:            prev.log,            // local-only: session log
+        settings:       prev.settings,       // local-only: app settings
+        activeGuardIdx: prev.activeGuardIdx, // local-only: which guard tab each player is viewing
       });
     }, []);
 
@@ -612,6 +633,19 @@ export function useGameState() {
     const restored = withUndoTombstones(prevState, stateRef.current);
     setRaw(addLog(restored, `Undo: ${label}`));
     if (sectionName) {
+      // Cancel the original edit's still-pending debounce for this section
+      // before dispatching the undo write. Otherwise that timer fires a
+      // *second* upsertSection carrying the same restored value (the timer
+      // reads stateRef at fire time, which is now the restored state), so one
+      // undo produces two Realtime echoes. The self-write buffer notes one per
+      // dispatch, so the second echo slips past echo suppression and — if local
+      // has moved on to a newer edit — reverts it (AVE-528 follow-up). Dedupe
+      // the *send*, so exactly one write (and one note) happens per undo.
+      pendingSections.current.delete(sectionName);
+      if (pendingSections.current.size === 0 && upsertTimer.current) {
+        clearTimeout(upsertTimer.current);
+        upsertTimer.current = null;
+      }
       sync.upsertSection(sectionName, restored);
     }
     undoSnapshot.current = null;
@@ -831,9 +865,31 @@ export function useGameState() {
       return sync.joinCampaign(code);
     }, [sync]);
 
+    // ── Create campaign — clear pending state before snapshotting local ─────
+    // createCampaign snapshots the full local state into the new row, so an
+    // edit still inside the 400ms debounce window is captured — but its stale
+    // timer would then fire upsertSection against a closure that captured
+    // campaignId === null (a no-op), and pendingSections would keep holding the
+    // section for ~400ms, so mergeRemoteSections (the AVE-518 guard) would drop
+    // a remote change to it. Clearing the pending state first keeps create
+    // symmetric with join (AVE-529). Undo is preserved — create keeps local
+    // state, so there's nothing to undo *away from*.
+    const createCampaign = useCallback(async () => {
+      if (upsertTimer.current) {
+        clearTimeout(upsertTimer.current);
+        upsertTimer.current = null;
+      }
+      pendingSections.current.clear();
+      return sync.createCampaign();
+    }, [sync]);
+
     // ── Load demo data (first-run choice) ──────────────────────────────────
     const loadDemoData = useCallback(() => {
       const demoState = migrateV1(demoSave);
+      const next = {
+        ...demoState,
+        settings: { ...demoState.settings, hasSeenOnboarding: true },
+      };
       pendingSections.current.clear();
       if (upsertTimer.current) {
         clearTimeout(upsertTimer.current);
@@ -841,10 +897,14 @@ export function useGameState() {
       }
       undoSnapshot.current = null;
       setUndoLabel(null);
-      setState({
-        ...demoState,
-        settings: { ...demoState.settings, hasSeenOnboarding: true },
-      }, null);
+      setState(next, null);
+      // Loading demo data replaces the entire ledger. If a campaign is active it
+      // must be pushed to all players as a full-row replacement, exactly like
+      // resetState (AVE-374) — otherwise the local ledger silently diverges from
+      // the shared row (AVE-489 follow-up).
+      syncRef.current.replaceRow?.(next).then(r => {
+        if (r?.error) console.error('Demo load failed to sync to campaign:', r.error);
+      });
     }, [setState]);
 
   return {
@@ -853,7 +913,7 @@ export function useGameState() {
     dismissCorruption,      // hide the banner and clear the backed-up raw string
     saveError,              // string | null — set when a localStorage write is rejected
     dismissSaveError,       // hide the save-error banner (reappears if the next save also fails)
-    sync: { ...sync, leaveCampaign, joinCampaign }, // override leaveCampaign and joinCampaign
+    sync: { ...sync, leaveCampaign, joinCampaign, createCampaign }, // override campaign lifecycle to clear pending sync state
     setActiveGuard,
     setPartySlot,
     setSil, setLux,
