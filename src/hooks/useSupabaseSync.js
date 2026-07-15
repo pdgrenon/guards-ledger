@@ -427,10 +427,14 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
     const list = (selfWrites.current.get(section) || []).filter(e => now - e.at < SELF_WRITE_TTL_MS);
-    // Skip when the most recent entry for this section already deep-equals
-    // the value — protects against double-noting from undo/debounce races
-    // (AVE-528).
-    if (list.length > 0 && deepEqual(list.at(-1).value, value)) return;
+    // One note per dispatch — the buffer must hold exactly as many entries as
+    // writes actually sent, so every Realtime echo has a matching note to be
+    // suppressed against. The previous deep-equal skip (AVE-528) tried to
+    // dedupe an undo/debounce double-note, but the real defect was a double-
+    // *send* (undo + the original edit's pending debounce both firing); that
+    // is now fixed at the source in undoLastAction, so under-noting a genuine
+    // repeated-value dispatch here would let its echo slip through and revert a
+    // newer local edit (AVE-528 follow-up).
     list.push({ value, at: now });
     selfWrites.current.set(section, list);
   }, []);
@@ -441,6 +445,26 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     );
     selfWrites.current.set(section, list);
     return isEcho;
+  }, []);
+
+  // Remove the most-recent self-write note matching `value` — the note we
+  // optimistically recorded (before the RPC, to win the race against its own
+  // Realtime echo) for a write that then FAILED. A failed write commits nothing
+  // and so emits no echo; leaving the phantom note would make the next genuine
+  // remote change carrying the same value look like an echo and be dropped
+  // (AVE-528 follow-up). This is what lets us keep one-note-per-*successful*-
+  // dispatch without the lossy deep-equal skip that used to paper over the
+  // flush-retry double-note. If the write actually committed but reported an
+  // error (e.g. a post-commit timeout), its real echo already consumed the note
+  // and this is a no-op.
+  const unnoteSelfWrite = useCallback((section, value) => {
+    const list = selfWrites.current.get(section);
+    if (!list || list.length === 0) return;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (deepEqual(list[i].value, value)) { list.splice(i, 1); break; }
+    }
+    if (list.length === 0) selfWrites.current.delete(section);
+    else selfWrites.current.set(section, list);
   }, []);
 
   // ── Persisted pending queue (AVE-522) ─────────────────────────────────────
@@ -641,6 +665,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
           expected_generation: lastSeenGen.current,
         });
         if (error) {
+          // This write did not commit — drop the note we optimistically took so
+          // the retry (which notes again) doesn't leave a duplicate that eats a
+          // later genuine remote change (AVE-528 follow-up). The entry stays
+          // queued for retry.
+          unnoteSelfWrite(sectionName, payload);
           setSyncError(error.message);
           setSyncStatus('error');
           return;
@@ -655,7 +684,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     } finally {
       flushInFlight.current = false;
     }
-  }, [client, noteSelfWrite, persistQueue]);
+  }, [client, noteSelfWrite, unnoteSelfWrite, persistQueue]);
 
   // ── Online / offline detection ────────────────────────────────────────────
 
@@ -796,6 +825,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     });
 
     if (error) {
+      // The write failed — no echo will arrive, so drop the note we took before
+      // dispatching it. The entry is re-queued and flushQueue will note it fresh
+      // on retry, keeping one note per *successful* dispatch (AVE-528 follow-up).
+      unnoteSelfWrite(sectionName, sectionData);
       setSyncError(error.message);
       setSyncStatus('error');
       pendingQueue.current.set(sectionName, sectionData);
@@ -810,7 +843,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       flushQueue();
     }
-  }, [client, campaignId, noteSelfWrite, flushQueue, persistQueue]);
+  }, [client, campaignId, noteSelfWrite, unnoteSelfWrite, flushQueue, persistQueue]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 
