@@ -782,9 +782,12 @@ export function useGameState() {
     // Clearing campaignId means no merge to defeat, so tombstones become dead
     // weight. Hard-drop them immediately (AVE-368).
     const leaveCampaign = useCallback(() => {
+      flushPendingSync();
       setRaw(prev => compactTombstones(prev));
       sync.leaveCampaign();
-    }, [sync]);
+      undoSnapshot.current = null;
+      setUndoLabel(null);
+    }, [sync, flushPendingSync]);
 
   return {
     state,
