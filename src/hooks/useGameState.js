@@ -195,12 +195,13 @@ function healString(v, fallback = '') {
 function healGuard(raw) {
   const fresh = createInitialGuards().guards[0];
   if (!isPlainObject(raw)) return fresh;
+  const healedMaxHp = Math.max(1, healNumber(raw.maxHp, fresh.maxHp));
   return {
     ...fresh,
     ...raw,
     name:              healString(raw.name, fresh.name),
-    hp:                healNumber(raw.hp, fresh.hp),
-    maxHp:             Math.max(1, healNumber(raw.maxHp, fresh.maxHp)),
+    hp:                Math.min(Math.max(0, healNumber(raw.hp, fresh.hp)), healedMaxHp),
+    maxHp:             healedMaxHp,
     baseAtk:           healNumber(raw.baseAtk, fresh.baseAtk),
     baseDef:           healNumber(raw.baseDef, fresh.baseDef),
     expandedSatchel:   !!raw.expandedSatchel,
@@ -243,7 +244,9 @@ export function healState(parsed) {
                             name: healString(c.name, citiesInit.cities[0].name) }
                         : citiesInit.cities[0])
                     : citiesInit.cities;
-  const campaignId = isPlainObject(parsed.campaign) ? healNumber(parsed.campaign.campaignId, 1) : 1;
+  const campaignId = isPlainObject(parsed.campaign)
+    ? Math.min(4, Math.max(1, Number(parsed.campaign.campaignId) || 1))
+    : 1;
   const pqMigrated = migrateLegacyPuzzleQuestDone(
     healedCities, campaignId,
     isPlainObject(parsed.campaign) ? parsed.campaign.completedPuzzleQuests : null
@@ -272,16 +275,30 @@ export function healState(parsed) {
     // activeGuardIdx is local UI nav — always reset, but derive from the
     // healed party so the first party guard is shown instead of index 0.
     activeGuardIdx: firstGuardIdx,
-    stash:          isPlainObject(parsed.stash) ? parsed.stash : stashInit.stash,
+    stash:          isPlainObject(parsed.stash)
+                       ? Object.fromEntries(
+                           Object.entries(parsed.stash)
+                             .filter(([k]) => typeof k === 'string' && k.length > 0)
+                             .map(([k, v]) => [k, Math.max(0, Math.trunc(Number(v) || 0))])
+                         )
+                       : stashInit.stash,
     stonebound:     isPlainObject(parsed.stonebound)
                        ? { max: Math.max(0, healNumber(parsed.stonebound.max, stashInit.stonebound.max)),
                            locations: Array.isArray(parsed.stonebound.locations)
-                             ? parsed.stonebound.locations.filter(isPlainObject)
+                             ? parsed.stonebound.locations
+                                 .filter(isPlainObject)
+                                 .filter(loc => typeof loc.id === 'string' || typeof loc.id === 'number')
+                                 .map(loc => ({
+                                   ...loc,
+                                   type:      healString(loc.type, ''),
+                                   selection: healString(loc.selection, ''),
+                                   count:     Math.max(0, Math.trunc(Number(loc.count) || 1)),
+                                 }))
                              : [] }
                        : stashInit.stonebound,
     campaign:       isPlainObject(parsed.campaign)
-                       ? { ...campInit.campaign, ...parsed.campaign,
-                           eventTokens: isPlainObject(parsed.campaign.eventTokens)
+                       ? { ...campInit.campaign, ...parsed.campaign, campaignId,
+                            eventTokens: isPlainObject(parsed.campaign.eventTokens)
                              ? { mountain: healNumber(parsed.campaign.eventTokens.mountain, 0),
                                  forest:   healNumber(parsed.campaign.eventTokens.forest, 0),
                                  plains:   healNumber(parsed.campaign.eventTokens.plains, 0),
