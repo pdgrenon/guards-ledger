@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
+import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS, ALL_KNOWN_ITEMS_LOWER, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
 import { CITIES } from '../data/constants';
 import { PREREQ_UPGRADES_TO } from '../data/recipes';
 import { MaterialName } from './MaterialName';
@@ -35,11 +35,15 @@ export function StashTab({
     : [], [addSearch, stash]);
 
   const trimmedSearch = addSearch.trim();
-  const isKnownItem = ALL_KNOWN_ITEMS.has(trimmedSearch);
+  const trimmedLower = trimmedSearch.toLowerCase();
+  const isKnownItem = ALL_KNOWN_ITEMS_LOWER.has(trimmedLower);
+  const existingCustomKey = Object.keys(stash).find(
+    k => k.toLowerCase() === trimmedLower && !ALL_KNOWN_ITEMS_LOWER.has(k.toLowerCase()) && (stash[k] ?? 0) > 0
+  );
   const showCustomOption =
     trimmedSearch.length > 0 &&
     !isKnownItem &&
-    !(stash[trimmedSearch] ?? 0);
+    !existingCustomKey;
 
   function handleAddItem(item) {
     adjustStash(item, 1);
