@@ -1521,6 +1521,129 @@ describe('healState(migrateV1(...))', () => {
   });
 });
 
+// ─── healState sanitization (AVE-542) ───────────────────────────────────────────
+//
+// healState must clamp hp, type-heal stash/stonebound counts, and coerce
+// campaignId to a number. These tests cover each field independently plus an
+// identity-preservation assertion for already-valid data (critical for sync
+// echo value-equality).
+
+describe('healState sanitization (AVE-542)', () => {
+  it('clamps hp above maxHp to maxHp', () => {
+    const save = {
+      guards: [{ name: 'Grigory', hp: 99, maxHp: 20 }],
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.guards[0].hp).toBe(20);
+  });
+
+  it('clamps negative hp to 0', () => {
+    const save = {
+      guards: [{ name: 'Grigory', hp: -5, maxHp: 20 }],
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.guards[0].hp).toBe(0);
+  });
+
+  it('heals a string stash count to a number and reduceAdjustStash adds correctly', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: s.activeParty,
+      stash: { Iron: '3' },
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.stash['Iron']).toBe(3);
+    const adjusted = reduceAdjustStash(healed, 'Iron', 1);
+    expect(adjusted.stash['Iron']).toBe(4);
+  });
+
+  it('heals a string campaignId to a number and bountiesForCity resolves correctly', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: s.activeParty,
+      campaign: { campaignId: '1', completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(typeof healed.campaign.campaignId).toBe('number');
+    expect(healed.campaign.campaignId).toBe(1);
+    const bounties = bountiesForCity('Mir', healed.campaign.campaignId);
+    expect(bounties).toHaveLength(2);
+  });
+
+  it('preserves a tombstoned stonebound location (deleted: true survives healing)', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: s.activeParty,
+      stonebound: {
+        max: 4,
+        locations: [
+          { id: 1, type: 'city', selection: 'Mir', count: 2, deleted: true },
+          { id: 2, type: 'city', selection: 'Ryba', count: 1 },
+        ],
+      },
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    const tombstoned = healed.stonebound.locations.find(l => l.id === 1);
+    expect(tombstoned).toBeDefined();
+    expect(tombstoned.deleted).toBe(true);
+    expect(healed.stonebound.locations).toHaveLength(2);
+  });
+
+  it('is identity-preserving: a fully valid state passes through deep-equal unchanged', () => {
+    const full = healState(migrateV1(s));
+    const reHealed = healState(JSON.parse(JSON.stringify(full)));
+    expect(reHealed).toEqual(full);
+  });
+
+  it('strips stash entries with non-string keys', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: s.activeParty,
+      stash: { Iron: 3, '': 5, [Symbol('x')]: 1 },
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.stash['Iron']).toBe(3);
+    expect(Object.keys(healed.stash)).toEqual(['Iron']);
+  });
+
+  it('heals stonebound location count from a string', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: s.activeParty,
+      stonebound: {
+        max: 4,
+        locations: [{ id: 1, type: 'city', selection: 'Mir', count: '3' }],
+      },
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.stonebound.locations[0].count).toBe(3);
+  });
+
+  it('drops a stonebound location with a non-string/non-number id', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: s.activeParty,
+      stonebound: {
+        max: 4,
+        locations: [
+          { id: null, type: 'city', selection: 'Mir', count: 1 },
+          { id: 2, type: 'city', selection: 'Ryba', count: 1 },
+        ],
+      },
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.stonebound.locations).toHaveLength(1);
+    expect(healed.stonebound.locations[0].id).toBe(2);
+  });
+});
+
 // ─── activeGuardIdx reset target (AVE-531) ─────────────────────────────────────
 //
 // activeGuardIdx is intentionally reset on every load (local-only UI nav), but
