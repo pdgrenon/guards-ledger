@@ -106,7 +106,12 @@ export default function App() {
 
   const activeParty = state.activeParty ?? ['Alek', 'Grigory'];
   const activeIdx   = state.activeGuardIdx ?? 0;
-  const activeGuard = state.guards[activeIdx];
+  // Defensive: if activeGuardIdx points at a guard not in the party (e.g. after
+  // a remote party change), fall back to the first party guard (AVE-531).
+  const safeActiveIdx = activeParty.includes(state.guards[activeIdx]?.name)
+    ? activeIdx
+    : Math.max(0, state.guards.findIndex(g => g.name === activeParty[0]));
+  const activeGuard = state.guards[safeActiveIdx];
   const activeColor = GUARD_COLOR_MAP[activeGuard?.name] ?? FALLBACK_COLOR;
 
   const guardActions = {
@@ -250,7 +255,7 @@ export default function App() {
                   {activeParty.map(name => {
                     const guardIdx = state.guards.findIndex(g => g.name === name);
                     const c        = GUARD_COLOR_MAP[name] ?? FALLBACK_COLOR;
-                    const isActive = activeIdx === guardIdx;
+                    const isActive = safeActiveIdx === guardIdx;
                     return (
                       <button
                         key={name}
@@ -272,7 +277,7 @@ export default function App() {
                     <ErrorBoundary level="guard" guardName={activeGuard.name}>
                       <GuardPanel
                         guard={activeGuard}
-                        guardIdx={activeIdx}
+                        guardIdx={safeActiveIdx}
                         actions={guardActions}
                       />
                     </ErrorBoundary>

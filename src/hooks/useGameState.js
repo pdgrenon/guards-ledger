@@ -100,15 +100,21 @@ export function migrateV1(v1) {
   const { cities, completedPuzzleQuests } = migrateLegacyPuzzleQuestDone(
     rawCities, v1.campaign?.campaignId ?? 1, v1.campaign?.completedPuzzleQuests
   );
+  const guards      = v1.guards      ?? createInitialGuards().guards;
+  const activeParty = v1.activeParty ?? createInitialGuards().activeParty;
+  const firstGuardIdx = (() => {
+    const idx = guards.findIndex(g => g.name === activeParty[0]);
+    return idx >= 0 ? idx : 0;
+  })();
   return {
     sil:            v1.sil            ?? 0,
     lux:            v1.lux            ?? 0,
     cities,
-    guards:         v1.guards         ?? createInitialGuards().guards,
-    activeParty:    v1.activeParty    ?? createInitialGuards().activeParty,
-    // activeGuardIdx is local-only UI state — always reset to default on load
-    // so each player starts viewing the first guard in their own party.
-    activeGuardIdx: createInitialGuards().activeGuardIdx,
+    guards,
+    activeParty,
+    // activeGuardIdx is local-only UI state — always reset, but derive from
+    // the saved party so the first party guard is shown instead of index 0.
+    activeGuardIdx: firstGuardIdx,
     stash:          v1.stash          ?? createInitialStash().stash,
     stonebound:     v1.stonebound     ?? createInitialStash().stonebound,
     // Normalize completedEncounters/completedBounties (string[] → { id }[]) so
@@ -200,16 +206,25 @@ export function healState(parsed) {
     isPlainObject(parsed.campaign) ? parsed.campaign.completedPuzzleQuests : null
   );
 
+  const activeParty =
+    Array.isArray(parsed.activeParty) && parsed.activeParty.length === 2
+      ? parsed.activeParty.map(healString)
+      : guardsInit.activeParty;
+
+  const firstGuardIdx = (() => {
+    const idx = guards.findIndex(g => g.name === activeParty[0]);
+    return idx >= 0 ? idx : 0;
+  })();
+
   return {
     sil:            healNumber(parsed.sil, resInit.sil),
     lux:            healNumber(parsed.lux, resInit.lux),
     cities,
     guards,
-    activeParty:    Array.isArray(parsed.activeParty) && parsed.activeParty.length === 2
-                       ? parsed.activeParty.map(healString)
-                       : guardsInit.activeParty,
-    // activeGuardIdx is local UI nav — always reset.
-    activeGuardIdx: guardsInit.activeGuardIdx,
+    activeParty,
+    // activeGuardIdx is local UI nav — always reset, but derive from the
+    // healed party so the first party guard is shown instead of index 0.
+    activeGuardIdx: firstGuardIdx,
     stash:          isPlainObject(parsed.stash) ? parsed.stash : stashInit.stash,
     stonebound:     isPlainObject(parsed.stonebound)
                        ? { max: Math.max(0, healNumber(parsed.stonebound.max, stashInit.stonebound.max)),

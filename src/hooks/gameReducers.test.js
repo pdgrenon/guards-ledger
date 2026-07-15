@@ -1482,6 +1482,61 @@ describe('healState(migrateV1(...))', () => {
   });
 });
 
+// ─── activeGuardIdx reset target (AVE-531) ─────────────────────────────────────
+//
+// activeGuardIdx is intentionally reset on every load (local-only UI nav), but
+// the reset target should be the first guard of the saved party, not index 0.
+
+describe('activeGuardIdx on reload (AVE-531)', () => {
+  it('healState derives activeGuardIdx from the saved activeParty', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: ['Catherine', 'Yury'],
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.activeGuardIdx).toBe(2); // Catherine is GUARDS[2]
+  });
+
+  it('healState falls back to the default first guard when the saved party is empty', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: [],
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.activeGuardIdx).toBe(1); // default activeParty is ['Alek', 'Grigory']
+  });
+
+  it('healState falls back to 0 when the first party guard name is not found', () => {
+    const save = {
+      guards: s.guards,
+      activeParty: ['Nobody', 'Yury'],
+      campaign: { completedEncounters: [] },
+    };
+    const healed = healState(save);
+    expect(healed.activeGuardIdx).toBe(0);
+  });
+
+  it('migrateV1 derives activeGuardIdx from the saved activeParty', () => {
+    const v1 = {
+      guards: s.guards,
+      activeParty: ['Yury', 'Pavel'],
+    };
+    const migrated = migrateV1(v1);
+    expect(migrated.activeGuardIdx).toBe(3); // Yury is GUARDS[3]
+  });
+
+  it('migrateV1 falls back to 0 when the first party guard is unknown', () => {
+    const v1 = {
+      guards: s.guards,
+      activeParty: ['Nobody', 'Yury'],
+    };
+    const migrated = migrateV1(v1);
+    expect(migrated.activeGuardIdx).toBe(0);
+  });
+});
+
 // ─── Legacy puzzleQuestDone migration (AVE-370) ──────────────────────────────
 //
 // The legacy flag must migrate exactly once. It used to re-run on every load:
