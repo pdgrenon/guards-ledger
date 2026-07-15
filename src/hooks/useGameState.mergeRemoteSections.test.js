@@ -67,4 +67,26 @@ describe('mergeRemoteSections', () => {
     expect(merged.sil).toBe(42);
     expect(merged.lux).toBe(3);
   });
+
+  it('returns prev by reference when every section is filtered out (AVE-530)', () => {
+    const base = createInitialState();
+
+    const sectionsToApply = {
+      campaign: { campaign: base.campaign },
+      resources: { sil: 42, lux: 3 },
+    };
+    const pendingSections = new Set(['campaign', 'resources']);
+
+    const merged = mergeRemoteSections(base, sectionsToApply, pendingSections);
+
+    expect(merged).toBe(base);
+  });
+
+  it('returns prev by reference when no sections are provided', () => {
+    const base = createInitialState();
+
+    const merged = mergeRemoteSections(base, {}, new Set());
+
+    expect(merged).toBe(base);
+  });
 });
