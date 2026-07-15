@@ -66,7 +66,7 @@ Each action in `useGameState` calls `setState(reducer, sectionName)` where `sect
 - Previous key: `guards_ledger_v1` (flat shape, no section factories)
 - On first load, if `v2` is absent but `v1` is present, `migrateV1()` in `useGameState.js` converts the old save and writes it under the new key. Migration runs once.
 - `importState` also accepts v1-format JSON exports via the same migration path.
-- `activeGuardIdx` is always reset to its initial value on load (regardless of what was saved), since it is local-only UI state that should not persist across sessions.
+- `activeGuardIdx` is always reset on load (local-only UI state), but the reset target is the first guard of the saved party (falling back to index 0) — not a hard-coded initial value.
 
 #### Section factories
 
