@@ -70,4 +70,13 @@ describe('useDialogA11y', () => {
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(getByText('last'));
   });
+
+  it('does not yank focus when onClose identity changes while open', () => {
+    const { rerender } = render(h(Dialog, { active: true, onClose: () => {} }));
+    const focusedEl = document.activeElement;
+
+    // Re-render with a new onClose — focus should stay put.
+    rerender(h(Dialog, { active: true, onClose: () => {} }));
+    expect(document.activeElement).toBe(focusedEl);
+  });
 });
