@@ -146,12 +146,12 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
                 touchStartRef.current = { x: t.clientX, y: t.clientY };
               }}
               onTouchEnd={e => {
+                e.preventDefault();
                 const t = e.changedTouches[0];
                 const s = touchStartRef.current;
                 const moved = s && (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10);
                 touchStartRef.current = null;
                 if (moved) return;
-                e.preventDefault();
                 selectingRef.current = true;
                 select(opt);
               }}
