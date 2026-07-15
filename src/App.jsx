@@ -1,4 +1,5 @@
 import { useState, useCallback, lazy, Suspense } from 'react';
+import { useDialogA11y } from './hooks/useDialogA11y';
 import { useGameState } from './hooks/useGameState';
 import { GuardPanel } from './components/GuardPanel';
 import { CitiesTab } from './components/CitiesTab';
@@ -103,6 +104,8 @@ export default function App() {
   function dismissOnboarding() {
     game.setState(s => ({ ...s, settings: { ...s.settings, hasSeenOnboarding: true } }), null);
   }
+
+  const onboardingRef = useDialogA11y(!state.settings.hasSeenOnboarding, dismissOnboarding);
 
   const activeParty = state.activeParty ?? ['Alek', 'Grigory'];
   const activeIdx   = state.activeGuardIdx ?? 0;
@@ -418,6 +421,7 @@ export default function App() {
         {!state.settings.hasSeenOnboarding && (
           <div className="onboarding-backdrop" onClick={dismissOnboarding}>
             <div
+              ref={onboardingRef}
               className="onboarding-modal"
               onClick={e => e.stopPropagation()}
               role="dialog"
