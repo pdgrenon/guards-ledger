@@ -89,7 +89,7 @@ Every feature and bug fix gets a test. Tests live in `src/hooks/gameReducers.tes
 
 ## Security baseline
 
-**Never persist local UI navigation state to Supabase.** `activeGuardIdx` (which guard a player is viewing) was previously synced inside the `guards` section, causing one player to overwrite the other's tab position mid-session. This was a live bug. See `docs/agents/sync.md` for the full sync boundary.
+**Never persist local UI navigation state to Supabase.** `activeGuardIdx` (which guard a player is viewing) was previously synced inside the `guards` section, causing one player to overwrite the other's tab position mid-session. This was a live bug. See `docs/sync.md` for the full sync boundary.
 
 **New top-level state keys:** decide sync vs. local-only before deploying. Enforce in `useSupabaseSync.js`. An undeclared key defaults to local-only — make the decision explicit.
 
@@ -104,9 +104,9 @@ Load on demand — do not read every session.
 | When you need to... | Read |
 |---|---|
 | Architecture, state shape, component responsibilities | `CLAUDE.md` |
-| Sync sections, local-only keys, upsert behavior | `docs/agents/sync.md` |
-| Game data rules (Ft. Istra, crafting, speaking stones) | `docs/agents/game-data.md` |
-| Benchmark two models against the same ticket | `docs/agents/eval.md` |
+| Sync sections, local-only keys, upsert behavior | `docs/sync.md` |
+| Game data rules (Ft. Istra, crafting, speaking stones) | `docs/game-data.md` |
+| Benchmark two models against the same ticket | `docs/eval.md` |
 
 ---
 
