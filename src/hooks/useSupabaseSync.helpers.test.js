@@ -15,6 +15,7 @@ import {
   applyRemoteSection,
   normalizeRow,
   generateCampaignId,
+  normalizeCampaignCode,
   reconcileSelfEcho,
   hasNewerSelfWrite,
   sectionTsColumn,
@@ -333,5 +334,51 @@ describe('mergeSeenTimestamps (AVE-526)', () => {
     const prev = { guard_0: 't1' };
     mergeSeenTimestamps(prev, { guard_0: 't9' });
     expect(prev.guard_0).toBe('t1');
+  });
+});
+
+// ─── normalizeCampaignCode (AVE-786) ─────────────────────────────────────────
+
+describe('normalizeCampaignCode', () => {
+  it('reinserts the hyphen when the code is typed without it', () => {
+    // The dominant real-world case: the code was read aloud across a table.
+    expect(normalizeCampaignCode('WOLF7F3K9Q')).toBe('WOLF-7F3K9Q');
+  });
+
+  it('uppercases a lowercase code', () => {
+    expect(normalizeCampaignCode('wolf-7f3k9q')).toBe('WOLF-7F3K9Q');
+  });
+
+  it('strips surrounding and interior whitespace', () => {
+    expect(normalizeCampaignCode('  WOLF - 7F3K9Q  ')).toBe('WOLF-7F3K9Q');
+  });
+
+  it('normalizes an en-dash from a phone keyboard', () => {
+    expect(normalizeCampaignCode('WOLF–7F3K9Q')).toBe('WOLF-7F3K9Q');
+  });
+
+  it('is idempotent on an already-canonical code', () => {
+    expect(normalizeCampaignCode('WOLF-7F3K9Q')).toBe('WOLF-7F3K9Q');
+    expect(normalizeCampaignCode(normalizeCampaignCode('WOLF-7F3K9Q'))).toBe('WOLF-7F3K9Q');
+  });
+
+  it('leaves a legacy 6-character id unhyphenated', () => {
+    // Pre-AVE-104 ids have no hyphen at all — blindly splitting after 4 would
+    // turn WOLF42 into an id that matches nothing.
+    expect(normalizeCampaignCode('WOLF42')).toBe('WOLF42');
+    expect(normalizeCampaignCode('  wolf42 ')).toBe('WOLF42');
+  });
+
+  it('returns an empty string for empty and nullish input', () => {
+    expect(normalizeCampaignCode('')).toBe('');
+    expect(normalizeCampaignCode(null)).toBe('');
+    expect(normalizeCampaignCode(undefined)).toBe('');
+  });
+
+  it('round-trips every generated id unchanged', () => {
+    for (let i = 0; i < 50; i++) {
+      const id = generateCampaignId();
+      expect(normalizeCampaignCode(id)).toBe(id);
+    }
   });
 });
