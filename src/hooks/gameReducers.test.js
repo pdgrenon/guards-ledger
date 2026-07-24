@@ -479,6 +479,18 @@ describe('reduceAdjustGuardHp', () => {
     expect(next.guards[0].hp).toBe(s.guards[0].maxHp);
   });
 
+  it('clamps delta=10 as maxHp when guard is at 15/20', () => {
+    const lowHp = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, hp: 15 } : g) };
+    const next = reduceAdjustGuardHp(lowHp, 0, 10);
+    expect(next.guards[0].hp).toBe(20);
+  });
+
+  it('clamps delta=-10 to 0 when guard is at 4/20', () => {
+    const lowHp = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, hp: 4 } : g) };
+    const next = reduceAdjustGuardHp(lowHp, 0, -10);
+    expect(next.guards[0].hp).toBe(0);
+  });
+
   it('only mutates the targeted guard', () => {
     const next = reduceAdjustGuardHp(s, 0, -5);
     expect(next.guards[1].hp).toBe(s.guards[1].hp);
