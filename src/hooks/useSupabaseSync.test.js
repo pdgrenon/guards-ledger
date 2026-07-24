@@ -378,10 +378,26 @@ describe('useSupabaseSync — joinCampaign', () => {
     });
     const { result } = setupHook({ client });
     await act(async () => { await result.current.joinCampaign('  bear10  '); });
-    // We can't directly inspect what the mock saw because the .eq() call
-    // record is shared across both branches; but the absence of a campaignId
-    // set + the error return confirms the lookup was attempted.
+    expect(client.calls.select.at(-1).eq).toEqual({ col: 'id', val: 'BEAR10' });
     expect(result.current.campaignId).toBe(null);
+  });
+
+  it('reinserts the hyphen when the code is entered without it (AVE-786)', async () => {
+    // A code read aloud across the table loses its separator. The lookup is
+    // exact-match, so without normalization this returned "Campaign not
+    // found" for a perfectly correct code.
+    const client = makeMockClient({
+      selectResult: { data: { id: 'WOLF-7F3K9Q', resources: { sil: 3, lux: 1 } }, error: null },
+    });
+    const { result } = setupHook({ client });
+    let ret;
+    await act(async () => { ret = await result.current.joinCampaign('wolf7f3k9q'); });
+
+    expect(client.calls.select.at(-1).eq).toEqual({ col: 'id', val: 'WOLF-7F3K9Q' });
+    expect(ret.error).toBe(null);
+    // The *normalized* id is what gets persisted, never the raw input.
+    expect(result.current.campaignId).toBe('WOLF-7F3K9Q');
+    expect(localStorage.getItem('guards_ledger_campaign_id')).toBe('WOLF-7F3K9Q');
   });
 
   it('persists the joined campaignId to localStorage and the React state', async () => {

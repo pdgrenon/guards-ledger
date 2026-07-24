@@ -116,6 +116,19 @@ export function generateCampaignId() {
 }
 
 /**
+ * Normalize a user-entered campaign code to the canonical stored id.
+ * Strips every non-alphanumeric character (spaces, hyphens of any Unicode
+ * flavor, stray punctuation) and uppercases. A 10-character result is a
+ * current-format code and gets its hyphen reinserted after the 4-letter word
+ * prefix (WOLF7F3K9Q -> WOLF-7F3K9Q). Any other length is returned bare, which
+ * preserves pre-AVE-104 legacy ids (e.g. WOLF42) that have no hyphen at all.
+ */
+export function normalizeCampaignCode(raw) {
+  const bare = (raw ?? '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  return bare.length === 10 ? `${bare.slice(0, 4)}-${bare.slice(4)}` : bare;
+}
+
+/**
  * Extract the payload for a section/column from full state.
  * For a per-guard column this is the guard object itself (state.guards[i]).
  * For a simple section it is an object of that section's keys.
@@ -887,7 +900,12 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const joinCampaign = useCallback(async (code) => {
     if (!client) return { state: null, error: 'Supabase not configured' };
 
-    const id = code.trim().toUpperCase();
+    // Codes get read aloud across a table, so the entered text routinely
+    // differs from the stored id by punctuation alone (missing hyphen,
+    // en-dash, stray spaces). Normalize to the canonical shape before the
+    // exact-match lookup — and store that normalized id, never the raw
+    // input (AVE-786).
+    const id = normalizeCampaignCode(code);
     const { data, error } = await client
       .from('campaigns')
       .select('*')

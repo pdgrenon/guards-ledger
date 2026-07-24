@@ -33,7 +33,9 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   const [joinCode,  setJoinCode]  = useState('');
   const [mpWorking, setMpWorking] = useState(false);
   const [mpError,   setMpError]   = useState(null);
-  const [copied,    setCopied]    = useState(false);
+  // null | 'copied' | 'failed' — mutually exclusive outcomes of one Copy tap,
+  // sharing a single reset timer (AVE-789).
+  const [copyStatus, setCopyStatus] = useState(null);
 
   // Confirmation modal state
   const [confirmAction, setConfirmAction] = useState(null);
@@ -41,6 +43,14 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   // Ref for the multiplayer section header — used to scroll into view
   const multiplayerRef = useRef(null);
   const bodyRef        = useRef(null);
+  // The hidden file input behind the Import button — clicked programmatically
+  // so the visible affordance can be a real, focusable <button> (AVE-785).
+  const fileInputRef   = useRef(null);
+  const copyTimerRef   = useRef(null);
+
+  // Clear a pending copy-status reset on unmount so it can't fire into a
+  // torn-down component.
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
   // Escape closes the panel — but not while the nested confirm dialog owns the
   // foreground (it handles its own Escape). The trap stays mounted throughout.
@@ -63,9 +73,16 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   const [importError, setImportError] = useState(null);
 
   async function handleImport(e) {
-    const file = e.target.files[0];
+    // Capture the element before the await — the handler's synchronous frame
+    // is the only place the event target is unambiguously live.
+    const input = e.target;
+    const file = input.files[0];
     if (!file) return;
     const result = await importState(file);
+    // Reset the value so picking the *same* file again still fires `change`;
+    // browsers suppress the event when `value` is unchanged, which otherwise
+    // dead-ends a retry after the player fixes their save file.
+    input.value = '';
     if (result.success) {
       setImportError(null);
       onClose();
@@ -119,12 +136,17 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   async function handleCopyCode() {
     if (!sync.campaignId) return;
     try {
+      // Guard the API's existence explicitly rather than leaning on the
+      // synchronous TypeError a missing `navigator.clipboard` would throw —
+      // it is undefined in any non-secure context.
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
       await navigator.clipboard.writeText(sync.campaignId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopyStatus('copied');
     } catch {
-      // Clipboard API not available — silently ignore
+      setCopyStatus('failed');
     }
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopyStatus(null), 3000);
   }
 
   return (
@@ -244,6 +266,8 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     fontWeight: 700,
                     letterSpacing: '0.05em',
                     color: 'var(--c-text)',
+                    // Explicit so the manual-copy hint below stays honest.
+                    userSelect: 'text',
                   }}>
                     {sync.campaignId}
                   </span>
@@ -252,8 +276,13 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     onClick={handleCopyCode}
                     style={{ minWidth: 80 }}
                   >
-                    {copied ? 'Copied!' : 'Copy'}
+                    {copyStatus === 'copied' ? 'Copied!' : copyStatus === 'failed' ? 'Copy failed' : 'Copy'}
                   </button>
+                  {copyStatus === 'failed' && (
+                    <div className="settings-sub" style={{ color: 'var(--c-red)' }} role="status">
+                      Couldn&apos;t copy automatically — select the code above and copy it manually.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -317,7 +346,9 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value.toUpperCase())}
                     onKeyDown={e => { if (e.key === 'Enter') handleJoinCampaign(); }}
-                    maxLength={13}
+                    /* Room for a pasted 'WOLF - 7F3K9Q' plus a trailing space —
+                       normalizeCampaignCode strips the padding before lookup. */
+                    maxLength={16}
                   />
                 </div>
                 <button
@@ -352,10 +383,28 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
                 <div className="settings-sub" style={{ color: 'var(--c-red)' }}>{importError}</div>
               )}
             </div>
-            <label style={{ cursor: 'pointer' }}>
-              <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
-              <div className="settings-action-btn">Import JSON</div>
-            </label>
+            {/* The input is driven programmatically by the button below — it is
+                display:none, so it is neither focusable nor in the a11y tree.
+                tabIndex/aria-hidden say so explicitly, keeping the dialog's
+                focus trap down to one stop for this one control (AVE-785). */}
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={handleImport}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+              <button
+                type="button"
+                className="settings-action-btn"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Import JSON
+              </button>
+            </>
           </div>
 
           <div className="settings-row">
