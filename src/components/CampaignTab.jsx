@@ -103,8 +103,48 @@ function EventTokensCard({ eventTokens, onAdjust, onReset }) {
   );
 }
 
+// ─── Draft-until-commit text input (AVE-784) ─────────────────────────────────
+//
+// Keystrokes update local `draft` only; `onCommit` fires exactly once at a
+// commit point (blur or Enter). Committing per keystroke — what these fields
+// used to do — overwrote the undo snapshot on every character, so Undo could
+// only ever walk back one letter of an edit, and restarted the 400ms sync
+// debounce so one field edit dispatched a write at every typing pause.
+//
+// Mirrors the `draft === null` convention Autocomplete uses (AVE-534):
+// null means "not editing", so the input renders the `value` prop and a
+// co-player's remote edit to a field you are NOT typing in still appears live.
+// While editing, the draft wins, so an inbound update can't yank characters
+// out from under the cursor.
+export function DraftInput({ value, onCommit, className, placeholder, id }) {
+  const [draft, setDraft] = useState(null);
+  const shown = draft !== null ? draft : (value ?? '');
+
+  function commit() {
+    if (draft === null) return;                  // never edited — nothing to commit
+    if (draft !== (value ?? '')) onCommit(draft); // unchanged text is not a write
+    setDraft(null);
+  }
+
+  return (
+    <input
+      id={id}
+      className={className}
+      type="text"
+      value={shown}
+      placeholder={placeholder}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter')  { e.preventDefault(); commit(); e.currentTarget.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); setDraft(null); e.currentTarget.blur(); }
+      }}
+    />
+  );
+}
+
 // ─── Locations card ───────────────────────────────────────────────────────────
-function LocationsCard({ locations, onSetFixed, onAddDynamic, onUpdateDynamic, onRemoveDynamic }) {
+export function LocationsCard({ locations, onSetFixed, onAddDynamic, onUpdateDynamic, onRemoveDynamic }) {
   return (
     <div className="card mb-3 stash-card">
       <div className="card-title mb-3">Locations</div>
@@ -113,12 +153,11 @@ function LocationsCard({ locations, onSetFixed, onAddDynamic, onUpdateDynamic, o
       {FIXED_LOCATIONS.map(({ key, label }) => (
         <div key={key} className="campaign-location-row">
           <label className="campaign-location-label" htmlFor={`loc-${key}`}>{label}</label>
-          <input
+          <DraftInput
             id={`loc-${key}`}
             className="campaign-location-input"
-            type="text"
             value={locations[key] ?? ''}
-            onChange={e => onSetFixed(key, e.target.value)}
+            onCommit={v => onSetFixed(key, v)}
             placeholder="—"
           />
         </div>
@@ -131,11 +170,10 @@ function LocationsCard({ locations, onSetFixed, onAddDynamic, onUpdateDynamic, o
         <div className="sec-label" style={{ marginBottom: 6 }}>Side Quests</div>
         {(locations.sideQuests ?? []).filter(e => !e.deleted).map(entry => (
           <div key={entry.id} className="campaign-dynamic-row">
-            <input
+            <DraftInput
               className="campaign-location-input"
-              type="text"
               value={entry.label}
-              onChange={e => onUpdateDynamic('sideQuests', entry.id, e.target.value)}
+              onCommit={v => onUpdateDynamic('sideQuests', entry.id, v)}
               placeholder="Location / description"
             />
             <RemoveBtn
