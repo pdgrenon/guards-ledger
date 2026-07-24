@@ -1,6 +1,6 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo, useEffect } from 'react';
-import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 import { MaterialName } from './MaterialName';
@@ -63,6 +63,7 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
   const status = craftStatus(recipe, combined, sil, lux, selectedCity, cityPrestigeLevel);
+  const itemReqs = parseItemReq(recipe.itemReq);
   const cost = formatCost(recipe, selectedCity);
   const cityLine = formatCityBreakdown(recipe, selectedCity);
 
@@ -116,15 +117,32 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
         </div>
       )}
 
-      {/* Special item requirement (apothecary) */}
-      {recipe.itemReq && (
-        <div className="craft-prereq">
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M6 1v4l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <circle cx="6" cy="6" r="5.25" stroke="currentColor" strokeWidth="1.5"/>
-          </svg>
-          Needs {recipe.itemReq}
-        </div>
+      {/* Special item requirement (apothecary) — counted toward craftability,
+          so show have/need per item exactly like the material rows (AVE-783). */}
+      {itemReqs.length > 0 && (
+        <>
+          <div className="craft-prereq">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M6 1v4l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="6" cy="6" r="5.25" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            Needs
+          </div>
+          <div className="craft-materials">
+            {itemReqs.map(req => {
+              const have = combined[req.name] ?? 0;
+              const ok   = have >= req.qty;
+              return (
+                <div key={req.name} className="craft-mat-row">
+                  <MaterialName item={req.name} className="craft-mat-name" onShowSource={onShowSource} />
+                  <span className={`craft-mat-qty ${ok ? 'craft-mat-qty--have' : 'craft-mat-qty--short'}`}>
+                    {have} / {req.qty}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {/* Effect (accessories/items) */}

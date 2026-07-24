@@ -1067,6 +1067,24 @@ export function craftCostForCity(recipe, cityName) {
   return recipe.craftCost[cityName] ?? null;
 }
 
+/**
+ * Parse a freeform `itemReq` string into [{ name, qty }].
+ *
+ * Format across every recipe that uses it: comma-separated item names, each
+ * optionally suffixed with ` xN` (e.g. "Purifying Seed x2"). No suffix = qty 1.
+ * Every name produced by this parser is a real entry in ALL_MATERIALS, so the
+ * results can be checked against the stash exactly like `materials` (AVE-782).
+ */
+export function parseItemReq(itemReq) {
+  if (!itemReq) return [];
+  return itemReq.split(',').map(part => {
+    const trimmed = part.trim();
+    const match   = trimmed.match(/^(.*?)\s*x(\d+)$/i);
+    if (match) return { name: match[1].trim(), qty: parseInt(match[2], 10) };
+    return { name: trimmed, qty: 1 };
+  }).filter(r => r.name.length > 0);
+}
+
 // All city names where a recipe can be crafted
 export function craftCities(recipe) {
   if (!recipe.craftCost && !recipe.luxCost) return [];
@@ -1087,16 +1105,29 @@ export function availableInCity(recipe, cityName) {
 export function craftStatus(recipe, stash, sil, lux, selectedCity = null, cityPrestigeLevel = 0) {
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
   const mats = recipe.materials;
+  // Required items (`itemReq`) are checked against the stash just like
+  // materials. They are never discounted: every recipe carrying an itemReq is
+  // isFtIstra, for which useDiscount is false by construction. (AVE-782/783)
+  const reqs = parseItemReq(recipe.itemReq);
 
+  // Apothecary items: no materials and no currency cost, so the whole recipe is
+  // its itemReq. This used to return a constant 'partial', which pinned all five
+  // of them out of the "Can craft" filter forever (AVE-782).
   if (mats.length === 0 && !recipe.craftCost && !recipe.luxCost) {
-    return recipe.itemReq ? 'partial' : 'missing';
+    if (reqs.length === 0) return 'missing';
+    const have = reqs.filter(r => (stash[r.name] ?? 0) >= r.qty).length;
+    if (have === reqs.length) return 'ready';
+    return have > 0 ? 'partial' : 'missing';
   }
 
-  let totalNeeded = mats.length;
+  let totalNeeded = mats.length + reqs.length;
   let totalHave = 0;
   for (const mat of mats) {
     const needed = (useDiscount && mat.qty2R !== null) ? mat.qty2R : mat.qty;
     if ((stash[mat.name] ?? 0) >= needed) totalHave++;
+  }
+  for (const req of reqs) {
+    if ((stash[req.name] ?? 0) >= req.qty) totalHave++;
   }
 
   const costOk = checkCost(recipe, sil, lux, selectedCity);
@@ -1121,12 +1152,16 @@ function checkCost(recipe, sil, lux, selectedCity) {
   return true;
 }
 
-// Shortage count — number of distinct materials where stash < needed
+// Shortage count — number of distinct materials (plus required items) where
+// stash < needed. Required items are never discounted (AVE-783).
 export function shortageCount(recipe, stash, useDiscount = false) {
-  return recipe.materials.filter(m => {
+  const matShort = recipe.materials.filter(m => {
     const needed = (useDiscount && m.qty2R !== null) ? m.qty2R : m.qty;
     return (stash[m.name] ?? 0) < needed;
   }).length;
+  const reqShort = parseItemReq(recipe.itemReq)
+    .filter(r => (stash[r.name] ?? 0) < r.qty).length;
+  return matShort + reqShort;
 }
 
 /**
