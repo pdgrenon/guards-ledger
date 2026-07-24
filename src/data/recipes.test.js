@@ -17,8 +17,10 @@ import {
   craftStatus,
   shortageCount,
   buildCombined,
+  parseItemReq,
   PREREQ_UPGRADES_TO,
 } from './recipes';
+import { ALL_MATERIALS } from './materials';
 
 // ─── Test fixtures ───────────────────────────────────────────────────────────
 
@@ -30,6 +32,16 @@ const reinforced = RECIPES.find(r => r.name === 'Reinforced Tunic');
 
 // Raiding Armor: Ft. Istra endgame, no sil cost, 50 lux, qty2R null.
 const raidingArmor = RECIPES.find(r => r.name === 'Raiding Armor');
+
+// Barrier Tonic: Ft. Istra Apothecary — no materials, no sil/lux cost. The whole
+// requirement is its itemReq string ("Coastal Bluecaps, Midnight Hydrangea").
+const barrierTonic = RECIPES.find(r => r.name === 'Barrier Tonic');
+
+// Purifying Dust: same shape, but its itemReq carries a quantity ("Purifying Seed x2").
+const purifyingDust = RECIPES.find(r => r.name === 'Purifying Dust');
+
+// Zoya's Elixir: the only recipe with BOTH materials and an itemReq.
+const zoyasElixir = RECIPES.find(r => r.name === "Zoya's Elixir");
 
 function fullStash(recipe) {
   const stash = {};
@@ -244,6 +256,119 @@ describe('craftStatus', () => {
   });
 });
 
+// ─── parseItemReq (AVE-782) ──────────────────────────────────────────────────
+
+describe('parseItemReq', () => {
+  it('parses a comma-separated list as qty 1 each', () => {
+    expect(parseItemReq('Coastal Bluecaps, Midnight Hydrangea')).toEqual([
+      { name: 'Coastal Bluecaps', qty: 1 },
+      { name: 'Midnight Hydrangea', qty: 1 },
+    ]);
+  });
+
+  it('parses a trailing xN suffix as a quantity', () => {
+    expect(parseItemReq('Purifying Seed x2')).toEqual([{ name: 'Purifying Seed', qty: 2 }]);
+  });
+
+  it('trims surrounding whitespace from names', () => {
+    expect(parseItemReq('  Jade  ,   Onyx  ')).toEqual([
+      { name: 'Jade', qty: 1 },
+      { name: 'Onyx', qty: 1 },
+    ]);
+  });
+
+  it('returns [] for null, undefined and empty input', () => {
+    expect(parseItemReq(null)).toEqual([]);
+    expect(parseItemReq(undefined)).toEqual([]);
+    expect(parseItemReq('')).toEqual([]);
+  });
+
+  it('every parsed name across all recipes is a known material', () => {
+    // The parser is only safe to check against the stash because each name it
+    // produces is a real stash key. Guards the whole class of "requirement can
+    // never be satisfied" bugs (cf. AVE-543).
+    for (const recipe of RECIPES.filter(r => r.itemReq)) {
+      for (const req of parseItemReq(recipe.itemReq)) {
+        expect(ALL_MATERIALS, `${recipe.name} → ${req.name}`).toContain(req.name);
+        expect(req.qty).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+// ─── craftStatus + itemReq (AVE-782 / AVE-783) ───────────────────────────────
+
+describe('craftStatus with itemReq', () => {
+  describe('apothecary recipes (no materials, no cost) — AVE-782', () => {
+    it('returns "missing" when no required items are in stash', () => {
+      expect(craftStatus(barrierTonic, emptyStash(), 9999, 9999, null, 0)).toBe('missing');
+    });
+
+    it('returns "partial" when only some required items are in stash', () => {
+      expect(craftStatus(barrierTonic, { 'Coastal Bluecaps': 1 }, 0, 0, null, 0)).toBe('partial');
+    });
+
+    it('returns "ready" when every required item is in stash', () => {
+      const stash = { 'Coastal Bluecaps': 1, 'Midnight Hydrangea': 1 };
+      expect(craftStatus(barrierTonic, stash, 0, 0, null, 0)).toBe('ready');
+    });
+
+    it('honors the xN quantity in the requirement', () => {
+      // Purifying Dust needs Purifying Seed ×2 and nothing else. One seed does
+      // not satisfy its single requirement, and — consistently with how
+      // materials are counted — a partially-supplied requirement does not
+      // register as "have", so the status is 'missing' rather than 'partial'.
+      expect(craftStatus(purifyingDust, { 'Purifying Seed': 1 }, 0, 0, null, 0)).toBe('missing');
+      expect(craftStatus(purifyingDust, { 'Purifying Seed': 2 }, 0, 0, null, 0)).toBe('ready');
+    });
+
+    it('lets every Apothecary recipe reach "ready" once its items are stocked', () => {
+      // Before AVE-782 these five returned a constant 'partial' and could never
+      // appear under the "Can craft" filter.
+      const apothecary = RECIPES.filter(
+        r => r.materials.length === 0 && !r.craftCost && !r.luxCost && r.itemReq
+      );
+      expect(apothecary.length).toBeGreaterThan(0);
+      for (const recipe of apothecary) {
+        const stash = {};
+        for (const req of parseItemReq(recipe.itemReq)) stash[req.name] = req.qty;
+        expect(craftStatus(recipe, stash, 0, 0, null, 0), recipe.name).toBe('ready');
+      }
+    });
+  });
+
+  describe('recipes with both materials and an itemReq — AVE-783', () => {
+    it('is NOT "ready" when the materials are satisfied but the items are not', () => {
+      // The regression: this returned 'ready' and the card promised a craft the
+      // player could not make.
+      expect(craftStatus(zoyasElixir, fullStash(zoyasElixir), 9999, 9999, null, 0)).toBe('partial');
+    });
+
+    it('is "ready" only when materials AND required items are satisfied', () => {
+      const stash = { ...fullStash(zoyasElixir), 'Midnight Hydrangea': 1, 'Health Potion': 1 };
+      expect(craftStatus(zoyasElixir, stash, 9999, 9999, null, 0)).toBe('ready');
+    });
+
+    it('is "partial" when the items are satisfied but the materials are not', () => {
+      const stash = { 'Midnight Hydrangea': 1, 'Health Potion': 1 };
+      expect(craftStatus(zoyasElixir, stash, 9999, 9999, null, 0)).toBe('partial');
+    });
+  });
+
+  describe('recipes without an itemReq are unaffected', () => {
+    it('returns the same status as before for a plain recipe', () => {
+      expect(craftStatus(tunic, fullStash(tunic), 100, 0, null, 0)).toBe('ready');
+      expect(craftStatus(tunic, emptyStash(), 100, 0, null, 0)).toBe('missing');
+    });
+
+    it('still applies the prestige discount to materials', () => {
+      const stash = { 'Metal Frag.': 1, 'Rough Leather': 2 };
+      expect(craftStatus(tunic, stash, 100, 0, 'Mir', 2)).toBe('ready');
+      expect(craftStatus(tunic, stash, 100, 0, 'Mir', 1)).toBe('missing');
+    });
+  });
+});
+
 // ─── shortageCount ───────────────────────────────────────────────────────────
 
 describe('shortageCount', () => {
@@ -266,6 +391,20 @@ describe('shortageCount', () => {
     const stash = { 'Metal Frag.': 1, 'Rough Leather': 4 };
     expect(shortageCount(tunic, stash, false)).toBe(1);
     expect(shortageCount(tunic, stash, true)).toBe(0);
+  });
+
+  it('counts short required items alongside materials (AVE-783)', () => {
+    expect(shortageCount(zoyasElixir, emptyStash())).toBe(zoyasElixir.materials.length + 2);
+  });
+
+  it('does not count required items that are satisfied', () => {
+    const stash = { 'Midnight Hydrangea': 1, 'Health Potion': 1 };
+    expect(shortageCount(zoyasElixir, stash)).toBe(zoyasElixir.materials.length);
+  });
+
+  it('counts required items for a materials-free apothecary recipe', () => {
+    expect(shortageCount(barrierTonic, emptyStash())).toBe(2);
+    expect(shortageCount(barrierTonic, { 'Coastal Bluecaps': 1, 'Midnight Hydrangea': 1 })).toBe(0);
   });
 });
 
