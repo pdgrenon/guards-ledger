@@ -31,7 +31,9 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
     return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler); };
   }, []);
 
-  const filtered = inputValue.length === 0 ? [] : options.filter(o => o.toLowerCase().includes(inputValue.toLowerCase())).slice(0, 12);
+  const filtered = inputValue.length === 0
+    ? options.slice(0, 12)
+    : options.filter(o => o.toLowerCase().includes(inputValue.toLowerCase())).slice(0, 12);
 
   function commit(finalValue) {
     onChange(finalValue);
@@ -70,7 +72,7 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
 
   function handleFocus() {
     selectingRef.current = false;
-    if (inputValue.length > 0) setOpen(true);
+    setOpen(true);
   }
 
   function handleBlur() {
@@ -89,7 +91,7 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
     if (e.key === 'Enter') {
       e.preventDefault();
       if (open && activeIdx >= 0 && activeIdx < filtered.length) select(filtered[activeIdx]);
-      else if (open && filtered.length > 0) select(filtered[0]);   // top match
+      else if (open && draft !== null && filtered.length > 0) select(filtered[0]);   // top match
       else resolveDraft();            // no dropdown match → revert / free-text
       return;
     }
