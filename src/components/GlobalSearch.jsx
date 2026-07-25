@@ -15,6 +15,7 @@ export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpe
   // Which enemy drop chip is expanded — keyed by both enemy and drop so the
   // same material dropped by two enemies only expands under the tapped one.
   const [expandedDrop, setExpandedDrop] = useState(null); // { enemy, drop } | null
+  const [expandedBounty, setExpandedBounty] = useState(null);
   const dialogRef = useDialogA11y(open, onClose);
 
   const results = useMemo(
@@ -45,7 +46,7 @@ export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpe
             className="gs-input"
             type="search"
             value={query}
-            onChange={e => { setQuery(e.target.value); setExpandedMaterial(null); setExpandedDrop(null); }}
+            onChange={e => { setQuery(e.target.value); setExpandedMaterial(null); setExpandedDrop(null); setExpandedBounty(null); }}
             placeholder="Search recipes, materials, enemies…"
             aria-label="Search everything"
             autoComplete="off"
@@ -65,7 +66,7 @@ export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpe
             <div className="gs-hint">
               <div className="gs-hint-title">Search everything</div>
               <div className="gs-hint-sub">
-                Recipes, materials &amp; where to get them, enemy drops, encounters, and cities.
+                Recipes, materials &amp; where to get them, enemy drops, encounters, cities, bounties, and puzzle quests.
               </div>
             </div>
           )}
@@ -199,6 +200,67 @@ export function GlobalSearch({ open, onClose, stash, cities, onOpenRecipe, onOpe
                     <span className="gs-result-meta">Open Cities</span>
                   </span>
                 </button>
+              ))}
+            </div>
+          )}
+
+          {hasQuery && results && results.bounties.length > 0 && (
+            <div className="gs-group">
+              <div className="gs-group-label">Bounties</div>
+              {results.bounties.map(bounty => {
+                const isOpen = expandedBounty === bounty.id;
+                return (
+                  <div key={bounty.id}>
+                    <button
+                      className="gs-result"
+                      aria-expanded={isOpen}
+                      onClick={() => setExpandedBounty(isOpen ? null : bounty.id)}
+                    >
+                      <span className="gs-result-glyph" aria-hidden="true">☑</span>
+                      <span className="gs-result-main">
+                        <span className="gs-result-title">{bounty.name}</span>
+                        <span className="gs-result-meta">{bounty.inn} · Campaign {bounty.campaign}</span>
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="gs-material-detail">
+                        <div className="encounter-detail-section">
+                          <div className="encounter-detail-sect-label">LOCATION</div>
+                          <div className="encounter-detail-text">{bounty.location}</div>
+                        </div>
+                        <div className="encounter-detail-section">
+                          <div className="encounter-detail-sect-label">TARGETS</div>
+                          <div className="encounter-detail-text">{bounty.targets}</div>
+                        </div>
+                        <div className="encounter-detail-section">
+                          <div className="encounter-detail-sect-label">CONDITIONS</div>
+                          <div className="encounter-detail-text">{bounty.conditions}</div>
+                        </div>
+                        <div className="encounter-detail-section">
+                          <div className="encounter-detail-sect-label">REWARDS</div>
+                          <div className="encounter-detail-text">{bounty.rewards}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {hasQuery && results && results.puzzleQuests.length > 0 && (
+            <div className="gs-group">
+              <div className="gs-group-label">Puzzle quests</div>
+              {results.puzzleQuests.map(p => (
+                <div key={p.id}>
+                  <div className="gs-result gs-result--static">
+                    <span className="gs-result-glyph" aria-hidden="true">◈</span>
+                    <span className="gs-result-main">
+                      <span className="gs-result-title">{p.city} puzzle quest</span>
+                      <span className="gs-result-meta">Campaign {p.campaign} · {p.location}</span>
+                    </span>
+                  </div>
+                </div>
               ))}
             </div>
           )}

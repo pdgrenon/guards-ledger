@@ -7,6 +7,8 @@
 import { RECIPES } from './recipes';
 import { ALL_MATERIALS, MATERIAL_SOURCES, ENEMIES } from './materials';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from './encounters';
+import { BOUNTIES } from './bounties';
+import { PUZZLE_QUESTS } from './puzzleQuests';
 
 // Reverse index: enemy name → sorted list of materials that list it as a drop.
 // MATERIAL_SOURCES maps item → { enemies: [...] }; we invert it once at load.
@@ -74,8 +76,22 @@ export function searchAll(rawQuery, { stash = {}, cities = [] } = {}) {
     .filter(c => includes(c.name, q))
     .map(c => ({ city: c }));
 
-  const total =
-    recipes.length + materials.length + enemies.length + encounters.length + cityResults.length;
+  const bounties = BOUNTIES.filter(b =>
+    includes(b.name, q) ||
+    includes(b.inn, q) ||
+    includes(b.city, q) ||
+    includes(b.location, q) ||
+    includes(b.targets, q) ||
+    includes(b.conditions, q) ||
+    includes(b.rewards, q)
+  ).slice(0, PER_GROUP_LIMIT);
 
-  return { recipes, materials, enemies, encounters, cities: cityResults, total };
+  const puzzleQuests = PUZZLE_QUESTS.filter(p =>
+    includes(p.city, q) || includes(p.location, q)
+  ).slice(0, PER_GROUP_LIMIT);
+
+  const total =
+    recipes.length + materials.length + enemies.length + encounters.length + cityResults.length + bounties.length + puzzleQuests.length;
+
+  return { recipes, materials, enemies, encounters, cities: cityResults, bounties, puzzleQuests, total };
 }
