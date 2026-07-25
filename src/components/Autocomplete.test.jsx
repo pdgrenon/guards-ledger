@@ -106,3 +106,42 @@ describe('Autocomplete draft-until-commit (AVE-534)', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe('Autocomplete browse on focus (AVE-794)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => cleanup());
+
+  it('shows options on focus when the field is empty', () => {
+    const { input, container } = setup();
+    fireEvent.focus(input);
+    const options = container.querySelectorAll('.autocomplete-option');
+    expect(options.length).toBe(3);
+    expect(options[0].textContent).toBe('Silver Flame');
+    expect(options[1].textContent).toBe('Silver Sword');
+    expect(options[2].textContent).toBe('Iron Dagger');
+  });
+
+  it('does not call onChange on Enter when field was freshly focused (empty, no typing)', () => {
+    const { onChange, input } = setup();
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('commits the highlighted option on ArrowDown + Enter in an empty field', () => {
+    const { onChange, input } = setup();
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('Silver Flame');
+  });
+
+  it('still shows filtered results on focus when field has a committed value', () => {
+    const { input, container } = setup({ value: 'Silver Flame' });
+    fireEvent.focus(input);
+    const options = container.querySelectorAll('.autocomplete-option');
+    expect(options.length).toBe(1);
+    expect(options[0].textContent).toBe('Silver Flame');
+  });
+});
