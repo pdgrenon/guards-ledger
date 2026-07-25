@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { searchAll, enemyDrops, MIN_QUERY_LENGTH } from './search';
 import { ENEMIES, MATERIAL_SOURCES } from './materials';
+import { BOUNTIES } from './bounties';
 
 describe('searchAll', () => {
   it('returns null for queries shorter than the minimum length', () => {
@@ -94,6 +95,58 @@ describe('searchAll', () => {
 
   it('is case-insensitive', () => {
     expect(searchAll('IRON').materials.length).toEqual(searchAll('iron').materials.length);
+  });
+
+  it('returns bounties whose target lists name volkrok', () => {
+    const res = searchAll('volkrok', {});
+    const ids = res.bounties.map(b => b.id).sort();
+    expect(ids).toContain('razdor-c3-beast-from-the-depths');
+    expect(ids).toContain('strofa-c1-something-in-the-water');
+  });
+
+  it('returns every bounty for an inn when querying the inn name', () => {
+    const res = searchAll('clayhorn', {});
+    const expected = BOUNTIES.filter(b => b.inn === 'Mir: The Clayhorn').length;
+    expect(res.bounties.length).toBe(Math.min(expected, 8));
+    expect(res.bounties.every(b => b.inn === 'Mir: The Clayhorn')).toBe(true);
+  });
+
+  it('returns a bounty when searching its exact name', () => {
+    const res = searchAll('stone idols', {});
+    expect(res.bounties.some(b => b.name === 'Stone Idols')).toBe(true);
+  });
+
+  it('includes the Ryba campaign 4 puzzle quest when searching narrows', () => {
+    const res = searchAll('narrows', {});
+    const rybaC4 = res.puzzleQuests.find(p => p.city === 'Ryba' && p.campaign === 4);
+    expect(rybaC4).toBeTruthy();
+    expect(rybaC4.location).toBe('Ryba: The Narrows');
+  });
+
+  it('returns all four Mir puzzle quests when searching mir', () => {
+    const res = searchAll('mir', {});
+    expect(res.puzzleQuests.length).toBe(4);
+    expect(res.puzzleQuests.every(p => p.city === 'Mir')).toBe(true);
+  });
+
+  it('total sums all seven groups and is > 0 when only a bounty matches', () => {
+    const res = searchAll('beast from the depths', {});
+    expect(res.total).toBeGreaterThan(0);
+    const userFacingGroups = ['recipes', 'materials', 'enemies', 'encounters', 'cities', 'bounties', 'puzzleQuests'];
+    const computedTotal = userFacingGroups.reduce((s, g) => s + res[g].length, 0);
+    expect(res.total).toBe(computedTotal);
+  });
+
+  it('caps bounties and puzzle quests at the per-group limit', () => {
+    const res = searchAll('er', {});
+    expect(res.bounties.length).toBeLessThanOrEqual(8);
+    expect(res.puzzleQuests.length).toBeLessThanOrEqual(8);
+  });
+
+  it('matches a bounty by freeform targets text', () => {
+    const res = searchAll('broken plough', {});
+    expect(res.bounties.length).toBeGreaterThan(0);
+    expect(res.bounties.every(b => /broken plough/i.test(b.targets))).toBe(true);
   });
 });
 
