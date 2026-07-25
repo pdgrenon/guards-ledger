@@ -318,9 +318,10 @@ export function healState(parsed) {
                                  plains:   healNumber(parsed.campaign.eventTokens.plains, 0),
                                  sea:      healNumber(parsed.campaign.eventTokens.sea, 0) }
                              : campInit.campaign.eventTokens,
-                           locations: isPlainObject(parsed.campaign.locations)
-                             ? parsed.campaign.locations
-                             : campInit.campaign.locations,
+                            locations: isPlainObject(parsed.campaign.locations)
+                              // eslint-disable-next-line no-unused-vars
+                              ? (({ bounties, ...rest }) => rest)(parsed.campaign.locations)
+                              : campInit.campaign.locations,
                             plans:     Array.isArray(parsed.campaign.plans)
                               ? parsed.campaign.plans.filter(isPlainObject)
                               : [],

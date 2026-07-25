@@ -305,4 +305,20 @@ describe('withUndoTombstones — negates elements/keys added since the snapshot'
     expect(result.campaign.plans).toBe(preAdd.campaign.plans);
     expect(result.stash).toBe(preAdd.stash);
   });
+
+  it('does not add tombstones for bounties (orphaned key)', () => {
+    const preAdd = { campaign: { locations: { sideQuests: [{ id: 1, label: 'x' }] } } };
+    const added  = {
+      campaign: {
+        locations: {
+          sideQuests: [{ id: 1, label: 'x' }],
+          bounties: [{ id: 99, label: 'legacy bounty' }],
+        },
+      },
+    };
+
+    const result = withUndoTombstones(preAdd, added);
+
+    expect(result.campaign.locations.bounties).toBeUndefined();
+  });
 });
