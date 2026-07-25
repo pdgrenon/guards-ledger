@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { cityPrestige, isBountyCompleted, isPuzzleQuestCompleted } from '../hooks/gameReducers';
 import { Checkmark } from './Checkmark';
 import { MAX_PRESTIGE } from '../data/constants';
@@ -97,8 +97,28 @@ function BountyDetailDialog({ bounty, completed, onToggle, onClose }) {
   );
 }
 
-export function CitiesTab({ cities, campaignId, completedBounties, toggleBountyComplete, completedPuzzleQuests, togglePuzzleQuestComplete }) {
+export function CitiesTab({ cities, campaignId, completedBounties, toggleBountyComplete, completedPuzzleQuests, togglePuzzleQuestComplete, cityTarget, onTargetApplied }) {
   const [openBounty, setOpenBounty] = useState(null);
+  const [targetNonce, setTargetNonce] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
+  const cardRefs = useRef({});
+
+  if (cityTarget && cityTarget.nonce !== targetNonce) {
+    setTargetNonce(cityTarget.nonce);
+    setHighlightId(cityTarget.id);
+  }
+
+  useEffect(() => {
+    if (cityTarget) onTargetApplied?.();
+  }, [cityTarget, onTargetApplied]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    cardRefs.current[highlightId]?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    const t = setTimeout(() => setHighlightId(null), 2000);
+    return () => clearTimeout(t);
+  }, [highlightId, targetNonce]);
 
   return (
     <>
@@ -117,8 +137,9 @@ export function CitiesTab({ cities, campaignId, completedBounties, toggleBountyC
           return (
             <div
               key={city.id}
-              className="city-card"
+              className={`city-card${highlightId === city.id ? ' city-card--highlight' : ''}`}
               style={{ '--city-color': CITY_COLOR }}
+              ref={el => { cardRefs.current[city.id] = el; }}
             >
               {/* City name — colored via --city-color */}
               <div className="city-name">{city.name}</div>

@@ -80,8 +80,10 @@ export default function App() {
   // return to that tab. A bumped nonce lets a repeat selection re-fire.
   const [craftSeed, setCraftSeed]   = useState(null);
   const [encounterTarget, setEncounterTarget] = useState(null);
+  const [cityTarget, setCityTarget] = useState(null);
   const clearCraftSeed       = useCallback(() => setCraftSeed(null), []);
   const clearEncounterTarget = useCallback(() => setEncounterTarget(null), []);
+  const clearCityTarget      = useCallback(() => setCityTarget(null), []);
   const game = useGameState();
   const { state } = game;
 
@@ -97,7 +99,8 @@ export default function App() {
     setSearchOpen(false);
   }
 
-  function openCityFromSearch() {
+  function openCityFromSearch(city) {
+    setCityTarget({ id: city.id, nonce: Date.now() });
     setTab('Cities');
     setSearchOpen(false);
   }
@@ -296,6 +299,8 @@ export default function App() {
                 toggleBountyComplete={game.toggleBountyComplete}
                 completedPuzzleQuests={state.campaign.completedPuzzleQuests}
                 togglePuzzleQuestComplete={game.togglePuzzleQuestComplete}
+                cityTarget={cityTarget}
+                onTargetApplied={clearCityTarget}
               />
             </ErrorBoundary>
           )}

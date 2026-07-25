@@ -702,6 +702,16 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1.2;
   margin-bottom: 4px;
 }
+
+.city-card--highlight {
+  outline: 2px solid var(--c-city);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .city-card--highlight {
+    transition: outline 0.2s;
+  }
+}
 /* Prestige pips — below name, larger, clearer */
 .prestige-pips { display: flex; gap: 5px; margin-bottom: 8px; }
 .prestige-pip {
