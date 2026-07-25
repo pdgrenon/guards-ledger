@@ -114,7 +114,8 @@ export function CitiesTab({ cities, campaignId, completedBounties, toggleBountyC
 
   useEffect(() => {
     if (!highlightId) return;
-    cardRefs.current[highlightId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    cardRefs.current[highlightId]?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
     const t = setTimeout(() => setHighlightId(null), 2000);
     return () => clearTimeout(t);
   }, [highlightId, targetNonce]);

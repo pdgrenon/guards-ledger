@@ -114,4 +114,6 @@ describe('CitiesTab scroll-and-highlight (AVE-793)', () => {
     const card = container.querySelector('.city-card--highlight');
     expect(card.textContent).toContain('Mir');
   });
+
+  it('uses non-smooth scroll under prefers-reduced-motion: reduce', () => { window.matchMedia = vi.fn().mockReturnValue({ matches: true }); Element.prototype.scrollIntoView = vi.fn(); render(h(CitiesTab, { ...defaultProps, onTargetApplied: vi.fn(), cityTarget: { id: 'silny', nonce: 1 } })); const arg = Element.prototype.scrollIntoView.mock.calls[0][0]; expect(arg.behavior).not.toBe('smooth'); });
 });

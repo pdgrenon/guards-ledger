@@ -703,10 +703,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
   margin-bottom: 4px;
 }
 
+.city-card--highlight {
+  outline: 2px solid var(--c-city);
+  outline-offset: 2px;
+}
 @media (prefers-reduced-motion: no-preference) {
   .city-card--highlight {
-    outline: 2px solid var(--c-city);
-    outline-offset: 2px;
     transition: outline 0.2s;
   }
 }
