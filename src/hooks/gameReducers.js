@@ -638,7 +638,7 @@ export function withUndoTombstones(prevState, currentState) {
     if (prevLocs || currLocs) {
       const locations = { ...prevLocs };
       let locsChanged = false;
-      for (const key of ['sideQuests', 'bounties']) {
+      for (const key of ['sideQuests']) {
         const merged = appendUndoArrayTombstones(prevLocs?.[key], currLocs?.[key]);
         if (merged !== (prevLocs?.[key] ?? [])) {
           locations[key] = merged;

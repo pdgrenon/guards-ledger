@@ -1916,3 +1916,115 @@ describe('legacy bounty1Done/bounty2Done migration (AVE-547)', () => {
     expect(migrated.cities.find(c => c.name === 'Ryba').bounty2Done).toBe(false);
   });
 });
+
+// ─── healState strips legacy locations.bounties (AVE-795) ─────────────────────
+
+describe('healState strips legacy locations.bounties (AVE-795)', () => {
+  it('strips the bounties key from locations when present', () => {
+    const locations = {
+      party: 'Forest',
+      caravan: '',
+      mainQuest: 'Fort Istra',
+      boat: '',
+      sideQuests: [{ id: 1, label: 'Thief Camp' }],
+      bounties: [{ id: 1, label: 'legacy bounty' }],
+    };
+    const save = {
+      campaign: {
+        campaignId: 1,
+        locations,
+        completedEncounters: [],
+        completedBounties: [],
+        completedPuzzleQuests: [],
+      },
+      cities: createInitialCities().cities,
+    };
+    const healed = healState(save);
+    expect(healed.campaign.locations.bounties).toBeUndefined();
+  });
+
+  it('preserves other location fields byte-for-byte when stripping bounties', () => {
+    const original = {
+      party: 'Forest',
+      caravan: '',
+      mainQuest: 'Fort Istra',
+      boat: 'The Sea Serpent',
+      sideQuests: [{ id: 1, label: 'Thief Camp' }],
+      bounties: [{ id: 1, label: 'legacy bounty' }],
+    };
+    const save = {
+      campaign: {
+        campaignId: 1,
+        locations: { ...original },
+        completedEncounters: [],
+        completedBounties: [],
+        completedPuzzleQuests: [],
+      },
+      cities: createInitialCities().cities,
+    };
+    const healed = healState(save);
+    const locs = healed.campaign.locations;
+    expect(locs.party).toBe('Forest');
+    expect(locs.caravan).toBe('');
+    expect(locs.mainQuest).toBe('Fort Istra');
+    expect(locs.boat).toBe('The Sea Serpent');
+    expect(locs.sideQuests).toEqual([{ id: 1, label: 'Thief Camp' }]);
+    expect(Object.keys(locs)).not.toContain('bounties');
+  });
+
+  it('returns locations unchanged when no bounties key exists', () => {
+    const locations = {
+      party: 'Forest',
+      caravan: '',
+      mainQuest: 'Fort Istra',
+      boat: '',
+      sideQuests: [{ id: 1, label: 'Thief Camp' }],
+    };
+    const save = {
+      campaign: {
+        campaignId: 1,
+        locations,
+        completedEncounters: [],
+        completedBounties: [],
+        completedPuzzleQuests: [],
+      },
+      cities: createInitialCities().cities,
+    };
+    const healed = healState(save);
+    expect(healed.campaign.locations).toEqual(locations);
+  });
+
+  it('is idempotent — re-running healState on the result changes nothing', () => {
+    const locations = {
+      party: 'Forest',
+      caravan: '',
+      mainQuest: 'Fort Istra',
+      boat: '',
+      sideQuests: [{ id: 1, label: 'Thief Camp' }],
+      bounties: [{ id: 1, label: 'legacy bounty' }],
+    };
+    const save = {
+      campaign: {
+        campaignId: 1,
+        locations,
+        completedEncounters: [],
+        completedBounties: [],
+        completedPuzzleQuests: [],
+      },
+      cities: createInitialCities().cities,
+    };
+    const healed = healState(save);
+    const reHealed = healState(JSON.parse(JSON.stringify(healed)));
+    expect(reHealed.campaign.locations).toEqual(healed.campaign.locations);
+  });
+});
+
+// ─── createInitialCampaign locations (AVE-795) ────────────────────────────────
+
+describe('createInitialCampaign location keys (AVE-795)', () => {
+  it('has no bounties key', () => {
+    const locs = createInitialCampaign().campaign.locations;
+    expect(locs).not.toHaveProperty('bounties');
+    expect(Object.keys(locs)).toEqual(['party', 'caravan', 'mainQuest', 'boat', 'sideQuests']);
+  });
+});
