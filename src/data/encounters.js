@@ -1,6 +1,7 @@
 import { CAMPAIGNS } from './constants';
 
 const ANY_GROUP = { id: 0, label: 'Any Campaign' };
+const ENDGAME_GROUP = { id: 99, label: 'End Game' };
 
 function slug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -501,6 +502,7 @@ export function campaignGroupFromReq(req) {
     const id = parseInt(match[1], 10);
     const found = CAMPAIGNS.find(c => c.id === id);
     if (found) return { id, label: found.label };
+    return ENDGAME_GROUP;
   }
   return ANY_GROUP;
 }
@@ -508,6 +510,7 @@ export function campaignGroupFromReq(req) {
 export function encountersMatchFilter(fight, campaignId) {
   if (campaignId === 0) return true;
   const group = campaignGroupFromReq(fight.campaignReq);
+  if (group.id === ENDGAME_GROUP.id) return campaignId >= 4;
   return group.id === 0 || group.id <= campaignId;
 }
 
