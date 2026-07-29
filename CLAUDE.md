@@ -65,7 +65,7 @@ Each action in `useGameState` calls `setState(reducer, sectionName)` where `sect
 - Current key: `guards_ledger_v2`
 - Previous key: `guards_ledger_v1` (flat shape, no section factories)
 - On first load, if `v2` is absent but `v1` is present, `migrateV1()` in `useGameState.js` converts the old save and writes it under the new key. Migration runs once.
-- `importState` also accepts v1-format JSON exports via the same migration path.
+- `importState` also accepts v1-format JSON exports via the same migration path. **It first gates the parsed blob through `looksLikeSave` (AVE-869)** — a structural check for at least one of `guards` / `cities` / `campaign` / `stash`. `healState` cannot serve as that check, because import hands it `migrateV1(parsed)` and `migrateV1` `??`-defaults every field it reads: it launders a string, a number, an array, or any unrelated object into a fully-formed default state, so `healState` never returns `null` and the `Invalid save file.` branch was unreachable for anything that parsed as JSON. Import is destructive and unrecoverable (it clears the undo snapshot and `replaceRow`s the shared campaign row), so picking the wrong `.json` used to silently wipe the ledger for every player. Keep the check **structural, not a strict schema** — `healState` is deliberately tolerant of damaged saves, and the guard must not be stricter than the thing it protects. Validate **before** `migrateV1`, never after.
 - `activeGuardIdx` is always reset on load (local-only UI state), but the reset target is the first guard of the saved party (falling back to index 0) — not a hard-coded initial value.
 
 #### Section factories
