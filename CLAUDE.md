@@ -60,6 +60,8 @@ State is flat at the top level (no nesting by section). Sections are a conceptua
 
 Each action in `useGameState` calls `setState(reducer, sectionName)` where `sectionName` is the section that action modifies. `setState` persists to localStorage and calls `sync.upsertSection(sectionName, nextState)` in one step.
 
+**`setState` computes the next state outside the `setRaw` updater and passes `setRaw` a plain value — never a function (AVE-582, AVE-875).** A React state updater must be a pure function of `prev`: React may call it more than once and may discard the render it produced. Mutating `undoSnapshot.current` or calling `setUndoLabel` from inside one runs those effects for renders that never commit, which leaves Undo offering a restore to a state the player never saw — and `undoLastAction` doesn't just `setRaw` that snapshot, it `upsertSection`s it to the shared campaign row. `handleRemoteChange` follows the same rule. Because both read `stateRef.current` rather than React's `prev`, **`setState` advances `stateRef.current` synchronously before calling `setRaw`**: the ref is otherwise only refreshed by an effect after commit, so two `setState` calls dispatched in one event would both read the same stale value and the second would silently discard the first. Treat that assignment as load-bearing — removing it breaks same-event batching (covered by `useGameState.setStatePurity.test.jsx`). The post-commit `stateRef` effect stays as the backstop for the paths that call `setRaw` directly (`leaveCampaign`, `undoLastAction`).
+
 #### localStorage versioning and migration
 
 - Current key: `guards_ledger_v2`

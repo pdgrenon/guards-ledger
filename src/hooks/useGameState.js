@@ -626,14 +626,32 @@ export function useGameState() {
       }, [flushPendingSync]);
 
       const setState = useCallback((updater, sectionName = null) => {
+        // Compute the next state OUTSIDE the setRaw updater and hand setRaw a
+        // plain value. A state updater must be a pure function of `prev`:
+        // React may call it more than once and may discard the render it
+        // produced. Mutating undoSnapshot and calling setUndoLabel from inside
+        // it therefore ran them for renders that never committed, leaving Undo
+        // offering — and on tap performing — a restore to a state the player
+        // never saw, which undoLastAction then writes to the shared campaign
+        // row via upsertSection. This is the same defect AVE-582 fixed in
+        // handleRemoteChange; setState was left on the old pattern (AVE-875).
+        const prev = stateRef.current;
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+
+        // Keep stateRef authoritative as the latest *intended* state. It is
+        // otherwise only refreshed by an effect after commit, so without this
+        // two setState calls dispatched in the same event would both read the
+        // same stale `prev` and the second would silently discard the first.
+        // The two existing readers (flushPendingSync and the debounce timer,
+        // both of which ship stateRef.current to Supabase) want the newest
+        // value anyway.
+        stateRef.current = next;
+
         if (sectionName) {
-          setRaw(prev => {
-            const next = typeof updater === 'function' ? updater(prev) : updater;
-            const label = deriveUndoLabel(prev, next, sectionName);
-            undoSnapshot.current = { prevState: prev, sectionName, label };
-            setUndoLabel(label);
-            return next;
-          });
+          const label = deriveUndoLabel(prev, next, sectionName);
+          undoSnapshot.current = { prevState: prev, sectionName, label };
+          setUndoLabel(label);
+          setRaw(next);
           pendingSections.current.add(sectionName);
           if (upsertTimer.current) clearTimeout(upsertTimer.current);
           upsertTimer.current = setTimeout(() => {
@@ -644,7 +662,7 @@ export function useGameState() {
             }
           }, 400);
         } else {
-          setRaw(typeof updater === 'function' ? updater : updater);
+          setRaw(next);
         }
       }, [sync]);
 
