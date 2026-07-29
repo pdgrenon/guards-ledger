@@ -617,7 +617,7 @@ describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
     // because another player edited while this app was closed.
     const client = makeMockClient({
       selectResult: {
-        data: { id: 'WOLF42', resources: { sil: 55, lux: 3 }, resources_updated_at: 't1' },
+        data: { id: 'WOLF42', resources: { sil: 55, lux: 3 }, resources_updated_at: '2026-01-01T00:01:00+00:00' },
         error: null,
       },
     });
@@ -649,7 +649,7 @@ describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
   it('re-fetches missed updates when the tab is foregrounded (visibilitychange)', async () => {
     const client = makeMockClient({
       selectResult: {
-        data: { id: 'WOLF42', resources: { sil: 12, lux: 0 }, resources_updated_at: 't1' },
+        data: { id: 'WOLF42', resources: { sil: 12, lux: 0 }, resources_updated_at: '2026-01-01T00:01:00+00:00' },
         error: null,
       },
     });
@@ -674,7 +674,7 @@ describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
     // Boot fetch carries resources at timestamp t5.
     const client = makeMockClient({
       selectResult: {
-        data: { id: 'WOLF42', resources: { sil: 10, lux: 0 }, resources_updated_at: 't5' },
+        data: { id: 'WOLF42', resources: { sil: 10, lux: 0 }, resources_updated_at: '2026-01-01T00:05:00+00:00' },
         error: null,
       },
     });
@@ -691,9 +691,66 @@ describe('useSupabaseSync — row re-fetch (AVE-372)', () => {
     const channel = client.calls.channels[0].channel;
     act(() => {
       channel._trigger({
-        new: { id: 'WOLF42', resources: { sil: 999, lux: 0 }, resources_updated_at: 't5' },
+        new: { id: 'WOLF42', resources: { sil: 999, lux: 0 }, resources_updated_at: '2026-01-01T00:05:00+00:00' },
       });
     });
+    expect(onRemoteChange).not.toHaveBeenCalled();
+  });
+
+  it('applies a Realtime event whose timestamp format differs from the boot-fetch baseline (AVE-868)', async () => {
+    // The two transports render `timestamptz` differently: a PostgREST SELECT
+    // (refetchRow / joinCampaign) returns ISO-8601 with `T` and `+00:00`, while
+    // Realtime passes raw Postgres text through — a space separator and a bare
+    // `+00` — because realtime-js only applies its space→`T` fix to `timestamp`,
+    // not `timestamptz`. Compared as strings, `' '` (0x20) sorts below `'T'`
+    // (0x54), so EVERY Realtime stamp ranked below any same-date REST one and
+    // the boot fetch's baseline silently suppressed live updates for the rest of
+    // the UTC day.
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', resources: { sil: 10, lux: 0 }, resources_updated_at: '2026-01-01T00:05:00.123456+00:00' },
+        error: null,
+      },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+    onRemoteChange.mockClear();
+
+    // A genuinely LATER edit from the co-player, in Realtime's wire format.
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({
+        new: { id: 'WOLF42', resources: { sil: 42, lux: 0 }, resources_updated_at: '2026-01-01 00:30:00.654321+00' },
+      });
+    });
+
+    expect(onRemoteChange).toHaveBeenCalledTimes(1);
+    expect(onRemoteChange.mock.calls[0][0].resources).toEqual({ sil: 42, lux: 0 });
+  });
+
+  it('still gates out an OLDER Realtime event against a newer boot-fetch baseline (AVE-868)', async () => {
+    // The mixed-format fix must not weaken the AVE-526 ordering guarantee.
+    const client = makeMockClient({
+      selectResult: {
+        data: { id: 'WOLF42', resources: { sil: 10, lux: 0 }, resources_updated_at: '2026-01-01T00:30:00.654321+00:00' },
+        error: null,
+      },
+    });
+    let onRemoteChange;
+    await act(async () => {
+      ({ onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+    onRemoteChange.mockClear();
+
+    const channel = client.calls.channels[0].channel;
+    act(() => {
+      channel._trigger({
+        new: { id: 'WOLF42', resources: { sil: 999, lux: 0 }, resources_updated_at: '2026-01-01 00:05:00.123456+00' },
+      });
+    });
+
     expect(onRemoteChange).not.toHaveBeenCalled();
   });
 });
@@ -733,7 +790,7 @@ describe('useSupabaseSync — refetchRow vs. a newer in-flight write', () => {
         data: {
           id: 'WOLF42',
           campaign: createInitialState().campaign,
-          campaign_updated_at: 't1',
+          campaign_updated_at: '2026-01-01T00:01:00+00:00',
         },
         error: null,
       });
@@ -825,7 +882,7 @@ describe('useSupabaseSync — generation gate (AVE-527)', () => {
     // Boot fetch seeds generation 2 and campaign timestamp t5.
     const client = makeMockClient({
       selectResult: {
-        data: { id: 'WOLF42', campaign: base, campaign_updated_at: 't5', generation: 2 },
+        data: { id: 'WOLF42', campaign: base, campaign_updated_at: '2026-01-01T00:05:00+00:00', generation: 2 },
         error: null,
       },
     });
@@ -841,7 +898,7 @@ describe('useSupabaseSync — generation gate (AVE-527)', () => {
     // classic stale full-row filler. The timestamp gate rejects it.
     const filler = { ...base, completedBounties: [{ id: 'stale', deleted: false }] };
     act(() => {
-      channel._trigger({ new: { id: 'WOLF42', campaign: filler, campaign_updated_at: 't5', generation: 2 } });
+      channel._trigger({ new: { id: 'WOLF42', campaign: filler, campaign_updated_at: '2026-01-01T00:05:00+00:00', generation: 2 } });
     });
     expect(onRemoteChange).not.toHaveBeenCalled();
 
@@ -850,7 +907,7 @@ describe('useSupabaseSync — generation gate (AVE-527)', () => {
     // differing from local, applied.
     const reset = { ...base, completedBounties: [{ id: 'reset', deleted: false }] };
     act(() => {
-      channel._trigger({ new: { id: 'WOLF42', campaign: reset, campaign_updated_at: 't5', generation: 3 } });
+      channel._trigger({ new: { id: 'WOLF42', campaign: reset, campaign_updated_at: '2026-01-01T00:05:00+00:00', generation: 3 } });
     });
     expect(onRemoteChange).toHaveBeenCalledTimes(1);
     expect(onRemoteChange.mock.calls.at(-1)[0].campaign).toEqual(reset);
@@ -869,7 +926,7 @@ describe('useSupabaseSync — generation gate (AVE-527)', () => {
     // A co-player's reset lands as an inbound row at generation 5.
     const channel = client.calls.channels[0].channel;
     act(() => {
-      channel._trigger({ new: { id: 'WOLF42', campaign: base, campaign_updated_at: 't5', generation: 5 } });
+      channel._trigger({ new: { id: 'WOLF42', campaign: base, campaign_updated_at: '2026-01-01T00:05:00+00:00', generation: 5 } });
     });
 
     await act(async () => {
@@ -915,7 +972,7 @@ describe('useSupabaseSync — generation gate (AVE-527)', () => {
     const reset = { ...base, completedBounties: [{ id: 'corrected', deleted: false }] };
     const channel = client.calls.channels[0].channel;
     act(() => {
-      channel._trigger({ new: { id: 'WOLF42', campaign: reset, campaign_updated_at: 't9', generation: 1 } });
+      channel._trigger({ new: { id: 'WOLF42', campaign: reset, campaign_updated_at: '2026-01-01T00:09:00+00:00', generation: 1 } });
     });
     expect(onRemoteChange).toHaveBeenCalledTimes(1);
     expect(onRemoteChange.mock.calls.at(-1)[0].campaign).toEqual(reset);
@@ -983,7 +1040,7 @@ describe('useSupabaseSync — persisted pending queue (AVE-522)', () => {
     // queued section must be skipped by the refetch guard, not applied over.
     const client = makeMockClient({
       selectResult: {
-        data: { id: 'WOLF42', resources: { sil: 0, lux: 0 }, resources_updated_at: 't1' },
+        data: { id: 'WOLF42', resources: { sil: 0, lux: 0 }, resources_updated_at: '2026-01-01T00:01:00+00:00' },
         error: null,
       },
     });
