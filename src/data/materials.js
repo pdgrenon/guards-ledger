@@ -102,8 +102,9 @@ export const MATERIAL_CATEGORIES = [
     // and Diamond (tracked in Ores). All are the same physical item regardless of use.
     items: [
       'Adamant', 'Aquamarine', 'Aventurine', 'Carnelian',
-      'Garnet', 'Lapis Lazuli', 'Obsidian', 'Orichalcum',
-      'Rainbow Obsidian', 'Star Fragment', 'Star Quartz',
+      'Coral', 'Garnet', 'Lapis Lazuli', 'Obsidian', 'Orichalcum',
+      'Pearl', 'Peridot', 'Rainbow Obsidian', 'Star Fragment', 'Star Quartz',
+      'Topaz',
     ],
   },
   {

@@ -552,6 +552,16 @@ describe('RECIPES data integrity', () => {
     }
   });
 
+  it('every recipe material name is a known material in ALL_MATERIALS', () => {
+    for (const recipe of RECIPES) {
+      for (const mat of recipe.materials) {
+        expect(ALL_MATERIALS, `${recipe.name} → ${mat.name}`).toContain(mat.name);
+      }
+    }
+  });
+
+  it('every recipe itemReq name is a known material in ALL_MATERIALS', () => { for (const recipe of RECIPES) { for (const req of parseItemReq(recipe.itemReq)) { expect(ALL_MATERIALS, `${recipe.name} → ${req.name}`).toContain(req.name); } } });
+
   it('every material entry has name, qty, qty2R, isSpeakingStone', () => {
     for (const r of RECIPES) {
       for (const m of r.materials) {
