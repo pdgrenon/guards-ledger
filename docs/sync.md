@@ -8,9 +8,10 @@ Load this when working on `useSupabaseSync.js`, `useGameState.js`, or any featur
 |---|---|---|
 | `resources` | `sil`, `lux` | `resources` |
 | `cities` | `cities` | `cities` |
-| `guards` | `guards`, `activeParty` | `guards` |
+| `party` | `activeParty` | `party` |
 | `stash` | `stash`, `stonebound` | `stash` |
 | `campaign` | `campaign` | `campaign` |
+| `guard_0` … `guard_7` | one element of `guards` each | `guard_0` … `guard_7` |
 | **local-only** | `log`, `settings`, `activeGuardIdx` | — not synced — |
 
 `activeGuardIdx` is explicitly local-only. It is per-player UI navigation state. Syncing it caused a live bug where players overwrote each other's guard tab position.
@@ -21,11 +22,11 @@ Load this when working on `useSupabaseSync.js`, `useGameState.js`, or any featur
 
 ## joinCampaign
 
-On join, the full remote row is fetched and all five synced sections are merged into local state. `log`, `settings`, and `activeGuardIdx` are preserved from local.
+On join, the full remote row is fetched and every section in `ALL_SECTIONS` is merged into local state. `log`, `settings`, and `activeGuardIdx` are preserved from local.
 
 ## Realtime subscription
 
-Subscribes to `postgres_changes` filtered to `id=eq.{campaignId}`. On UPDATE, all five remote sections are applied; local-only keys are preserved.
+Subscribes to `postgres_changes` filtered to `id=eq.{campaignId}`. On UPDATE, every section in `ALL_SECTIONS` is applied; local-only keys are preserved.
 
 ## Local-only mode
 
