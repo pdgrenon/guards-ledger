@@ -46,7 +46,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import deepEqual from 'fast-deep-equal';
-import { normalizeCompletedEncounters } from './gameReducers';
+import { normalizeCompletedEncounters, healRemoteSection } from './gameReducers';
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 
@@ -205,15 +205,31 @@ function buildFullRow(campaignId, state) {
  * - Per-guard column: replaces only that one guard in the guards array.
  * - Simple section: spreads its keys at the top level.
  * Keys not listed in any section (e.g. activeGuardIdx) are never touched.
+ *
+ * The payload is shape-healed first (AVE-873). Local loads run everything
+ * through healState, and the components dereference these fields without guards
+ * because of it — `CampaignTab` destructures `plans` / `locations` /
+ * `eventTokens` / `ftIstraBuildings` and calls `plans.filter(...)`, `GuardPanel`
+ * reads `guard.equipment.weapon`. A section arriving from Supabase used to skip
+ * all of that, so a malformed one threw on render, dropped the tab into its
+ * ErrorBoundary, and — being persisted by the save effect a moment later —
+ * survived the reload the fallback offers.
+ *
+ * This is the single choke point for all three inbound paths (joinCampaign, the
+ * Realtime UPDATE handler, refetchRow), and it runs AFTER applyRemoteRow's
+ * timestamp and echo gates, which compare the raw incoming value against
+ * extractSection(local) — healing earlier would break that deepEqual match.
+ * Healing a healthy section is a deep-equal no-op, which the helper tests pin.
  */
 export function applyRemoteSection(localState, sectionName, remoteSection) {
   if (remoteSection == null) return localState;
+  const healed = healRemoteSection(sectionName, remoteSection);
   if (isGuardColumn(sectionName)) {
     const idx    = guardIndexFromColumn(sectionName);
-    const guards = localState.guards.map((g, i) => i === idx ? remoteSection : g);
+    const guards = localState.guards.map((g, i) => i === idx ? healed : g);
     return { ...localState, guards };
   }
-  return { ...localState, ...remoteSection };
+  return { ...localState, ...healed };
 }
 
 /**

@@ -6,7 +6,6 @@ import {
   createInitialGuards,
   createInitialStash,
   createInitialCampaign,
-  SATCHEL_EXPANDED_SIZE,
 } from '../data/constants';
 import { CAMPAIGN_ID_KEY } from './useSupabaseSync';
 import {
@@ -41,10 +40,16 @@ import {
   reduceSetCampaign,
   normalizeCompletedEncounters,
   withUndoTombstones,
+  isPlainObject,
+  healGuard,
+  healCitiesSection,
+  healPartySection,
+  healResourcesSection,
+  healStashSection,
+  healCampaignSection,
 } from './gameReducers';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
 import { BOUNTIES, bountiesForCity } from '../data/bounties';
-import { satchelStackLimit } from '../data/materials';
 import { useSupabaseSync, guardColumn, applyRemoteSection } from './useSupabaseSync';
 
 // v2: state is split into sync sections (resources, cities, guards, stash, campaign).
@@ -179,18 +184,6 @@ export function migrateV1(v1) {
 // walk the parsed state and fill in any missing/typed fields from the section
 // factories, preserving as much valid data as possible.
 
-function isPlainObject(v) {
-  return v !== null && typeof v === 'object' && !Array.isArray(v);
-}
-
-function healNumber(v, fallback) {
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
-}
-
-function healString(v, fallback = '') {
-  return typeof v === 'string' ? v : fallback;
-}
-
 // A save predating the onboarding feature carries no `hasSeenOnboarding` key at
 // all — the feature always writes it (createInitialState seeds it and every save
 // persists it). healState only ever runs for a RETURNING player: a genuine first
@@ -205,40 +198,6 @@ function healSettings(raw) {
   if (!isPlainObject(raw)) return { initialized: true, hasSeenOnboarding: true };
   if (!('hasSeenOnboarding' in raw)) return { ...raw, hasSeenOnboarding: true };
   return raw;
-}
-
-function healGuard(raw) {
-  const fresh = createInitialGuards().guards[0];
-  if (!isPlainObject(raw)) return fresh;
-  const healedMaxHp = Math.max(1, healNumber(raw.maxHp, fresh.maxHp));
-  return {
-    ...fresh,
-    ...raw,
-    name:              healString(raw.name, fresh.name),
-    hp:                Math.min(Math.max(0, healNumber(raw.hp, fresh.hp)), healedMaxHp),
-    maxHp:             healedMaxHp,
-    baseAtk:           Math.max(0, Math.trunc(healNumber(raw.baseAtk, fresh.baseAtk))),
-    baseDef:           Math.max(0, Math.trunc(healNumber(raw.baseDef, fresh.baseDef))),
-    expandedSatchel:   !!raw.expandedSatchel,
-    satchel:           Array.isArray(raw.satchel)
-                         ? Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => {
-                             const s = raw.satchel[k];
-                             if (!isPlainObject(s)) return { item: '', qty: 1 };
-                             const item = healString(s.item);
-                             const qty  = item
-                               ? Math.min(Math.max(1, Math.trunc(healNumber(s.qty, 1))), satchelStackLimit(item))
-                               : 1;
-                             return { item, qty };
-                           })
-                         : fresh.satchel,
-    equipment:         isPlainObject(raw.equipment)
-                         ? { weapon:    healString(raw.equipment.weapon),
-                             armor:     healString(raw.equipment.armor),
-                             accessory: healString(raw.equipment.accessory),
-                             item:      healString(raw.equipment.item) }
-                         : fresh.equipment,
-
-  };
 }
 
 /**
@@ -268,23 +227,21 @@ export function looksLikeSave(parsed) {
 export function healState(parsed) {
   if (!isPlainObject(parsed)) return null;
 
-  const citiesInit = createInitialCities();
-  const guardsInit = createInitialGuards();
-  const stashInit  = createInitialStash();
-  const campInit   = createInitialCampaign();
-
+  // Shape/type repair is delegated to the per-section healers in gameReducers,
+  // which the remote-apply path also uses — one implementation, so the two
+  // cannot drift (AVE-873). What stays here is everything that is genuinely
+  // load-time-only: the cross-section legacy flag migrations (they need
+  // `cities` and `campaign` together), the activeGuardIdx reset, and settings.
   const guardsArr = Array.isArray(parsed.guards) ? parsed.guards : [];
   const guards = Array.from({ length: 8 }, (_, i) => healGuard(guardsArr[i]));
 
-  const healedCities = Array.isArray(parsed.cities) && parsed.cities.length > 0
-                    ? parsed.cities.map(c => isPlainObject(c)
-                        ? { ...citiesInit.cities[0], ...c,
-                            name: healString(c.name, citiesInit.cities[0].name) }
-                        : citiesInit.cities[0])
-                    : citiesInit.cities;
-  const campaignId = isPlainObject(parsed.campaign)
-    ? Math.min(4, Math.max(1, Math.trunc(Number(parsed.campaign.campaignId)) || 1))
-    : 1;
+  const { cities: healedCities } = healCitiesSection({ cities: parsed.cities });
+  const { activeParty }          = healPartySection({ activeParty: parsed.activeParty });
+  const { sil, lux }             = healResourcesSection(parsed);
+  const { stash, stonebound }    = healStashSection(parsed);
+  const healedCampaign           = healCampaignSection({ campaign: parsed.campaign }).campaign;
+
+  const campaignId = healedCampaign.campaignId;
   const pqMigrated = migrateLegacyPuzzleQuestDone(
     healedCities, campaignId,
     isPlainObject(parsed.campaign) ? parsed.campaign.completedPuzzleQuests : null
@@ -294,74 +251,28 @@ export function healState(parsed) {
     isPlainObject(parsed.campaign) ? parsed.campaign.completedBounties : null
   );
 
-  const activeParty =
-    Array.isArray(parsed.activeParty) && parsed.activeParty.length === 2
-      ? parsed.activeParty.map(healString)
-      : guardsInit.activeParty;
-
   const firstGuardIdx = (() => {
     const idx = guards.findIndex(g => g.name === activeParty[0]);
     return idx >= 0 ? idx : 0;
   })();
 
   return {
-    sil:            Math.max(0, Math.trunc(Number(parsed.sil) || 0)),
-    lux:            Math.max(0, Math.trunc(Number(parsed.lux) || 0)),
+    sil,
+    lux,
     cities:         bountyMigrated.cities,
     guards,
     activeParty,
     // activeGuardIdx is local UI nav — always reset, but derive from the
     // healed party so the first party guard is shown instead of index 0.
     activeGuardIdx: firstGuardIdx,
-    stash:          isPlainObject(parsed.stash)
-                       ? Object.fromEntries(
-                           Object.entries(parsed.stash)
-                             .filter(([k]) => typeof k === 'string' && k.length > 0)
-                             .map(([k, v]) => [k, Math.max(0, Math.trunc(Number(v) || 0))])
-                         )
-                       : stashInit.stash,
-    stonebound:     isPlainObject(parsed.stonebound)
-                       ? { max: Math.max(0, healNumber(parsed.stonebound.max, stashInit.stonebound.max)),
-                           locations: Array.isArray(parsed.stonebound.locations)
-                             ? parsed.stonebound.locations
-                                 .filter(isPlainObject)
-                                 .filter(loc => typeof loc.id === 'string' || typeof loc.id === 'number')
-                                 // `type` is dropped, not healed (AVE-874): it was
-                                 // never derived or read, and re-materializing it
-                                 // would keep resurrecting a dead key on every load
-                                 // of a save or campaign row that still carries one.
-                                 // eslint-disable-next-line no-unused-vars
-                                 .map(({ type, ...loc }) => ({
-                                   ...loc,
-                                   selection: healString(loc.selection, ''),
-                                   count:     Math.max(0, Math.trunc(Number(loc.count) || 1)),
-                                 }))
-                             : [] }
-                       : stashInit.stonebound,
-    campaign:       isPlainObject(parsed.campaign)
-                       ? { ...campInit.campaign, ...parsed.campaign, campaignId,
-                            eventTokens: isPlainObject(parsed.campaign.eventTokens)
-                             ? { mountain: healNumber(parsed.campaign.eventTokens.mountain, 0),
-                                 forest:   healNumber(parsed.campaign.eventTokens.forest, 0),
-                                 plains:   healNumber(parsed.campaign.eventTokens.plains, 0),
-                                 sea:      healNumber(parsed.campaign.eventTokens.sea, 0) }
-                             : campInit.campaign.eventTokens,
-                            locations: isPlainObject(parsed.campaign.locations)
-                              // eslint-disable-next-line no-unused-vars
-                              ? (({ bounties, ...rest }) => rest)(parsed.campaign.locations)
-                              : campInit.campaign.locations,
-                            plans:     Array.isArray(parsed.campaign.plans)
-                              ? parsed.campaign.plans.filter(isPlainObject)
-                              : [],
-                             ftIstraBuildings: isPlainObject(parsed.campaign.ftIstraBuildings)
-                               ? parsed.campaign.ftIstraBuildings
-                               : {},
-                              completedEncounters: normalizeCompletedEncounters(parsed.campaign.completedEncounters),
-                              completedBounties:   bountyMigrated.completedBounties,
-                              completedPuzzleQuests: pqMigrated.completedPuzzleQuests }
-                        : { ...campInit.campaign,
-                            completedPuzzleQuests: pqMigrated.completedPuzzleQuests,
-                            completedBounties:     bountyMigrated.completedBounties },
+    stash,
+    stonebound,
+    campaign: {
+      ...healedCampaign,
+      // The legacy-flag migrations own these two on the load path.
+      completedBounties:     bountyMigrated.completedBounties,
+      completedPuzzleQuests: pqMigrated.completedPuzzleQuests,
+    },
     log:            Array.isArray(parsed.log) ? parsed.log : [],
     settings:       healSettings(parsed.settings),
   };
