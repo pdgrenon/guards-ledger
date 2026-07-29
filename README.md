@@ -128,15 +128,18 @@ Saves from the previous `v1` format are migrated automatically on first load —
 
 ## Multiplayer sync
 
-Two players can share a live campaign using Supabase Realtime. State is split into five independently-synced sections so players writing to different sections simultaneously never clobber each other:
+Two players can share a live campaign using Supabase Realtime. State is split into 13 independently-synced sections — five shared sections plus one column per guard — so players writing to different sections simultaneously never clobber each other:
 
 | Section | Keys | Natural owner |
 |---|---|---|
 | `resources` | `sil`, `lux` | Player tracking currency |
 | `cities` | `cities` | Player tracking city quests |
-| `guards` | `guards`, `activeParty` | Shared |
+| `party` | `activeParty` | Shared |
 | `stash` | `stash`, `stonebound` | Shared |
 | `campaign` | `campaign` | Player tracking campaign state |
+| `guard_0` … `guard_7` | one element of `guards` each | One player per guard |
+
+Guards are split into one column per guard so two players editing different guards simultaneously never overwrite each other (see `CLAUDE.md:57`).
 
 `activeGuardIdx` (which guard tab each player is viewing) is intentionally excluded — each player controls their own view independently.
 
