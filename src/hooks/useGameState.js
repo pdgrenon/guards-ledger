@@ -241,6 +241,30 @@ function healGuard(raw) {
   };
 }
 
+/**
+ * Whether a parsed JSON blob is plausibly a Guard's Ledger save (v1 or v2).
+ *
+ * `healState` cannot serve as this check on the import path: it is handed
+ * `migrateV1(parsed)`, and `migrateV1` `??`-defaults every field it reads, so it
+ * launders ANY input — a string, a number, an array, an unrelated object — into
+ * a fully-formed default state. `healState` then accepts it, `importState`
+ * reports success, and the player's ledger is silently replaced with a blank one
+ * (and pushed to every co-player via replaceRow). Its `if (!healed)` branch was
+ * unreachable for anything that parsed as JSON (AVE-869).
+ *
+ * Deliberately structural rather than a strict schema: a real save always
+ * carries at least one of these four top-level keys in both the v1 and v2
+ * shapes, while requiring all four would reject partially-damaged saves that
+ * `healState` is specifically built to rescue.
+ */
+export function looksLikeSave(parsed) {
+  if (!isPlainObject(parsed)) return false;
+  return Array.isArray(parsed.guards)
+      || Array.isArray(parsed.cities)
+      || isPlainObject(parsed.campaign)
+      || isPlainObject(parsed.stash);
+}
+
 export function healState(parsed) {
   if (!isPlainObject(parsed)) return null;
 
@@ -780,6 +804,16 @@ export function useGameState() {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
+          // Validate BEFORE migrating: migrateV1 is what launders junk into a
+          // valid-looking object, so any check after it is checking its own
+          // output. Import is destructive and unrecoverable (it clears the undo
+          // snapshot and replaceRow-s the shared campaign row), so picking the
+          // wrong .json from a phone's Downloads folder must not wipe the
+          // ledger (AVE-869).
+          if (!looksLikeSave(imported)) {
+            resolve({ success: false, error: "This file isn't a Guard's Ledger save." });
+            return;
+          }
           const healed = healState(migrateV1(imported));
           if (!healed) { resolve({ success: false, error: 'Invalid save file.' }); return; }
 
