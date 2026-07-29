@@ -716,9 +716,17 @@ describe('reduceAddStoneboundLocation', () => {
     const next = reduceAddStoneboundLocation(s);
     expect(next.stonebound.locations).toHaveLength(1);
     expect(next.stonebound.locations[0]).toEqual(
-      expect.objectContaining({ type: '', selection: '', count: 1 })
+      expect.objectContaining({ selection: '', count: 1 })
     );
     expect(typeof next.stonebound.locations[0].id).toBe('number');
+  });
+
+  it('does not seed an orphaned `type` key (AVE-874)', () => {
+    // `type` was never derived from the selection and never read; it rode the
+    // save, the merge, and every echo as a permanent ''. Asserted by key
+    // absence rather than toEqual so an unrelated future field doesn't fail.
+    const next = reduceAddStoneboundLocation(s);
+    expect(next.stonebound.locations[0]).not.toHaveProperty('type');
   });
 
   it('assigns unique ids to each location', () => {
