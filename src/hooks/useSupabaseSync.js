@@ -277,6 +277,41 @@ export function hasNewerSelfWrite(list, sinceTs) {
 export function sectionTsColumn(section) { return `${section}_updated_at`; }
 
 /**
+ * Parse a `<section>_updated_at` value into epoch milliseconds.
+ *
+ * The same instant reaches us in three different renderings, so these values
+ * must never be compared as strings (AVE-868):
+ *   - Realtime UPDATE payload : `2026-07-29 15:30:00.654321+00`  (space, `+00`)
+ *   - PostgREST SELECT        : `2026-07-29T15:30:00.654321+00:00`
+ *   - buildFullRow (client)   : `2026-07-29T15:30:00.654Z`
+ *
+ * The columns are `timestamptz`, and @supabase/realtime-js deliberately passes
+ * `timestamptz` through untouched (its `convertCell` applies the space→`T` fix
+ * only to `timestamp`), so Realtime delivers raw Postgres text output while
+ * PostgREST delivers ISO-8601. `' '` (0x20) sorts below `'T'` (0x54), so a
+ * lexicographic compare rules *every* Realtime stamp older than *any* REST one
+ * with the same date — which silently dropped every live update for the rest of
+ * the UTC day once a boot/foreground refetch seeded the baseline.
+ *
+ * Returns NaN for a missing or unparseable value; callers fall open (see
+ * sectionChanged) to preserve the existing "no reliable baseline → don't gate"
+ * behavior.
+ */
+export function tsToMs(ts) {
+  if (typeof ts !== 'string') return NaN;
+  // Postgres text output is not valid ISO-8601 in two ways, and Date.parse
+  // returns NaN on both: a space instead of `T`, and a bare two-digit UTC
+  // offset (`+00`) where ISO requires minutes (`+00:00`) or `Z`. Normalize
+  // both before parsing. The offset rewrite is anchored to a preceding time
+  // component so a date-only string ('2026-07-29') can't have its `-29` day
+  // mistaken for an offset.
+  const iso = ts
+    .replace(' ', 'T')
+    .replace(/(T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)([+-]\d{2})$/, '$1$2:00');
+  return Date.parse(iso);
+}
+
+/**
  * Whether a remote section in this UPDATE actually changed, judged by its
  * per-section `_updated_at` timestamp.
  *
@@ -294,14 +329,19 @@ export function sectionTsColumn(section) { return `${section}_updated_at`; }
  * than* — what we last saw: the section is just riding along (a stale value on
  * an unrelated section's UPDATE) or an out-of-order arrival (a slow refetch
  * resolving after a newer Realtime event already applied), and must be left
- * alone. Timestamps are ISO-8601 strings from the same Postgres clock
- * (`merge_section` writes `now()`), so lexicographic ordering is chronological
- * — only a *strictly newer* section is a real change to apply (AVE-526).
+ * alone. Only a *strictly newer* section is a real change to apply (AVE-526).
+ *
+ * The comparison runs on epoch milliseconds via `tsToMs`, never on the raw
+ * strings: the same instant arrives in three different textual formats
+ * depending on whether it came over Realtime, PostgREST, or a client-built row,
+ * and a lexicographic compare across those formats is not chronological
+ * (AVE-868).
  */
 export function sectionChanged(row, section, lastSeen) {
-  const ts   = row[sectionTsColumn(section)];
-  const prev = lastSeen[section];
-  if (ts == null || prev == null) return true; // no baseline → don't gate
+  const ts   = tsToMs(row[sectionTsColumn(section)]);
+  const prev = tsToMs(lastSeen[section]);
+  // Missing or unparseable on either side → no reliable baseline, don't gate.
+  if (Number.isNaN(ts) || Number.isNaN(prev)) return true;
   return ts > prev;                            // only strictly newer sections apply
 }
 
@@ -317,16 +357,24 @@ export function snapshotTimestamps(row) {
 
 /**
  * Merge a fresh timestamp snapshot into the running `lastSeenTs` baseline,
- * keeping the *later* value per section (lexicographic string comparison, valid
- * for the same-clock ISO-8601 stamps). Monotonic so a stale, out-of-order row
+ * keeping the *later* value per section. Monotonic so a stale, out-of-order row
  * can never regress the baseline and weaken the gate for the next event
- * (AVE-526).
+ * (AVE-526). Compared as epoch milliseconds, not strings, for the same reason
+ * as sectionChanged — the stored values arrive in mixed formats (AVE-868). The
+ * raw string is what gets stored, so the baseline still shows what came over
+ * the wire.
  */
 export function mergeSeenTimestamps(prev, incoming) {
   const out = { ...prev };
   for (const section in incoming) {
     const ts = incoming[section];
-    if (out[section] == null || ts > out[section]) out[section] = ts;
+    const existing = out[section];
+    const existingMs = tsToMs(existing);
+    // An unparseable baseline is worse than useless — it makes sectionChanged
+    // fall open forever — so let any incoming value replace it.
+    if (existing == null || Number.isNaN(existingMs) || tsToMs(ts) > existingMs) {
+      out[section] = ts;
+    }
   }
   return out;
 }

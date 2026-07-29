@@ -22,6 +22,7 @@ import {
   sectionChanged,
   snapshotTimestamps,
   mergeSeenTimestamps,
+  tsToMs,
 } from './useSupabaseSync';
 import { createInitialState } from '../data/constants';
 
@@ -261,6 +262,18 @@ describe('hasNewerSelfWrite (AVE-518 follow-up)', () => {
   });
 });
 
+// Real `timestamptz` renderings, not opaque ordered tokens: the gate compares
+// instants, and the three transports render the same instant differently
+// (AVE-868), so fixtures have to be parseable to mean anything.
+const T_EARLY = '2026-07-29T15:00:00.123456+00:00'; // PostgREST
+const T_LATE  = '2026-07-29T15:30:00.654321+00:00'; // PostgREST, 30 min later
+
+// Same two instants as Supabase Realtime delivers them: raw Postgres text
+// output — space separator, `+00` offset — because realtime-js passes
+// `timestamptz` through untouched.
+const RT_EARLY = '2026-07-29 15:00:00.123456+00';
+const RT_LATE  = '2026-07-29 15:30:00.654321+00';
+
 describe('per-section timestamp gating (AVE-314)', () => {
   it('names the timestamp column for a section', () => {
     expect(sectionTsColumn('guard_0')).toBe('guard_0_updated_at');
@@ -268,33 +281,68 @@ describe('per-section timestamp gating (AVE-314)', () => {
   });
 
   it('reports a section changed when its timestamp advanced', () => {
-    const row = { guard_0: {}, guard_0_updated_at: 't2' };
-    expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(true);
+    const row = { guard_0: {}, guard_0_updated_at: T_LATE };
+    expect(sectionChanged(row, 'guard_0', { guard_0: T_EARLY })).toBe(true);
   });
 
   it('reports a section unchanged when its timestamp matches the baseline', () => {
     // The core two-player case: guard_0 rides along in a guard_3 UPDATE with an
     // unchanged timestamp — it must be treated as unchanged, not applied.
-    const row = { guard_0: {}, guard_0_updated_at: 't1' };
-    expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(false);
+    const row = { guard_0: {}, guard_0_updated_at: T_EARLY };
+    expect(sectionChanged(row, 'guard_0', { guard_0: T_EARLY })).toBe(false);
   });
 
   it('treats a section as changed when there is no baseline yet (first sighting)', () => {
-    const row = { guard_0: {}, guard_0_updated_at: 't1' };
+    const row = { guard_0: {}, guard_0_updated_at: T_EARLY };
     expect(sectionChanged(row, 'guard_0', {})).toBe(true);
   });
 
   it('treats a section as changed when the row has no timestamp (pre-migration row)', () => {
     const row = { guard_0: {} }; // no guard_0_updated_at column
-    expect(sectionChanged(row, 'guard_0', { guard_0: 't1' })).toBe(true);
+    expect(sectionChanged(row, 'guard_0', { guard_0: T_EARLY })).toBe(true);
   });
 
   it('reports a section unchanged when its timestamp is OLDER than the baseline (AVE-526)', () => {
     // A slow refetch resolving after a newer Realtime event already applied
     // carries a *stale* (older) timestamp. Inequality would wrongly re-apply it;
     // ordering must reject it so it can't roll back the newer value.
-    const row = { guard_0: {}, guard_0_updated_at: 't1' };
-    expect(sectionChanged(row, 'guard_0', { guard_0: 't2' })).toBe(false);
+    const row = { guard_0: {}, guard_0_updated_at: T_EARLY };
+    expect(sectionChanged(row, 'guard_0', { guard_0: T_LATE })).toBe(false);
+  });
+
+  // ── Mixed transport formats (AVE-868) ──────────────────────────────────────
+
+  it('applies a NEWER Realtime-format section against a PostgREST baseline', () => {
+    // The regression: `' '` (0x20) sorts below `'T'` (0x54), so a lexicographic
+    // compare rules every Realtime stamp older than any same-date REST one.
+    // Since AVE-372 seeds the baseline from a REST refetch on boot/foreground,
+    // this dropped every live update for the rest of the UTC day.
+    const row = { campaign: {}, campaign_updated_at: RT_LATE };
+    expect(Date.parse(RT_LATE)).toBeGreaterThan(Date.parse(T_EARLY));
+    expect(sectionChanged(row, 'campaign', { campaign: T_EARLY })).toBe(true);
+  });
+
+  it('still gates out an OLDER Realtime-format section against a PostgREST baseline', () => {
+    const row = { campaign: {}, campaign_updated_at: RT_EARLY };
+    expect(sectionChanged(row, 'campaign', { campaign: T_LATE })).toBe(false);
+  });
+
+  it('treats the same instant in two formats as unchanged, not newer', () => {
+    const row = { campaign: {}, campaign_updated_at: RT_LATE };
+    expect(sectionChanged(row, 'campaign', { campaign: T_LATE })).toBe(false);
+  });
+
+  it('compares a client-built ISO stamp (createCampaign / replaceRow) correctly', () => {
+    // buildFullRow seeds the baseline with `new Date().toISOString()` — a third
+    // format again ('…Z'), which must order against Realtime text the same way.
+    const clientIso = new Date(Date.parse(T_EARLY)).toISOString();
+    expect(sectionChanged({ campaign_updated_at: RT_LATE }, 'campaign', { campaign: clientIso })).toBe(true);
+    expect(sectionChanged({ campaign_updated_at: RT_EARLY }, 'campaign', { campaign: clientIso })).toBe(false);
+  });
+
+  it('falls open when either side is unparseable', () => {
+    expect(sectionChanged({ campaign_updated_at: 'not-a-timestamp' }, 'campaign', { campaign: T_EARLY })).toBe(true);
+    expect(sectionChanged({ campaign_updated_at: T_LATE }, 'campaign', { campaign: 'not-a-timestamp' })).toBe(true);
   });
 
   it('snapshots only the present per-section timestamps', () => {
@@ -315,25 +363,66 @@ describe('per-section timestamp gating (AVE-314)', () => {
 
 describe('mergeSeenTimestamps (AVE-526)', () => {
   it('keeps the newer timestamp per section', () => {
-    const merged = mergeSeenTimestamps({ guard_0: 't2' }, { guard_0: 't5' });
-    expect(merged.guard_0).toBe('t5');
+    const merged = mergeSeenTimestamps({ guard_0: T_EARLY }, { guard_0: T_LATE });
+    expect(merged.guard_0).toBe(T_LATE);
   });
 
   it('does NOT regress a section to an older incoming timestamp', () => {
     // A stale refetch snapshot must never pull the baseline backward.
-    const merged = mergeSeenTimestamps({ campaign: 't5' }, { campaign: 't1' });
-    expect(merged.campaign).toBe('t5');
+    const merged = mergeSeenTimestamps({ campaign: T_LATE }, { campaign: T_EARLY });
+    expect(merged.campaign).toBe(T_LATE);
   });
 
   it('adds sections absent from the existing baseline', () => {
-    const merged = mergeSeenTimestamps({ guard_0: 't1' }, { resources: 't3' });
-    expect(merged).toEqual({ guard_0: 't1', resources: 't3' });
+    const merged = mergeSeenTimestamps({ guard_0: T_EARLY }, { resources: T_LATE });
+    expect(merged).toEqual({ guard_0: T_EARLY, resources: T_LATE });
   });
 
   it('does not mutate the input baseline', () => {
-    const prev = { guard_0: 't1' };
-    mergeSeenTimestamps(prev, { guard_0: 't9' });
-    expect(prev.guard_0).toBe('t1');
+    const prev = { guard_0: T_EARLY };
+    mergeSeenTimestamps(prev, { guard_0: T_LATE });
+    expect(prev.guard_0).toBe(T_EARLY);
+  });
+
+  // ── Mixed transport formats (AVE-868) ──────────────────────────────────────
+
+  it('advances a PostgREST baseline to a newer Realtime-format stamp', () => {
+    // A string compare kept the REST value here, so the baseline never decayed
+    // to a comparable format and the block persisted all day.
+    const merged = mergeSeenTimestamps({ campaign: T_EARLY }, { campaign: RT_LATE });
+    expect(merged.campaign).toBe(RT_LATE);
+  });
+
+  it('does not regress a Realtime baseline to an older PostgREST stamp', () => {
+    const merged = mergeSeenTimestamps({ campaign: RT_LATE }, { campaign: T_EARLY });
+    expect(merged.campaign).toBe(RT_LATE);
+  });
+
+  it('replaces an unparseable baseline rather than keeping it forever', () => {
+    const merged = mergeSeenTimestamps({ campaign: 'garbage' }, { campaign: T_EARLY });
+    expect(merged.campaign).toBe(T_EARLY);
+  });
+});
+
+describe('tsToMs (AVE-868)', () => {
+  it('parses all three transport renderings of the same instant identically', () => {
+    const rest     = '2026-07-29T15:30:00.654+00:00';
+    const realtime = '2026-07-29 15:30:00.654+00';
+    const clientZ  = '2026-07-29T15:30:00.654Z';
+    expect(tsToMs(realtime)).toBe(tsToMs(rest));
+    expect(tsToMs(clientZ)).toBe(tsToMs(rest));
+  });
+
+  it('orders a later Realtime stamp above an earlier REST one', () => {
+    expect(tsToMs(RT_LATE)).toBeGreaterThan(tsToMs(T_EARLY));
+    // ...which a raw string comparison does not:
+    expect(RT_LATE > T_EARLY).toBe(false);
+  });
+
+  it('returns NaN for missing or unparseable values', () => {
+    expect(Number.isNaN(tsToMs(undefined))).toBe(true);
+    expect(Number.isNaN(tsToMs(null))).toBe(true);
+    expect(Number.isNaN(tsToMs('t1'))).toBe(true);
   });
 });
 

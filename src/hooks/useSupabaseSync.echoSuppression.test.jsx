@@ -427,8 +427,8 @@ describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', 
     act(() => {
       channel._trigger({ new: {
         id: 'WOLF42',
-        guard_0: initial.guards[0], guard_0_updated_at: 't0',
-        guard_3: initial.guards[3], guard_3_updated_at: 't0',
+        guard_0: initial.guards[0], guard_0_updated_at: '2026-01-01T00:00:00+00:00',
+        guard_3: initial.guards[3], guard_3_updated_at: '2026-01-01T00:00:00+00:00',
       } });
     });
     onRemoteChange.mockClear();
@@ -443,8 +443,8 @@ describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', 
     act(() => {
       channel._trigger({ new: {
         id: 'WOLF42',
-        guard_0: initial.guards[0], guard_0_updated_at: 't0', // stale, unchanged
-        guard_3: { ...initial.guards[3], hp: 5 }, guard_3_updated_at: 't1', // changed
+        guard_0: initial.guards[0], guard_0_updated_at: '2026-01-01T00:00:00+00:00', // stale, unchanged
+        guard_3: { ...initial.guards[3], hp: 5 }, guard_3_updated_at: '2026-01-01T00:01:00+00:00', // changed
       } });
     });
 
@@ -468,7 +468,7 @@ describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', 
     act(() => {
       channel._trigger({ new: {
         id: 'WOLF42',
-        guard_0: initial.guards[0], guard_0_updated_at: 't0',
+        guard_0: initial.guards[0], guard_0_updated_at: '2026-01-01T00:00:00+00:00',
       } });
     });
     onRemoteChange.mockClear();
@@ -478,13 +478,14 @@ describe('another player\'s edit does not clobber my in-flight edit (AVE-314)', 
     act(() => {
       channel._trigger({ new: {
         id: 'WOLF42',
-        guard_0: remote.guards[0], guard_0_updated_at: 't1',
+        guard_0: remote.guards[0], guard_0_updated_at: '2026-01-01T00:01:00+00:00',
       } });
     });
 
     const sections = onRemoteChange.mock.calls[0][0];
     expect(sections.guard_0.satchel[0].item).toBe('Gold');
   });
+
 });
 
 // ─── Concurrent edits on the same device, different sections ────────────────
