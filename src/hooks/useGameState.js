@@ -326,9 +326,13 @@ export function healState(parsed) {
                              ? parsed.stonebound.locations
                                  .filter(isPlainObject)
                                  .filter(loc => typeof loc.id === 'string' || typeof loc.id === 'number')
-                                 .map(loc => ({
+                                 // `type` is dropped, not healed (AVE-874): it was
+                                 // never derived or read, and re-materializing it
+                                 // would keep resurrecting a dead key on every load
+                                 // of a save or campaign row that still carries one.
+                                 // eslint-disable-next-line no-unused-vars
+                                 .map(({ type, ...loc }) => ({
                                    ...loc,
-                                   type:      healString(loc.type, ''),
                                    selection: healString(loc.selection, ''),
                                    count:     Math.max(0, Math.trunc(Number(loc.count) || 1)),
                                  }))

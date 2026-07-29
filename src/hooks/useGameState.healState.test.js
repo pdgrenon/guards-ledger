@@ -119,3 +119,40 @@ describe('healState — guard satchel (AVE-521)', () => {
     expect(satchel[2]).toEqual({ item: '', qty: 1 });
   });
 });
+
+// ─── Orphaned stonebound `type` (AVE-874) ────────────────────────────────────
+
+describe('healState drops the orphaned stonebound location `type`', () => {
+  it('strips `type` from a legacy save while preserving the real fields', () => {
+    const healed = healState({
+      stonebound: {
+        max: 6,
+        locations: [{ id: 1, type: 'City', selection: 'Mir', count: 2 }],
+      },
+    });
+    const loc = healed.stonebound.locations[0];
+    expect(loc).not.toHaveProperty('type');
+    expect(loc.id).toBe(1);
+    expect(loc.selection).toBe('Mir');
+    expect(loc.count).toBe(2);
+    expect(healed.stonebound.max).toBe(6);
+  });
+
+  it('still preserves a tombstone on a legacy location', () => {
+    const healed = healState({
+      stonebound: {
+        max: 4,
+        locations: [{ id: 7, type: 'Enemy node', selection: 'Scales', count: 1, deleted: true }],
+      },
+    });
+    expect(healed.stonebound.locations[0].deleted).toBe(true);
+    expect(healed.stonebound.locations[0]).not.toHaveProperty('type');
+  });
+
+  it('leaves a location that never had `type` unchanged in shape', () => {
+    const healed = healState({
+      stonebound: { max: 4, locations: [{ id: 2, selection: 'Ryba', count: 3 }] },
+    });
+    expect(healed.stonebound.locations[0]).toEqual({ id: 2, selection: 'Ryba', count: 3 });
+  });
+});

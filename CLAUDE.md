@@ -188,7 +188,9 @@ Stash items that appear as a `prereq` in any recipe show an inline **"→ Item N
 
 ### Stonebound
 
-`state.stonebound`: `{ max: number, locations: Array<{ type, selection, count }> }`. `type` is one of `'City'`, `'Resource node'`, `'Enemy node'` and is derived from the selection when set — it is not independently editable in the UI.
+`state.stonebound`: `{ max: number, locations: Array<{ id, selection, count }> }` (plus a `deleted` tombstone once a location is removed — see AVE-287). `selection` is chosen from a grouped `<select>` in `StashTab` (Cities / Resource nodes / Enemy drops) and `count` is the cubes on that location.
+
+There is deliberately **no `type` field** (retired in AVE-874). It used to be seeded as `''` by `reduceAddStoneboundLocation`, healed on every load, and shipped through the field-level merge on every stash write — but nothing ever derived it from the selection and nothing ever read it, so it was `''` for every location forever. The docs claimed it was "derived from the selection", which was never true and would have misled anyone building grouping or per-type icons on top of it. Same orphaned-state class as AVE-795. `healState` now **drops** the key rather than healing it, so a save or campaign row that still carries one stops resurrecting it. Old Supabase rows keep an inert `''` (the deep merge preserves keys absent from a payload) — harmless, and not worth a data migration. If a consumer ever appears, derive it then.
 
 ### Campaign
 

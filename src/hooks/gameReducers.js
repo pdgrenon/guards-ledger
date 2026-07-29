@@ -232,9 +232,15 @@ export function reduceSetStoneboundMax(s, delta) {
   );
 }
 
+// A location is { id, selection, count } (plus a `deleted` tombstone once
+// removed). There is deliberately no `type` field: it was seeded empty here,
+// healed on every load, and shipped through the merge on every stash write, but
+// nothing ever derived it from the selection and nothing ever read it — the
+// same orphaned-state class as AVE-795. Retired in AVE-874; re-derive it only
+// if a consumer actually appears.
 export function reduceAddStoneboundLocation(s) {
   const id        = Date.now() + Math.random();
-  const locations = [...s.stonebound.locations, { id, type: '', selection: '', count: 1 }];
+  const locations = [...s.stonebound.locations, { id, selection: '', count: 1 }];
   return addLog(
     { ...s, stonebound: { ...s.stonebound, locations } },
     'Stonebound location added'
