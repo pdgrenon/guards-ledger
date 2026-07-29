@@ -38,6 +38,8 @@ All game state lives in one custom hook: `src/hooks/useGameState.js`. It owns:
 
 All pure state logic is extracted into `src/hooks/gameReducers.js` — no React, no localStorage, no side-effects. This makes reducers trivially unit-testable. `useGameState` is a thin wiring layer on top.
 
+`gameReducers.js` also owns the **per-section shape healers** (`healGuard`, `healResourcesSection`, `healCitiesSection`, `healPartySection`, `healStashSection`, `healCampaignSection`, dispatched by `healRemoteSection`). Both consumers share them so the two can't drift: `healState` composes them on the load path (layering the cross-section legacy-flag migrations on top), and `applyRemoteSection` calls `healRemoteSection` on every section arriving from Supabase (AVE-873). Before that, only local loads were healed — the components dereference `campaign.plans`, `campaign.locations`, `guard.equipment` and friends without guards *because* `healState` guarantees them, so a malformed remote section threw on render, dropped the tab into its `ErrorBoundary`, and survived the reload because the save effect had already persisted it. Two rules when touching these: healing a **healthy** section must be a deep-equal no-op (`applyRemoteRow`'s echo suppression compares `deepEqual(incoming, extractSection(local))`, so an added or renamed key would make every echo look like a real remote change), and they do shape/type repair **only** — never the load-time legacy migrations, which need `cities` and `campaign` together. Coverage: `src/hooks/remoteSectionHealing.test.jsx`.
+
 `App.jsx` calls `useGameState()` and passes state + action callbacks down via props. There is no context, no state library — pure prop drilling.
 
 #### State shape and sync sections

@@ -18,7 +18,7 @@
  * conceptual and persistence boundary, not a nesting change.
  */
 
-import { SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { SATCHEL_EXPANDED_SIZE, createInitialGuards, createInitialCities, createInitialStash, createInitialCampaign } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, satchelStackLimit } from '../data/materials';
 import { bountiesForCity } from '../data/bounties';
 import { puzzleQuestForCity } from '../data/puzzleQuests';
@@ -661,4 +661,196 @@ export function withUndoTombstones(prevState, currentState) {
   }
 
   return result;
+}
+
+// ─── Section shape healing (AVE-873) ─────────────────────────────────────────
+//
+// Every path that loads state from localStorage runs healState, which clamps
+// numbers, rebuilds satchels, and forces each container to its expected type.
+// Every path that loads state from Supabase — joinCampaign, the Realtime UPDATE
+// handler, and refetchRow — used to apply the raw JSONB straight into React
+// state via applyRemoteSection. The consuming components dereference these
+// fields without guards precisely because healState guarantees them locally, so
+// a malformed section (a campaign missing `plans`, a guard missing `equipment`)
+// threw on render, dropped the tab into its ErrorBoundary, and — because the bad
+// value was then persisted by the 400ms save effect — survived the reload the
+// fallback offers.
+//
+// These are the same healers healState uses, keyed by the section payload shape
+// that extractSection produces. Two invariants matter:
+//
+//   1. Healing a HEALTHY section must be a deep-equal no-op. applyRemoteRow's
+//      echo suppression compares `deepEqual(incoming, extractSection(local))`,
+//      so a healer that added or renamed a key would make every echo look like
+//      a genuine remote change.
+//   2. These do shape/type repair only — never the cross-section load-time
+//      migrations (legacy puzzle-quest / bounty flags), which need `cities` and
+//      `campaign` together and belong to healState alone.
+
+export function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+export function healNumber(v, fallback) {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+export function healString(v, fallback = '') {
+  return typeof v === 'string' ? v : fallback;
+}
+
+/** Clamp a campaign id to the four real campaigns. */
+export function healCampaignId(v) {
+  return Math.min(4, Math.max(1, Math.trunc(Number(v)) || 1));
+}
+
+export function healGuard(raw) {
+  const fresh = createInitialGuards().guards[0];
+  if (!isPlainObject(raw)) return fresh;
+  const healedMaxHp = Math.max(1, healNumber(raw.maxHp, fresh.maxHp));
+  return {
+    ...fresh,
+    ...raw,
+    name:              healString(raw.name, fresh.name),
+    hp:                Math.min(Math.max(0, healNumber(raw.hp, fresh.hp)), healedMaxHp),
+    maxHp:             healedMaxHp,
+    baseAtk:           Math.max(0, Math.trunc(healNumber(raw.baseAtk, fresh.baseAtk))),
+    baseDef:           Math.max(0, Math.trunc(healNumber(raw.baseDef, fresh.baseDef))),
+    expandedSatchel:   !!raw.expandedSatchel,
+    satchel:           Array.isArray(raw.satchel)
+                         ? Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => {
+                             const s = raw.satchel[k];
+                             if (!isPlainObject(s)) return { item: '', qty: 1 };
+                             const item = healString(s.item);
+                             const qty  = item
+                               ? Math.min(Math.max(1, Math.trunc(healNumber(s.qty, 1))), satchelStackLimit(item))
+                               : 1;
+                             return { item, qty };
+                           })
+                         : fresh.satchel,
+    equipment:         isPlainObject(raw.equipment)
+                         ? { weapon:    healString(raw.equipment.weapon),
+                             armor:     healString(raw.equipment.armor),
+                             accessory: healString(raw.equipment.accessory),
+                             item:      healString(raw.equipment.item) }
+                         : fresh.equipment,
+  };
+}
+
+/** `{ sil, lux }` */
+export function healResourcesSection(v) {
+  const s = isPlainObject(v) ? v : {};
+  return {
+    sil: Math.max(0, Math.trunc(Number(s.sil) || 0)),
+    lux: Math.max(0, Math.trunc(Number(s.lux) || 0)),
+  };
+}
+
+/** `{ cities }` */
+export function healCitiesSection(v) {
+  const init = createInitialCities();
+  const raw  = isPlainObject(v) ? v.cities : null;
+  if (!Array.isArray(raw) || raw.length === 0) return init;
+  return {
+    cities: raw.map(c => isPlainObject(c)
+      ? { ...init.cities[0], ...c, name: healString(c.name, init.cities[0].name) }
+      : init.cities[0]),
+  };
+}
+
+/** `{ activeParty }` — exactly two names, or the default pairing. */
+export function healPartySection(v) {
+  const init = createInitialGuards();
+  const raw  = isPlainObject(v) ? v.activeParty : null;
+  return {
+    activeParty: Array.isArray(raw) && raw.length === 2
+      ? raw.map(n => healString(n))
+      : init.activeParty,
+  };
+}
+
+/** `{ stash, stonebound }` */
+export function healStashSection(v) {
+  const init = createInitialStash();
+  const s    = isPlainObject(v) ? v : {};
+  return {
+    stash: isPlainObject(s.stash)
+      ? Object.fromEntries(
+          Object.entries(s.stash)
+            .filter(([k]) => typeof k === 'string' && k.length > 0)
+            .map(([k, n]) => [k, Math.max(0, Math.trunc(Number(n) || 0))])
+        )
+      : init.stash,
+    stonebound: isPlainObject(s.stonebound)
+      ? { max: Math.max(0, healNumber(s.stonebound.max, init.stonebound.max)),
+          locations: Array.isArray(s.stonebound.locations)
+            ? s.stonebound.locations
+                .filter(isPlainObject)
+                .filter(loc => typeof loc.id === 'string' || typeof loc.id === 'number')
+                // `type` is dropped, not healed — see AVE-874.
+                // eslint-disable-next-line no-unused-vars
+                .map(({ type, ...loc }) => ({
+                  ...loc,
+                  selection: healString(loc.selection, ''),
+                  count:     Math.max(0, Math.trunc(Number(loc.count) || 1)),
+                }))
+            : [] }
+      : init.stonebound,
+  };
+}
+
+/**
+ * `{ campaign }` — shape/type repair only. The legacy puzzle-quest and bounty
+ * flag migrations are deliberately NOT applied here: they need `cities` and
+ * `campaign` together and are load-time-only, so healState layers them on top.
+ */
+export function healCampaignSection(v) {
+  const init = createInitialCampaign();
+  const raw  = isPlainObject(v) ? v.campaign : null;
+  if (!isPlainObject(raw)) return init;
+  return {
+    campaign: {
+      ...init.campaign,
+      ...raw,
+      campaignId:  healCampaignId(raw.campaignId),
+      eventTokens: isPlainObject(raw.eventTokens)
+        ? { mountain: healNumber(raw.eventTokens.mountain, 0),
+            forest:   healNumber(raw.eventTokens.forest, 0),
+            plains:   healNumber(raw.eventTokens.plains, 0),
+            sea:      healNumber(raw.eventTokens.sea, 0) }
+        : init.campaign.eventTokens,
+      locations: isPlainObject(raw.locations)
+        // `bounties` is the AVE-795 orphan — dropped, never healed.
+        // eslint-disable-next-line no-unused-vars
+        ? (({ bounties, ...rest }) => rest)(raw.locations)
+        : init.campaign.locations,
+      plans: Array.isArray(raw.plans) ? raw.plans.filter(isPlainObject) : [],
+      ftIstraBuildings: isPlainObject(raw.ftIstraBuildings) ? raw.ftIstraBuildings : {},
+      completedEncounters:   normalizeCompletedEncounters(raw.completedEncounters),
+      completedBounties:     normalizeCompletedEncounters(raw.completedBounties),
+      completedPuzzleQuests: normalizeCompletedEncounters(raw.completedPuzzleQuests),
+    },
+  };
+}
+
+/**
+ * Heal one section payload arriving from Supabase, keyed by section name.
+ * Called by applyRemoteSection — the single choke point shared by joinCampaign,
+ * the Realtime UPDATE handler, and refetchRow.
+ *
+ * Runs AFTER the timestamp/echo gates in applyRemoteRow, never before: those
+ * gates compare the raw incoming value against extractSection(local), and
+ * rewriting objects earlier would break the deepEqual matching that AVE-314's
+ * echo suppression depends on.
+ */
+export function healRemoteSection(sectionName, value) {
+  if (/^guard_\d+$/.test(sectionName)) return healGuard(value);
+  switch (sectionName) {
+    case 'resources': return healResourcesSection(value);
+    case 'cities':    return healCitiesSection(value);
+    case 'party':     return healPartySection(value);
+    case 'stash':     return healStashSection(value);
+    case 'campaign':  return healCampaignSection(value);
+    default:          return value;
+  }
 }
