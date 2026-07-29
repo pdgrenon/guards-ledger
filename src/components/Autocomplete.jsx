@@ -46,11 +46,20 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
     commit(opt);
   }
 
+  // The option the text names exactly (case-insensitively), or null. This is the
+  // single definition of "the user typed a real option" — used by both Enter and
+  // the blur/Enter draft resolution so the two commit gestures agree.
+  function exactMatch(text) {
+    const trimmed = (text ?? '').trim();
+    if (!trimmed) return null;
+    return options.find(o => o.toLowerCase() === trimmed.toLowerCase()) ?? null;
+  }
+
   // Resolve the current draft at a non-selection commit point (Enter / blur).
   function resolveDraft() {
     if (draft === null) { setOpen(false); setActiveIdx(-1); return; }
     const trimmed = draft.trim();
-    const canonical = options.find(o => o.toLowerCase() === trimmed.toLowerCase());
+    const canonical = exactMatch(draft);
     if (canonical) {
       commit(canonical);              // exact match (any case) → canonical option string
     } else if (trimmed === '') {
@@ -91,6 +100,13 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
     if (e.key === 'Enter') {
       e.preventDefault();
       if (open && activeIdx >= 0 && activeIdx < filtered.length) select(filtered[activeIdx]);
+      // An exactly-typed option beats a merely-containing one that happens to
+      // sort earlier. `filtered` is a substring match in source order, and
+      // ALL_MATERIALS is sorted, so "Diamond" listed "Black Diamond" first and
+      // "Horn" listed "Clayhorn Steak" first — Enter silently committed the
+      // wrong material for a name the player typed in full (AVE-872). Blur
+      // always resolved these correctly via resolveDraft; only Enter diverged.
+      else if (open && draft !== null && exactMatch(draft)) select(exactMatch(draft));
       else if (open && draft !== null && filtered.length > 0) select(filtered[0]);   // top match
       else resolveDraft();            // no dropdown match → revert / free-text
       return;
