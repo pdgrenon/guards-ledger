@@ -464,8 +464,16 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
   // ── Backoff retry for error recovery (AVE-376) ─────────────────────────────
   // When syncStatus is 'error', schedule flushQueue with exponential backoff
-  // (1s, 2s, 4s, 8s… capped at 30s). Resets when status leaves 'error'.
+  // (1s, 2s, 4s, 8s… capped at 30s). Resets on a successful sync.
   const retryCountRef = useRef(0);
+  // Bumped on every failed write. The recovery effect cannot key off
+  // syncStatus alone: a retry goes 'error' → 'syncing' → 'error', and React
+  // can coalesce that into a single committed render whose value is unchanged,
+  // leaving the effect with no dependency change and no timer re-armed — so
+  // exactly one retry ever fired (AVE-871). This counter always changes on a
+  // failure, so the ladder re-arms whether or not the status string moved.
+  const [retryTick, setRetryTick] = useState(0);
+  const bumpRetryTick = useCallback(() => setRetryTick(t => t + 1), []);
 
   // ── Per-section timestamp baseline (AVE-314) ──────────────────────────────
   // The last `<section>_updated_at` value we've seen per section. An inbound
@@ -695,7 +703,17 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
   /** Flush all queued section upserts. Called on reconnect / visibility restore. */
   const flushQueue = useCallback(async () => {
-    if (!client || !campaignIdRef.current || pendingQueue.current.size === 0) return;
+    if (!client || !campaignIdRef.current) return;
+    if (pendingQueue.current.size === 0) {
+      // Nothing left to send. An error status with an empty queue (e.g. a
+      // CHANNEL_ERROR from subscribe, or a queue drained by another path) has
+      // nothing to retry, and leaving it set would park the UI on a permanent
+      // red "Sync error" — while the retry effect, whose only trigger is a
+      // syncStatus change, never re-runs to recover it (AVE-871). Functional
+      // update so a concurrent 'offline' transition isn't clobbered.
+      setSyncStatus(s => (s === 'error' ? 'idle' : s));
+      return;
+    }
     if (flushInFlight.current) return;
     flushInFlight.current = true;
 
@@ -733,6 +751,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
           unnoteSelfWrite(sectionName, payload);
           setSyncError(error.message);
           setSyncStatus('error');
+          bumpRetryTick(); // re-arm the backoff even if the status didn't change
           return;
         }
       }
@@ -745,7 +764,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     } finally {
       flushInFlight.current = false;
     }
-  }, [client, noteSelfWrite, unnoteSelfWrite, persistQueue]);
+  }, [client, noteSelfWrite, unnoteSelfWrite, persistQueue, bumpRetryTick]);
 
   // ── Online / offline detection ────────────────────────────────────────────
 
@@ -800,14 +819,20 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // Resets when status leaves 'error' or campaignId changes.
   useEffect(() => {
     if (syncStatus !== 'error' || !client || !campaignIdRef.current) {
-      retryCountRef.current = 0;
+      // Only a *successful* sync clears the backoff. Resetting on any
+      // non-error status pinned the delay at 1s forever (AVE-871): every retry
+      // passes through 'syncing' on its way back to 'error' — flushQueue sets
+      // it before awaiting the RPC — and that transient re-ran this effect and
+      // zeroed the counter. 'offline' also preserves the ladder, so a flapping
+      // connection doesn't restart at 1s each time.
+      if (syncStatus === 'idle') retryCountRef.current = 0;
       return;
     }
     const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000);
     retryCountRef.current += 1;
     const timer = setTimeout(() => flushQueue(), delay);
     return () => clearTimeout(timer);
-  }, [syncStatus, client, flushQueue]);
+  }, [syncStatus, retryTick, client, flushQueue]);
 
   // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
 
@@ -892,6 +917,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       unnoteSelfWrite(sectionName, sectionData);
       setSyncError(error.message);
       setSyncStatus('error');
+      bumpRetryTick(); // re-arm the backoff even if the status didn't change
       pendingQueue.current.set(sectionName, sectionData);
       persistQueue(); // survive tab death while the write is failing (AVE-522)
     } else {
@@ -904,7 +930,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       flushQueue();
     }
-  }, [client, campaignId, noteSelfWrite, unnoteSelfWrite, flushQueue, persistQueue]);
+  }, [client, campaignId, noteSelfWrite, unnoteSelfWrite, flushQueue, persistQueue, bumpRetryTick]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 

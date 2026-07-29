@@ -1114,3 +1114,139 @@ describe('useSupabaseSync — persisted pending queue (AVE-522)', () => {
     expect(loadPendingQueue().size).toBe(0);
   });
 });
+
+// ─── Error-recovery backoff (AVE-871) ────────────────────────────────────────
+
+describe('useSupabaseSync — error-recovery backoff', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  /** A client whose merge_section always fails, recording the clock at each try. */
+  function makeFailingClient(times) {
+    const client = makeMockClient();
+    client.rpc = (name, params) => {
+      client.calls.rpc.push({ name, params });
+      times.push(Date.now());
+      return Promise.resolve({ data: null, error: { message: 'boom' } });
+    };
+    return client;
+  }
+
+  it('escalates the retry delay 1s → 2s → 4s instead of retrying every second', async () => {
+    // The regression: flushQueue sets 'syncing' before awaiting its RPC, so
+    // every retry passed through a non-error status on its way back to 'error'.
+    // The effect reset retryCountRef on that transient, pinning the delay at
+    // 1000ms — a fixed 1 Hz loop, forever, for as long as the write kept failing.
+    vi.useFakeTimers();
+    const times = [];
+    const client = makeFailingClient(times);
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 9 });
+    });
+    expect(result.current.syncStatus).toBe('error');
+
+    // Each advance is the delay the ladder should be asking for at that step.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+
+    const gaps = times.slice(1).map((t, i) => t - times[i]);
+    expect(gaps).toEqual([1000, 2000, 4000]);
+  });
+
+  it('saturates the delay at 30s', async () => {
+    vi.useFakeTimers();
+    const times = [];
+    const client = makeFailingClient(times);
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 9 });
+    });
+
+    // 1s, 2s, 4s, 8s, 16s, then capped.
+    for (const delay of [1000, 2000, 4000, 8000, 16000, 30000, 30000]) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(delay); });
+    }
+
+    const gaps = times.slice(1).map((t, i) => t - times[i]);
+    expect(gaps).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000]);
+  });
+
+  it('resets the ladder after a successful sync, not after every attempt', async () => {
+    vi.useFakeTimers();
+    const times = [];
+    const client = makeMockClient();
+    let failing = true;
+    client.rpc = (name, params) => {
+      client.calls.rpc.push({ name, params });
+      times.push(Date.now());
+      return Promise.resolve(failing ? { data: null, error: { message: 'boom' } } : { data: null, error: null });
+    };
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 9 });
+    });
+    // Climb to a 4s delay so a reset is distinguishable from "never grew".
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+
+    // Recover: the next flush succeeds and the status reaches 'idle'.
+    failing = false;
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+    expect(result.current.syncStatus).toBe('idle');
+
+    // A fresh failure starts from 1s again, not from where the ladder left off.
+    failing = true;
+    times.length = 0;
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 11 });
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(times).toHaveLength(2);
+    expect(times[1] - times[0]).toBe(1000);
+  });
+
+  it('clears a stuck error status when the queue is empty', async () => {
+    // A CHANNEL_ERROR sets 'error' with nothing queued. flushQueue used to
+    // early-return without touching the status, so the retry effect — whose
+    // only trigger is a syncStatus change — never re-ran and the red "Sync
+    // error" indicator was permanent for the session.
+    vi.useFakeTimers();
+    const client = makeMockClient();
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    act(() => { client.calls.channels[0].statusCallback('CHANNEL_ERROR'); });
+    expect(result.current.syncStatus).toBe('error');
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(result.current.syncStatus).toBe('idle');
+    // Nothing was queued, so no RPC was sent trying to "recover".
+    expect(client.calls.rpc).toHaveLength(0);
+  });
+
+  it('still drains a queued write once the RPC recovers', async () => {
+    vi.useFakeTimers();
+    const client = makeMockClient();
+    let failing = true;
+    client.rpc = (name, params) => {
+      client.calls.rpc.push({ name, params });
+      return Promise.resolve(failing ? { data: null, error: { message: 'boom' } } : { data: null, error: null });
+    };
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('resources', { ...createInitialState(), sil: 9 });
+    });
+    expect(loadPendingQueue().has('resources')).toBe(true);
+
+    failing = false;
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+    expect(result.current.syncStatus).toBe('idle');
+    expect(loadPendingQueue().size).toBe(0);
+    expect(client.calls.rpc[client.calls.rpc.length - 1].params.payload.sil).toBe(9);
+  });
+});
