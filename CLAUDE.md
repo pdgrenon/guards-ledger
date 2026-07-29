@@ -290,11 +290,26 @@ For local development with multiplayer enabled:
 4. Run `supabase/migrations/0004_tombstone_deletes.sql` to convert existing `campaign.completedEncounters` string arrays to the id-keyed `{ id }` shape used by tombstone deletes (AVE-287). Data-only, no function change; idempotent (only touches rows still holding strings).
 5. Run `supabase/migrations/0005_plain_array_lww.sql` to make non-id-keyed arrays (guard satchels, `activeParty`) replace wholesale instead of merging as a set union — the union resurrected deleted satchel items (AVE-362). Requires 0004 first. (Idempotent `CREATE OR REPLACE` — safe to re-run.)
 6. Run `supabase/migrations/0006_atomic_merge_section.sql` to make `merge_section`'s read-merge-write atomic (a single `INSERT ... ON CONFLICT DO UPDATE` instead of a separate `SELECT` then computed write), closing a lost-update race between two concurrent writes to the same section (AVE-373). (Idempotent `CREATE OR REPLACE` — safe to re-run.)
-7. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
-8. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-9. `npm install @supabase/supabase-js`
+7. **Run `supabase/migrations/0007_row_generation.sql`** to add the `generation` column and replace `merge_section` with the generation-aware **four-argument** version, so a full-row reset/import gates out a co-player's stale in-flight merge (AVE-527). **Required, not optional hardening** — `upsertSection` and `flushQueue` always send `expected_generation`, and PostgREST resolves an RPC by argument *names*, so a database still on the three-argument function rejects **every** write with `PGRST202` (and `replaceRow`'s `select('generation')` fails with `42703`). Reads and Realtime keep working, so the app looks connected — campaign pill and all — while writing nothing and parking the sync dot on red. (Idempotent: `add column if not exists` + `CREATE OR REPLACE`.)
+8. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table (the schema also attempts this via `alter publication`)
+9. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+10. `npm install @supabase/supabase-js`
 
 Without these env vars the app runs as a local-only tool — no errors, sync is simply disabled.
+
+**Every file in `supabase/migrations/` must appear exactly once in the list above.** This list is the only place in the repo that enumerates them (neither `README.md` nor `docs/sync.md` does), so a migration missing from it is a migration nobody runs — which is exactly how `0007` came to be skipped on a live database (AVE-870). `schema.sql` is only correct for **fresh** installs; it already contains the `generation` column and the four-argument function, so an existing database upgraded step-by-step is the case that breaks. When adding a migration, add its step here in the same commit.
+
+To verify a database is fully migrated, run:
+
+```sql
+select p.proname, pg_get_function_identity_arguments(p.oid) as args
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in ('merge_section', 'deep_merge_jsonb', 'merge_jsonb_array_by_id')
+order by p.proname, args;
+```
+
+Expect exactly one `merge_section`, with `campaign_id text, section_name text, payload jsonb, expected_generation bigint`, plus `deep_merge_jsonb(jsonb, jsonb)` and `merge_jsonb_array_by_id(jsonb, jsonb)`. A three-argument `merge_section` means `0007` has not been applied. Note that `0005` is a `CREATE OR REPLACE` of `deep_merge_jsonb` with an unchanged signature, so this query cannot distinguish "0005 applied" from "0003 only" — if deleted satchel items reappear (the AVE-362 symptom), re-run `0005`.
 
 ### Deployment
 
