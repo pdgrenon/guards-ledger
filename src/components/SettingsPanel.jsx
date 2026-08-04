@@ -384,9 +384,12 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
               )}
             </div>
             {/* The input is driven programmatically by the button below — it is
-                display:none, so it is neither focusable nor in the a11y tree.
-                tabIndex/aria-hidden say so explicitly, keeping the dialog's
-                focus trap down to one stop for this one control (AVE-785). */}
+                display:none, so it is neither tab-reachable nor in the a11y
+                tree. tabIndex/aria-hidden say so explicitly, which is also what
+                keeps useDialogA11y's FOCUSABLE selector from counting it as a
+                stop in the trap — that selector excludes tabindex="-1" and
+                aria-hidden per clause, so this row is one stop, the button
+                (AVE-785). */}
             <>
               <input
                 ref={fileInputRef}
