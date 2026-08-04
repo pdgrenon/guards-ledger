@@ -1927,8 +1927,12 @@ describe('legacy bounty1Done/bounty2Done migration (AVE-547)', () => {
 
 // ─── healState strips legacy locations.bounties (AVE-795) ─────────────────────
 
-describe('healState strips legacy locations.bounties (AVE-795)', () => {
-  it('strips the bounties key from locations when present', () => {
+// `locations.bounties` is retired (AVE-795), but a value that IS present must
+// be NEGATED rather than silently dropped — the server's deep merge preserves
+// keys absent from a payload, so a dropped key stays on the row forever and
+// defeats echo suppression for the whole campaign section (AVE-922).
+describe('healState negates legacy locations.bounties (AVE-795)', () => {
+  it('negates the bounties key on locations when present', () => {
     const locations = {
       party: 'Forest',
       caravan: '',
@@ -1948,10 +1952,10 @@ describe('healState strips legacy locations.bounties (AVE-795)', () => {
       cities: createInitialCities().cities,
     };
     const healed = healState(save);
-    expect(healed.campaign.locations.bounties).toBeUndefined();
+    expect(healed.campaign.locations).toHaveProperty('bounties', null);
   });
 
-  it('preserves other location fields byte-for-byte when stripping bounties', () => {
+  it('preserves other location fields byte-for-byte when negating bounties', () => {
     const original = {
       party: 'Forest',
       caravan: '',
@@ -1977,7 +1981,28 @@ describe('healState strips legacy locations.bounties (AVE-795)', () => {
     expect(locs.mainQuest).toBe('Fort Istra');
     expect(locs.boat).toBe('The Sea Serpent');
     expect(locs.sideQuests).toEqual([{ id: 1, label: 'Thief Camp' }]);
-    expect(Object.keys(locs)).not.toContain('bounties');
+    expect(locs.bounties).toBeNull();
+  });
+
+  it('is idempotent — re-healing an already-negated locations keeps bounties: null', () => {
+    const save = {
+      campaign: {
+        campaignId: 1,
+        locations: {
+          party: 'Forest', caravan: '', mainQuest: '', boat: '',
+          sideQuests: [],
+          bounties: [{ id: 1, label: 'legacy bounty' }],
+        },
+        completedEncounters: [],
+        completedBounties: [],
+        completedPuzzleQuests: [],
+      },
+      cities: createInitialCities().cities,
+    };
+    const once  = healState(save);
+    const twice = healState(once);
+    expect(twice.campaign.locations).toEqual(once.campaign.locations);
+    expect(twice.campaign.locations).toHaveProperty('bounties', null);
   });
 
   it('returns locations unchanged when no bounties key exists', () => {

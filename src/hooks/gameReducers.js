@@ -597,6 +597,26 @@ function appendUndoArrayTombstones(prev, curr) {
   return tombstones.length ? [...prevArr, ...tombstones] : prevArr;
 }
 
+// Pin every key present in `curr` but absent from `prev` to `neutral` — the
+// map equivalent of an array tombstone. The server's deep merge preserves keys
+// the payload omits, so an undo that simply drops a key leaves it on the server
+// and the write's own Realtime echo resurrects it (AVE-523). `neutral` must be
+// a value every read site already treats as "absent": 0 for stash counts
+// (AVE-369), 'not_owned' for ftIstraBuildings (AVE-925).
+//
+// Returns the `prev` reference unchanged when nothing was added, matching
+// appendUndoArrayTombstones' identity contract — callers use `!==` to decide
+// whether anything changed.
+function withUndoMapTombstones(prev, curr, neutral) {
+  const prevMap = prev ?? {};
+  const currMap = curr ?? {};
+  const added = Object.keys(currMap).filter(k => !(k in prevMap));
+  if (!added.length) return prevMap;
+  const out = { ...prevMap };
+  for (const k of added) out[k] = neutral;
+  return out;
+}
+
 export function withUndoTombstones(prevState, currentState) {
   if (!prevState || !currentState) return prevState;
 
@@ -616,15 +636,10 @@ export function withUndoTombstones(prevState, currentState) {
   }
 
   // stash map: pin every key added since prevState back to 0.
-  const prevStash = prevState.stash ?? {};
-  const currStash = currentState.stash ?? {};
-  const addedStashKeys = Object.keys(currStash).filter(k => !(k in prevStash));
-  if (addedStashKeys.length) {
-    result.stash = { ...prevStash };
-    for (const k of addedStashKeys) result.stash[k] = 0;
-  }
+  const stash = withUndoMapTombstones(prevState.stash, currentState.stash, 0);
+  if (stash !== (prevState.stash ?? {})) result.stash = stash;
 
-  // campaign id-keyed arrays
+  // campaign id-keyed arrays + the ftIstraBuildings map
   const prevCamp = prevState.campaign;
   const currCamp = currentState.campaign;
   if (prevCamp && currCamp) {
@@ -655,6 +670,20 @@ export function withUndoTombstones(prevState, currentState) {
         campaign.locations = locations;
         campChanged = true;
       }
+    }
+
+    // ftIstraBuildings is a growable map like stash, not a scalar: the first
+    // state change to a building ADDS a key, so undoing it must negate the key
+    // rather than omit it — otherwise the server merge keeps the building and
+    // the write's own echo flips the card back (AVE-925). 'not_owned' is the
+    // neutral value both read sites already fall back to (CampaignTab's
+    // BuildingCard / FtIstraBuildingsCard).
+    const ftIstra = withUndoMapTombstones(
+      prevCamp.ftIstraBuildings, currCamp.ftIstraBuildings, 'not_owned',
+    );
+    if (ftIstra !== (prevCamp.ftIstraBuildings ?? {})) {
+      campaign.ftIstraBuildings = ftIstra;
+      campChanged = true;
     }
 
     if (campChanged) result.campaign = campaign;
@@ -787,10 +816,17 @@ export function healStashSection(v) {
             ? s.stonebound.locations
                 .filter(isPlainObject)
                 .filter(loc => typeof loc.id === 'string' || typeof loc.id === 'number')
-                // `type` is dropped, not healed — see AVE-874.
-                // eslint-disable-next-line no-unused-vars
+                // `type` is retired (AVE-874). Drop it — but only when the
+                // input never had it. Silently dropping a value that IS there
+                // leaves it on the server forever (the deep merge preserves
+                // keys absent from a payload), which then makes every Realtime
+                // echo of our own write look like a genuine remote change and
+                // permanently defeats echo suppression (AVE-922). Carrying an
+                // explicit `type: null` through means our next write clears the
+                // stored key, after which the echo deep-equals local again.
                 .map(({ type, ...loc }) => ({
                   ...loc,
+                  ...(type === undefined ? {} : { type: null }),
                   selection: healString(loc.selection, ''),
                   count:     Math.max(0, Math.trunc(Number(loc.count) || 1)),
                 }))
@@ -820,9 +856,12 @@ export function healCampaignSection(v) {
             sea:      healNumber(raw.eventTokens.sea, 0) }
         : init.campaign.eventTokens,
       locations: isPlainObject(raw.locations)
-        // `bounties` is the AVE-795 orphan — dropped, never healed.
-        // eslint-disable-next-line no-unused-vars
-        ? (({ bounties, ...rest }) => rest)(raw.locations)
+        // `bounties` is the AVE-795 orphan. Same reasoning as the stonebound
+        // `type` drop in healStashSection: negate it explicitly when it is
+        // present, so the next write clears it on the server instead of
+        // leaving a key that permanently defeats echo suppression (AVE-922).
+        ? (({ bounties, ...rest }) =>
+            bounties === undefined ? rest : { ...rest, bounties: null })(raw.locations)
         : init.campaign.locations,
       plans: Array.isArray(raw.plans) ? raw.plans.filter(isPlainObject) : [],
       ftIstraBuildings: isPlainObject(raw.ftIstraBuildings) ? raw.ftIstraBuildings : {},

@@ -77,6 +77,25 @@ describe('importState rejects a non-save file (AVE-869)', () => {
     expect(JSON.stringify(result.current.state)).toBe(before);
   });
 
+  // The banner's own "Download backup" button writes { reason, raw, backedUpAt }
+  // to a filename one word away from a real save, so mis-picking it in a phone's
+  // Downloads folder is the likeliest failure of the recovery flow. It must be
+  // rejected *with a message* the banner can render (AVE-929).
+  it('rejects the corrupted-backup file the banner itself produces', async () => {
+    const { result } = renderHook(() => useGameState());
+    const backup = {
+      reason:     'parse-failure',
+      raw:        '{"sil":12,"guards":[truncated',
+      backedUpAt: '2026-07-14T10:00:00.000Z',
+    };
+
+    let outcome;
+    await act(async () => { outcome = await result.current.importState(fileWith(backup)); });
+
+    expect(outcome.success).toBe(false);
+    expect(outcome.error).toBe("This file isn't a Guard's Ledger save.");
+  });
+
   it('leaves the undo snapshot intact after a rejected import', async () => {
     const { result } = renderHook(() => useGameState());
 

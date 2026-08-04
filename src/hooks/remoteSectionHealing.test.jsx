@@ -149,3 +149,54 @@ describe('the healed sections actually render (AVE-873)', () => {
     cleanup();
   });
 });
+
+// A retired key is a special case of the deep-equal-no-op invariant above: the
+// healer must be a no-op for input that never had the key, but must NEGATE
+// (not silently drop) a value that is actually present. Dropping it leaves it
+// on the server forever — the deep merge preserves keys absent from a payload
+// — so every Realtime echo of our own write carries a key local no longer has
+// and slips past both echo guards in applyRemoteRow (AVE-922).
+describe('a section carrying a retired key is negated, not dropped (AVE-922)', () => {
+  it('stonebound `type` (AVE-874) survives as an explicit null', () => {
+    const s = base();
+    const incoming = {
+      stash: { Iron: 3 },
+      stonebound: { max: 5, locations: [{ id: 1, selection: 'Mir', count: 2, type: 'City' }] },
+    };
+    const next = applyRemoteSection(s, 'stash', incoming);
+    expect(next.stonebound.locations[0]).toEqual({ id: 1, type: null, selection: 'Mir', count: 2 });
+  });
+
+  it('campaign.locations.bounties (AVE-795) survives as an explicit null', () => {
+    const s = base();
+    const incoming = {
+      campaign: {
+        ...base().campaign,
+        locations: { ...base().campaign.locations, bounties: [{ id: 1, label: 'legacy' }] },
+      },
+    };
+    const next = applyRemoteSection(s, 'campaign', incoming);
+    expect(next.campaign.locations).toHaveProperty('bounties', null);
+  });
+
+  it('healing is idempotent once negated — the second pass changes nothing', () => {
+    const s = base();
+    const incoming = {
+      stash: {},
+      stonebound: { max: 5, locations: [{ id: 1, selection: 'Mir', count: 2, type: '' }] },
+    };
+    const once = extractSection(applyRemoteSection(s, 'stash', incoming), 'stash');
+    expect(healRemoteSection('stash', once)).toEqual(once);
+    expect(extractSection(applyRemoteSection(s, 'stash', once), 'stash')).toEqual(once);
+  });
+
+  it('invents no null for a section that never carried the retired keys', () => {
+    const s = base();
+    for (const section of ['stash', 'campaign']) {
+      const payload = extractSection(s, section);
+      expect(healRemoteSection(section, payload)).toEqual(payload);
+    }
+    expect(extractSection(s, 'stash').stonebound.locations).toEqual([]);
+    expect(extractSection(s, 'campaign').campaign.locations).not.toHaveProperty('bounties');
+  });
+});

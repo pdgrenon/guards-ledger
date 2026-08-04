@@ -1,3 +1,12 @@
+// The three states a Fort Istra building can be in, in display order.
+// `'not_owned'` is the value an absent `campaign.ftIstraBuildings` key falls
+// back to at every read site, which is what makes it a valid map tombstone for
+// the undo path (AVE-925). Lives here rather than in CampaignTab so tests can
+// assert against the real constant without turning the component file into a
+// mixed component/constant module (react-refresh/only-export-components).
+export const BUILDING_STATES = ['not_owned', 'built', 'upgraded'];
+export const BUILDING_STATE_LABELS = ['Not Owned', 'Built', 'Upgraded'];
+
 export const FT_ISTRA_BUILDINGS = [
   {
     name: 'Lumbermill',

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { CAMPAIGNS } from '../data/constants';
-import { FT_ISTRA_BUILDINGS } from '../data/buildings';
+import { FT_ISTRA_BUILDINGS, BUILDING_STATES, BUILDING_STATE_LABELS } from '../data/buildings';
 import { buildCombined } from '../data/recipes';
 import { Checkmark } from './Checkmark';
 import { MaterialName } from './MaterialName';
@@ -119,11 +119,29 @@ function EventTokensCard({ eventTokens, onAdjust, onReset }) {
 export function DraftInput({ value, onCommit, className, placeholder, id }) {
   const [draft, setDraft] = useState(null);
   const shown = draft !== null ? draft : (value ?? '');
+  // `blur()` fires its event synchronously, before React applies the queued
+  // setDraft(null) — so the onBlur handler re-entered commit() with the SAME
+  // stale `draft`. Enter therefore committed twice (the second setState
+  // snapshotting the post-edit state, which left Undo a no-op) and Escape
+  // committed the draft it was supposed to discard (AVE-924). This ref is
+  // updated in the same synchronous frame that queues setDraft, so the
+  // re-entry is a no-op regardless of render timing.
+  const draftRef = useRef(null);
+
+  function setDraftValue(v) {
+    draftRef.current = v;
+    setDraft(v);
+  }
 
   function commit() {
-    if (draft === null) return;                  // never edited — nothing to commit
-    if (draft !== (value ?? '')) onCommit(draft); // unchanged text is not a write
-    setDraft(null);
+    const pending = draftRef.current;
+    if (pending === null) return;                     // never edited / already committed
+    setDraftValue(null);                              // clear BEFORE the callback
+    if (pending !== (value ?? '')) onCommit(pending); // unchanged text is not a write
+  }
+
+  function abandon() {
+    setDraftValue(null);
   }
 
   return (
@@ -133,11 +151,11 @@ export function DraftInput({ value, onCommit, className, placeholder, id }) {
       type="text"
       value={shown}
       placeholder={placeholder}
-      onChange={e => setDraft(e.target.value)}
+      onChange={e => setDraftValue(e.target.value)}
       onBlur={commit}
       onKeyDown={e => {
-        if (e.key === 'Enter')  { e.preventDefault(); commit(); e.currentTarget.blur(); }
-        if (e.key === 'Escape') { e.preventDefault(); setDraft(null); e.currentTarget.blur(); }
+        if (e.key === 'Enter')  { e.preventDefault(); commit();  e.currentTarget.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); abandon(); e.currentTarget.blur(); }
       }}
     />
   );
@@ -340,8 +358,6 @@ function ExchangeList({ exchange }) {
   );
 }
 
-const BUILDING_STATES = ['not_owned', 'built', 'upgraded'];
-const STATE_LABELS = ['Not Owned', 'Built', 'Upgraded'];
 
 function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
   const currentIdx = BUILDING_STATES.indexOf(state ?? 'not_owned');
@@ -378,7 +394,7 @@ function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
               onClick={() => onSetState(building.name, st)}
               aria-pressed={currentIdx === i}
             >
-              {STATE_LABELS[i]}
+              {BUILDING_STATE_LABELS[i]}
             </button>
           );
         })}
