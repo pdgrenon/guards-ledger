@@ -11,7 +11,7 @@
  *     previously exported save.
  *   - Dismiss: hide the banner and clear the backed-up raw string.
  */
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 const REASON_LABEL = {
   'parse-failure':      'Your save file could not be parsed (the data is corrupted or truncated).',
@@ -26,6 +26,7 @@ function reasonText(reason) {
 
 export function CorruptionBanner({ corruption, onDismiss, onImport }) {
   const fileRef = useRef(null);
+  const [importError, setImportError] = useState(null);
 
   function handleDownload() {
     const payload = JSON.stringify({
@@ -46,10 +47,29 @@ export function CorruptionBanner({ corruption, onDismiss, onImport }) {
     fileRef.current?.click();
   }
 
-  function handleFileChange(e) {
-    const file = e.target.files?.[0];
-    if (file) onImport(file);
-    e.target.value = '';
+  // Both outcomes must be visible. This is the app's only save-recovery UI, so
+  // a silently-dropped rejection reads as "the button is broken" and a
+  // silently-successful import leaves the red alarm up over a restored ledger
+  // — where the next likely tap is Settings → Reset (AVE-929).
+  async function handleFileChange(e) {
+    // Capture the element before the await — the handler's synchronous frame is
+    // the only place the event target is unambiguously live.
+    const input = e.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    const result = await onImport(file);
+    // Reset the value so re-picking the *same* file still fires `change`;
+    // browsers suppress the event when `value` is unchanged, which otherwise
+    // dead-ends a retry after the player finds the right save (AVE-785).
+    input.value = '';
+    if (result?.success) {
+      // The ledger is restored — take the alarm down and drop the backed-up
+      // raw string, exactly as the Dismiss button would.
+      setImportError(null);
+      onDismiss();
+    } else {
+      setImportError(result?.error ?? 'Import failed.');
+    }
   }
 
   return (
@@ -62,6 +82,15 @@ export function CorruptionBanner({ corruption, onDismiss, onImport }) {
           The raw save has been backed up to <code>guards_ledger_corrupted_backup</code> in your browser.
           You can download it, import a previously exported save, or start fresh.
         </div>
+        {importError && (
+          <div
+            className="corruption-banner-message"
+            style={{ color: 'var(--c-red)' }}
+            role="status"
+          >
+            {importError}
+          </div>
+        )}
         <div className="corruption-banner-actions">
           <button className="corruption-banner-btn" onClick={handleDownload}>
             Download backup

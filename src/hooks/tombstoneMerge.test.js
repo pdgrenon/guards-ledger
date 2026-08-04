@@ -37,6 +37,8 @@ import {
   isEncounterCompleted,
   isBountyCompleted,
 } from './gameReducers';
+import { applyRemoteSection, extractSection } from './useSupabaseSync';
+import { BUILDING_STATES } from '../data/buildings';
 
 // ─── JS model of the server merge (mirrors 0003 + 0004) ─────────────────────
 
@@ -68,8 +70,18 @@ function mergeArrayById(existing, incoming) {
 
 // Mirrors deep_merge_jsonb: objects merge key-by-key (existing keys not present
 // in incoming preserved), arrays merge by id/union, scalars overwrite.
+//
+// A JSON `null` in the payload OVERWRITES. In the SQL, `jsonb_typeof(v)` is
+// 'null' for such a value, so it matches neither the object nor the array
+// branch and falls through to `jsonb_set(result, array[k], v)` — the key is set
+// to JSON null, not left alone. (The function's `if incoming is null` guard at
+// the top is for a SQL NULL *parameter* — the whole payload — not for a null
+// value inside it.) This is what lets a healer negate a retired key so the
+// write clears it server-side instead of leaving it there forever (AVE-922).
+// `undefined` has no JSONB equivalent — a key absent from the payload never
+// reaches the loop — so it is treated as "no change".
 function deepMerge(existing, incoming) {
-  if (incoming === undefined || incoming === null) return existing;
+  if (incoming === undefined) return existing;
   if (Array.isArray(existing) && Array.isArray(incoming)) return mergeArrayById(existing, incoming);
   if (isObj(existing) && isObj(incoming)) {
     const out = { ...existing };
@@ -320,5 +332,146 @@ describe('withUndoTombstones — negates elements/keys added since the snapshot'
     const result = withUndoTombstones(preAdd, added);
 
     expect(result.campaign.locations.bounties).toBeUndefined();
+  });
+});
+
+// ─── undo tombstones — object maps (AVE-925) ────────────────────────────────
+//
+// `stash` and `campaign.ftIstraBuildings` are the two growable maps in synced
+// state. Undoing a change that ADDED a key has to negate the key, not omit it:
+// the deep merge preserves keys absent from the payload, so an omitted key
+// stays on the server and the write's own Realtime echo resurrects it — the
+// same defect AVE-523 fixed for id-keyed arrays.
+
+describe('undo tombstones — a first-time ftIstraBuildings change (AVE-925)', () => {
+  const preBuild = { campaign: { ftIstraBuildings: {} } };
+  const built    = { campaign: { ftIstraBuildings: { "Baren's Forge": 'built' } } };
+
+  it('negates the added building key to not_owned', () => {
+    const restored = withUndoTombstones(preBuild, built);
+    expect(restored.campaign.ftIstraBuildings).toEqual({ "Baren's Forge": 'not_owned' });
+  });
+
+  it('propagates through the server merge — the card reads Not Owned again', () => {
+    // The build's debounced write already flushed, so the server holds it.
+    const server  = built.campaign;
+    const payload = withUndoTombstones(preBuild, built).campaign;
+
+    const merged = deepMerge(server, payload);
+
+    expect(merged.ftIstraBuildings["Baren's Forge"]).toBe('not_owned');
+    // 'not_owned' and absent are the same thing at both read sites in
+    // CampaignTab (BuildingCard / FtIstraBuildingsCard).
+    expect(BUILDING_STATES.indexOf(merged.ftIstraBuildings["Baren's Forge"] ?? 'not_owned')).toBe(0);
+  });
+
+  it('keeps the snapshot value for a key that already existed (built → upgraded)', () => {
+    const prev = { campaign: { ftIstraBuildings: { "Baren's Forge": 'built' } } };
+    const curr = { campaign: { ftIstraBuildings: { "Baren's Forge": 'upgraded' } } };
+
+    const restored = withUndoTombstones(prev, curr);
+
+    expect(restored.campaign.ftIstraBuildings).toEqual({ "Baren's Forge": 'built' });
+    expect(deepMerge(curr.campaign, restored.campaign).ftIstraBuildings["Baren's Forge"]).toBe('built');
+  });
+
+  it('negates every key added at once, leaving pre-existing ones alone', () => {
+    const prev = { campaign: { ftIstraBuildings: { "Zoya's Shop": 'built' } } };
+    const curr = {
+      campaign: {
+        ftIstraBuildings: { "Zoya's Shop": 'built', "Baren's Forge": 'built', Stables: 'upgraded' },
+      },
+    };
+
+    expect(withUndoTombstones(prev, curr).campaign.ftIstraBuildings).toEqual({
+      "Zoya's Shop": 'built',
+      "Baren's Forge": 'not_owned',
+      Stables: 'not_owned',
+    });
+  });
+
+  it('no additions → returns the snapshot map untouched (same reference)', () => {
+    const prev = { campaign: { ftIstraBuildings: { "Baren's Forge": 'built' } } };
+    const same = { campaign: { ftIstraBuildings: { "Baren's Forge": 'built' } } };
+
+    const result = withUndoTombstones(prev, same);
+
+    expect(result.campaign.ftIstraBuildings).toBe(prev.campaign.ftIstraBuildings);
+  });
+});
+
+// ─── retired keys must be negated, not dropped (AVE-922) ────────────────────
+//
+// healStashSection / healCampaignSection retire `stonebound.locations[].type`
+// (AVE-874) and `campaign.locations.bounties` (AVE-795). Dropping a value that
+// is actually present leaves it on the server forever, so the Realtime echo of
+// our OWN write carries a key local no longer has — it deep-equals neither
+// current local nor the buffered self-write, and both echo guards in
+// applyRemoteRow miss it. Negating instead makes the next write clear the key,
+// after which the echo deep-equals local again.
+
+describe('retired keys are cleared by our own next write (AVE-922)', () => {
+  it('stash: the echo of our write deep-equals local after one round trip', () => {
+    // A campaign row created before AVE-874 — still carrying `type`.
+    const serverBefore = {
+      stash: { Iron: 3 },
+      stonebound: { max: 5, locations: [{ id: 1, selection: 'Mir', count: 2, type: '' }] },
+    };
+
+    // Inbound: heal-on-apply negates the retired key.
+    let local = { stash: {}, stonebound: { max: 0, locations: [] } };
+    local = applyRemoteSection(local, 'stash', serverBefore);
+
+    // Our next write sends exactly what extractSection produces.
+    const payload = extractSection(local, 'stash');
+    const serverAfter = deepMerge(serverBefore, payload);
+
+    // The stored key is cleared, so the echo now matches local exactly.
+    expect(serverAfter.stonebound.locations[0]).toHaveProperty('type', null);
+    expect(deepEqual(serverAfter, payload)).toBe(true);
+
+    // And re-applying that echo is a genuine no-op.
+    expect(deepEqual(extractSection(applyRemoteSection(local, 'stash', serverAfter), 'stash'), payload))
+      .toBe(true);
+  });
+
+  it('campaign: same round trip for the retired locations.bounties', () => {
+    const serverBefore = {
+      campaign: {
+        campaignId: 1,
+        eventTokens: { mountain: 0, forest: 0, plains: 0, sea: 0 },
+        locations: {
+          party: 'Mir', caravan: '', mainQuest: '', boat: '',
+          sideQuests: [],
+          bounties: [{ id: 1, label: 'legacy bounty' }],
+        },
+        plans: [],
+        ftIstraBuildings: {},
+        completedEncounters: [],
+        completedBounties: [],
+        completedPuzzleQuests: [],
+      },
+    };
+
+    let local = { campaign: {} };
+    local = applyRemoteSection(local, 'campaign', serverBefore);
+
+    const payload = extractSection(local, 'campaign');
+    const serverAfter = deepMerge(serverBefore, payload);
+
+    expect(serverAfter.campaign.locations).toHaveProperty('bounties', null);
+    expect(deepEqual(serverAfter, payload)).toBe(true);
+  });
+
+  it('a row that never had the retired keys is untouched — no null is invented', () => {
+    const server = {
+      stash: { Iron: 3 },
+      stonebound: { max: 5, locations: [{ id: 1, selection: 'Mir', count: 2 }] },
+    };
+    const local   = applyRemoteSection({ stash: {}, stonebound: { max: 0, locations: [] } }, 'stash', server);
+    const payload = extractSection(local, 'stash');
+
+    expect(payload.stonebound.locations[0]).not.toHaveProperty('type');
+    expect(deepEqual(server, payload)).toBe(true);
   });
 });

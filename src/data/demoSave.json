@@ -216,11 +216,11 @@
   "stonebound": {
     "max": 6,
     "locations": [
-      { "id": "loc-1", "type": "City",          "selection": "Mir",             "count": 1 },
-      { "id": "loc-2", "type": "City",          "selection": "Razdor",          "count": 1 },
-      { "id": "loc-3", "type": "Resource node", "selection": "Iron",            "count": 2 },
-      { "id": "loc-4", "type": "Resource node", "selection": "Pine",            "count": 1 },
-      { "id": "loc-5", "type": "Enemy drop",    "selection": "Wolf Pelt",       "count": 1 }
+      { "id": "loc-1", "selection": "Mir",       "count": 1 },
+      { "id": "loc-2", "selection": "Razdor",    "count": 1 },
+      { "id": "loc-3", "selection": "Iron",      "count": 2 },
+      { "id": "loc-4", "selection": "Pine",      "count": 1 },
+      { "id": "loc-5", "selection": "Wolf Pelt", "count": 1 }
     ]
   },
   "campaign": {
@@ -234,10 +234,6 @@
       "sideQuests": [
         { "id": 1, "label": "The missing merchant — Silny" },
         { "id": 6, "label": "Razdor's ancient aqueduct" }
-      ],
-      "bounties": [
-        { "id": 2, "label": "Wolf pack — Forest near Mir" },
-        { "id": 7, "label": "Bandit camp — Ryba trade route" }
       ]
     },
     "plans": [

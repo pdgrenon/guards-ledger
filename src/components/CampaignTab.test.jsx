@@ -71,22 +71,84 @@ describe('Campaign fixed-location inputs (AVE-784)', () => {
     expect(onSetFixed).toHaveBeenCalledWith('party', 'Ryba: The Narrows');
   });
 
+  // These two use REAL focus (`input.focus()`), not `fireEvent.focus`. The
+  // difference is the whole bug: fireEvent.focus dispatches a focus event but
+  // leaves document.activeElement alone, so the `e.currentTarget.blur()` inside
+  // the keydown handler emits nothing and the handler's second, stale-closure
+  // commit() never runs. In a real browser the field IS focused — the user just
+  // typed into it — so Enter committed twice and Escape committed the draft it
+  // was supposed to discard (AVE-924).
   it('does not double-commit when Enter is followed by blur', () => {
     const { onSetFixed, partyInput } = setupCard();
-    fireEvent.focus(partyInput);
+    partyInput.focus();
     fireEvent.change(partyInput, { target: { value: 'Node 12' } });
     fireEvent.keyDown(partyInput, { key: 'Enter' });
     fireEvent.blur(partyInput);
+    expect(onSetFixed).toHaveBeenCalledTimes(1);
+    expect(onSetFixed).toHaveBeenCalledWith('party', 'Node 12');
+  });
+
+  it('commits exactly once on Enter when the field is really focused', () => {
+    const { onSetFixed, partyInput } = setupCard();
+    partyInput.focus();
+    fireEvent.change(partyInput, { target: { value: 'Node 12' } });
+    fireEvent.keyDown(partyInput, { key: 'Enter' });
     expect(onSetFixed).toHaveBeenCalledTimes(1);
   });
 
   it('abandons the edit on Escape and restores the committed value', () => {
     const { onSetFixed, partyInput } = setupCard({ party: 'Node 45' });
-    fireEvent.focus(partyInput);
+    partyInput.focus();
     fireEvent.change(partyInput, { target: { value: 'typo' } });
     fireEvent.keyDown(partyInput, { key: 'Escape' });
     expect(onSetFixed).not.toHaveBeenCalled();
     expect(partyInput.value).toBe('Node 45');
+  });
+
+  it('still commits nothing when Escape is followed by a blur', () => {
+    const { onSetFixed, partyInput } = setupCard({ party: 'Node 45' });
+    partyInput.focus();
+    fireEvent.change(partyInput, { target: { value: 'typo' } });
+    fireEvent.keyDown(partyInput, { key: 'Escape' });
+    fireEvent.blur(partyInput);
+    expect(onSetFixed).not.toHaveBeenCalled();
+    expect(partyInput.value).toBe('Node 45');
+  });
+
+  it('commits once on a real blur with no key press', () => {
+    const { onSetFixed, partyInput } = setupCard();
+    partyInput.focus();
+    fireEvent.change(partyInput, { target: { value: 'Node 83' } });
+    partyInput.blur();
+    expect(onSetFixed).toHaveBeenCalledTimes(1);
+    expect(onSetFixed).toHaveBeenCalledWith('party', 'Node 83');
+  });
+
+  it('does not commit on Enter when the typed text equals the current value', () => {
+    const { onSetFixed, partyInput } = setupCard({ party: 'Node 45' });
+    partyInput.focus();
+    fireEvent.change(partyInput, { target: { value: 'Node 45' } });
+    fireEvent.keyDown(partyInput, { key: 'Enter' });
+    expect(onSetFixed).not.toHaveBeenCalled();
+  });
+
+  it('does not commit on Enter when the user never edited', () => {
+    const { onSetFixed, partyInput } = setupCard({ party: 'Node 45' });
+    partyInput.focus();
+    fireEvent.keyDown(partyInput, { key: 'Enter' });
+    expect(onSetFixed).not.toHaveBeenCalled();
+  });
+
+  it('a second edit after an Enter commit still commits exactly once', () => {
+    const { onSetFixed, partyInput } = setupCard();
+    partyInput.focus();
+    fireEvent.change(partyInput, { target: { value: 'first' } });
+    fireEvent.keyDown(partyInput, { key: 'Enter' });
+    partyInput.focus();
+    fireEvent.change(partyInput, { target: { value: 'second' } });
+    fireEvent.keyDown(partyInput, { key: 'Enter' });
+    expect(onSetFixed).toHaveBeenCalledTimes(2);
+    expect(onSetFixed).toHaveBeenNthCalledWith(2, 'party', 'second');
   });
 
   it('does not commit on blur when the user never edited', () => {

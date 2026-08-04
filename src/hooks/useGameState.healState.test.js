@@ -122,8 +122,13 @@ describe('healState — guard satchel (AVE-521)', () => {
 
 // ─── Orphaned stonebound `type` (AVE-874) ────────────────────────────────────
 
-describe('healState drops the orphaned stonebound location `type`', () => {
-  it('strips `type` from a legacy save while preserving the real fields', () => {
+// `type` is retired (AVE-874), but a value that IS present must be NEGATED
+// rather than silently dropped: the server's deep merge preserves keys absent
+// from a payload, so a dropped key stays on the row forever and makes every
+// Realtime echo of our own write look like a genuine remote change (AVE-922).
+// Carrying `type: null` through means the next write clears the stored key.
+describe('healState negates the orphaned stonebound location `type`', () => {
+  it('negates `type` on a legacy save while preserving the real fields', () => {
     const healed = healState({
       stonebound: {
         max: 6,
@@ -131,7 +136,7 @@ describe('healState drops the orphaned stonebound location `type`', () => {
       },
     });
     const loc = healed.stonebound.locations[0];
-    expect(loc).not.toHaveProperty('type');
+    expect(loc).toHaveProperty('type', null);
     expect(loc.id).toBe(1);
     expect(loc.selection).toBe('Mir');
     expect(loc.count).toBe(2);
@@ -146,7 +151,16 @@ describe('healState drops the orphaned stonebound location `type`', () => {
       },
     });
     expect(healed.stonebound.locations[0].deleted).toBe(true);
-    expect(healed.stonebound.locations[0]).not.toHaveProperty('type');
+    expect(healed.stonebound.locations[0]).toHaveProperty('type', null);
+  });
+
+  it('is idempotent — re-healing an already-negated location keeps type: null', () => {
+    const once  = healState({
+      stonebound: { max: 4, locations: [{ id: 3, type: 'City', selection: 'Mir', count: 1 }] },
+    });
+    const twice = healState(once);
+    expect(twice.stonebound.locations).toEqual(once.stonebound.locations);
+    expect(twice.stonebound.locations[0]).toHaveProperty('type', null);
   });
 
   it('leaves a location that never had `type` unchanged in shape', () => {

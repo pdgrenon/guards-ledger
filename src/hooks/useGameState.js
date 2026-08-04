@@ -853,7 +853,13 @@ export function useGameState() {
 
     // ── Load demo data (first-run choice) ──────────────────────────────────
     const loadDemoData = useCallback(() => {
-      const demoState = migrateV1(demoSave);
+      // Heal, exactly like importState (AVE-365): migrateV1 only ??-defaults
+      // top-level keys, so any shape drift in the hand-maintained demo save
+      // would otherwise reach React state, localStorage, and — via replaceRow
+      // — the shared campaign row, where the deep merge keeps it forever
+      // (AVE-927). demoSave is a bundled object literal, so healState cannot
+      // return null here; a test pins that rather than adding a dead branch.
+      const demoState = healState(migrateV1(demoSave));
       const next = {
         ...demoState,
         settings: { ...demoState.settings, hasSeenOnboarding: true },
