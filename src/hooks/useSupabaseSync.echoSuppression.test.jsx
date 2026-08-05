@@ -70,7 +70,11 @@ function makeMockClient() {
     removeChannel(ch) { calls.removed.push(ch); },
     rpc(name, params) {
       calls.rpc.push({ name, params });
-      return Promise.resolve({ data: null, error: null });
+      // Default to a NON-null `data`: a committed merge_section returns the
+      // merged section, and `{ data: null }` is specifically the generation-gate
+      // rejection shape (AVE-826). Defaulting to null here made every sync test
+      // silently exercise the rejection path.
+      return Promise.resolve({ data: {}, error: null });
     },
     calls,
   };

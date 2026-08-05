@@ -61,7 +61,11 @@ function makeMockClient() {
     // RPC names; anything not registered returns success by default.
     rpc(name, params) {
       calls.rpc.push({ name, params });
-      const override = rpcOverrides[name] ?? { data: null, error: null };
+      // Default to a NON-null `data`: a committed merge_section returns the
+      // merged section, and `{ data: null }` is specifically the generation-gate
+      // rejection shape (AVE-826). Defaulting to null here made every sync test
+      // silently exercise the rejection path.
+      const override = rpcOverrides[name] ?? { data: {}, error: null };
       return Promise.resolve(override);
     },
     calls,

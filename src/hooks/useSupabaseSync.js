@@ -289,6 +289,24 @@ export function hasNewerSelfWrite(list, sinceTs) {
   return (list || []).some(e => e.at >= sinceTs);
 }
 
+/**
+ * Whether a `merge_section` response means the write was rejected by the
+ * generation gate (AVE-527), rather than committed.
+ *
+ * A gated-out `DO UPDATE` matches nothing, so `RETURNING` yields no row and
+ * PostgREST reports `{ data: null, error: null }` — indistinguishable from
+ * success unless `data` is checked. That is why a rejected write used to be
+ * deleted from the pending queue with the sync dot still green, losing the
+ * edit silently (AVE-826).
+ *
+ * `merge_section` returns the merged section on every path that commits (both
+ * the INSERT and the DO UPDATE), and `extractSection` always yields a JSON
+ * object, so a null return uniquely means "rejected".
+ */
+export function isGenerationRejected(data, error) {
+  return !error && data == null;
+}
+
 /** Per-section timestamp column name (matches the schema: `<section>_updated_at`). */
 export function sectionTsColumn(section) { return `${section}_updated_at`; }
 
@@ -482,6 +500,13 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // When syncStatus is 'error', schedule flushQueue with exponential backoff
   // (1s, 2s, 4s, 8s… capped at 30s). Resets on a successful sync.
   const retryCountRef = useRef(0);
+  // `refetchRow` is called from the generation-rejection path in both write
+  // callbacks (AVE-826), but must NOT enter their dependency arrays: its
+  // identity tracks the caller's `onRemoteChange`, so depending on it would make
+  // `flushQueue` — and through it `upsertSection` — change every render, and the
+  // boot-drain effect below (which depends on `flushQueue` and calls it) would
+  // re-run in a loop. Reached through a ref so both callbacks stay stable.
+  const refetchRowRef = useRef(null);
   // Bumped on every failed write. The recovery effect cannot key off
   // syncStatus alone: a retry goes 'error' → 'syncing' → 'error', and React
   // can coalesce that into a single committed render whose value is unchanged,
@@ -684,6 +709,12 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     applyRemoteRow(data, requestedAt);
   }, [client, applyRemoteRow]);
 
+  // Keep the ref pointed at the current refetchRow, so the write callbacks can
+  // call it without taking it as a dependency (see refetchRowRef above). In an
+  // effect rather than during render, mirroring campaignIdRef — a ref written
+  // during render is a lint error and can miss an update.
+  useEffect(() => { refetchRowRef.current = refetchRow; }, [refetchRow]);
+
   // ── Core subscribe / unsubscribe ─────────────────────────────────────────
 
   const subscribe = useCallback((id) => {
@@ -796,12 +827,28 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       // double-note them (AVE-528).
       for (const [sectionName, payload] of entries) {
         noteSelfWrite(sectionName, payload);
-        const { error } = await client.rpc('merge_section', {
+        const { data, error } = await client.rpc('merge_section', {
           campaign_id:         campaignIdRef.current,
           section_name:        sectionName,
           payload:             payload,
           expected_generation: lastSeenGen.current,
         });
+        if (isGenerationRejected(data, error)) {
+          // The row moved to a newer generation (a co-player's reset/import, or
+          // our own boot before the generation baseline was seeded), so nothing
+          // committed and no echo will arrive — drop the note for the same
+          // reason the error branch below does (AVE-528 follow-up).
+          //
+          // This entry and the rest of the batch stay queued: entries are only
+          // deleted after the whole batch succeeds. Re-seed the generation and
+          // let the backoff ladder retry with the correct one (AVE-376).
+          unnoteSelfWrite(sectionName, payload);
+          setSyncError('Campaign was reset or replaced — re-syncing.');
+          setSyncStatus('error');
+          bumpRetryTick();
+          refetchRowRef.current?.();
+          return;
+        }
         if (error) {
           // This write did not commit — drop the note we optimistically took so
           // the retry (which notes again) doesn't leave a duplicate that eats a
@@ -987,12 +1034,31 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     noteSelfWrite(sectionName, sectionData);
     // Carry the last seen generation so this write no-ops server-side if a
     // reset/import bumped the row's generation in between (AVE-527).
-    const { error } = await client.rpc('merge_section', {
+    const { data, error } = await client.rpc('merge_section', {
       campaign_id:         campaignId,
       section_name:        sectionName,
       payload:             sectionData,
       expected_generation: lastSeenGen.current,
     });
+
+    if (isGenerationRejected(data, error)) {
+      // Rejected by the generation gate: nothing committed, and no echo will
+      // arrive, so drop the note taken before dispatch (AVE-528 follow-up).
+      // Re-queue rather than re-send inline — an immediate retry would race the
+      // refetchRow below and could re-send the same stale generation.
+      //
+      // The section is back in pendingQueue, so applyRemoteRow's queue guard
+      // leaves the local value alone when the refetch lands; the AVE-376 backoff
+      // timer then re-runs flushQueue with the correct generation.
+      unnoteSelfWrite(sectionName, sectionData);
+      pendingQueue.current.set(sectionName, sectionData);
+      persistQueue();
+      setSyncError('Campaign was reset or replaced — re-syncing.');
+      setSyncStatus('error');
+      bumpRetryTick();
+      refetchRowRef.current?.();
+      return;
+    }
 
     if (error) {
       // The write failed — no echo will arrive, so drop the note we took before
