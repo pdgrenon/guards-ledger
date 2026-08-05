@@ -1244,6 +1244,20 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     setSyncStatus('syncing');
     replaceFailed.current = false;
 
+    // Every queued section payload predates this replacement and is therefore
+    // dead data: import/reset/demo-load rebuilt the whole of local state, so
+    // nothing in the queue is still reachable from it. Left in place, the next
+    // flush sends those payloads through `merge_section`, which deep-merges the
+    // pre-replacement ledger back into the freshly replaced row — rebuilding
+    // exactly the AVE-374 chimera a full replacement exists to prevent, and
+    // `applyRemoteRow`'s pending-queue guard then suppresses the correcting row
+    // so local never notices. The generation gate (AVE-527) only delays this: a
+    // rejected write is re-queued, the refetch adopts the new generation, and
+    // the retry commits the stale payload. joinCampaign and leaveCampaign
+    // already clear the queue for the same reason.
+    pendingQueue.current.clear();
+    persistQueue();
+
     // Read the current generation so the replacement can bump it.
     const { data: cur, error: readErr } = await client
       .from('campaigns')
@@ -1279,7 +1293,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     setSyncStatus('idle');
     setSyncError(null);
     return { error: null };
-  }, [client]);
+  }, [client, persistQueue]);
 
   return {
     campaignId,

@@ -81,6 +81,13 @@ export default function App() {
   const [craftSeed, setCraftSeed]   = useState(null);
   const [encounterTarget, setEncounterTarget] = useState(null);
   const [cityTarget, setCityTarget] = useState(null);
+  // The save-error banner's Export sits directly beside Dismiss, and the banner
+  // exists precisely because localStorage is full or blocked — the state in
+  // which a download is most likely to fail. downloadJson returns a boolean
+  // rather than throwing (one of its callers is the ErrorBoundary), so a caller
+  // that ignores it turns "Export a save file now so you don't lose progress"
+  // into a button that can silently do nothing (AVE-941).
+  const [exportProblem, setExportProblem] = useState(null);
   const clearCraftSeed       = useCallback(() => setCraftSeed(null), []);
   const clearEncounterTarget = useCallback(() => setEncounterTarget(null), []);
   const clearCityTarget      = useCallback(() => setCityTarget(null), []);
@@ -172,8 +179,16 @@ export default function App() {
               <div className="corruption-banner-message">
                 Export a save file now so you don't lose progress, then free up browser storage.
               </div>
+              {exportProblem && (
+                <div className="corruption-banner-message" role="status">{exportProblem}</div>
+              )}
               <div className="corruption-banner-actions">
-                <button className="corruption-banner-btn" onClick={game.exportState}>
+                <button
+                  className="corruption-banner-btn"
+                  onClick={() => setExportProblem(
+                    game.exportState() ? null : 'The save file could not be downloaded.'
+                  )}
+                >
                   Export save…
                 </button>
                 <button

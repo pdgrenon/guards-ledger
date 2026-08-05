@@ -287,6 +287,21 @@ export function healState(parsed) {
 // `guards_ledger_corrupted_backup` and the returned object includes a
 // `corruption` field so the UI can surface a banner.
 
+// The blank ledger we fall back to when a save is unrecoverable.
+//
+// It is NOT a first run: something was in storage, so this is a returning
+// player — the same reasoning healSettings uses for a save predating the
+// onboarding key. Booting them into createInitialState() as-is left
+// `hasSeenOnboarding: false`, so the first-run overlay rendered its full-screen
+// backdrop directly on top of the corruption banner: Download backup and Import
+// save — the app's only recovery path, and the only route to the raw string
+// that Dismiss then deletes — were unreachable behind a modal whose second
+// button is "Load demo data".
+function blankLedgerAfterCorruption() {
+  const s = createInitialState();
+  return { ...s, settings: { ...s.settings, hasSeenOnboarding: true } };
+}
+
 function loadState() {
   // No save at all — first run, nothing to surface.
   const rawV2 = (() => { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } })();
@@ -298,11 +313,11 @@ function loadState() {
     } catch {
       // Parse failure — unrecoverable, surface to user.
       backupCorruptedRaw(rawV2, 'parse-failure');
-      return { state: createInitialState(), corruption: { reason: 'parse-failure', raw: rawV2 } };
+      return { state: blankLedgerAfterCorruption(), corruption: { reason: 'parse-failure', raw: rawV2 } };
     }
     // Parsed but healState returned null — unrecoverable shape.
     backupCorruptedRaw(rawV2, 'invalid-shape');
-    return { state: createInitialState(), corruption: { reason: 'invalid-shape', raw: rawV2 } };
+    return { state: blankLedgerAfterCorruption(), corruption: { reason: 'invalid-shape', raw: rawV2 } };
   }
 
   // No v2 save — try v1 migration.
@@ -316,10 +331,10 @@ function loadState() {
       }
     } catch {
       backupCorruptedRaw(rawV1, 'v1-parse-failure');
-      return { state: createInitialState(), corruption: { reason: 'v1-parse-failure', raw: rawV1 } };
+      return { state: blankLedgerAfterCorruption(), corruption: { reason: 'v1-parse-failure', raw: rawV1 } };
     }
     backupCorruptedRaw(rawV1, 'v1-invalid-shape');
-    return { state: createInitialState(), corruption: { reason: 'v1-invalid-shape', raw: rawV1 } };
+    return { state: blankLedgerAfterCorruption(), corruption: { reason: 'v1-invalid-shape', raw: rawV1 } };
   }
 
   // First run, no save at all — start from a clean ledger and let the
@@ -602,6 +617,21 @@ export function useGameState() {
         // handleRemoteChange; setState was left on the old pattern (AVE-875).
         const prev = stateRef.current;
         const next = typeof updater === 'function' ? updater(prev) : updater;
+
+        // A reducer that returns `prev` unchanged means "nothing happened".
+        // Every "set"-style reducer has a no-op guard for exactly this
+        // (reduceSetCampaign, reduceSetFtIstraBuilding, reduceSetCampaignLocation,
+        // reduceUpdateDynamicLocation, reduceUpdateStoneboundLocation — AVE-536),
+        // but the guard only ever suppressed the *log entry*: setState still
+        // overwrote the undo snapshot, relabelled the Undo button, and dispatched
+        // a Supabase write for a section nothing had changed in. Tapping the
+        // already-active Campaign button — or the already-active Ft. Istra
+        // building state — therefore threw away the player's real undo (replacing
+        // it with a snapshot of the state they are already in, labelled by
+        // deriveUndoLabel's generic "Campaign update" fallback, since no log entry
+        // was added) and put a redundant write on the wire. Bail out here so the
+        // no-op guards mean what their comments say.
+        if (next === prev) return;
 
         // Keep stateRef authoritative as the latest *intended* state. It is
         // otherwise only refreshed by an effect after commit, so without this
