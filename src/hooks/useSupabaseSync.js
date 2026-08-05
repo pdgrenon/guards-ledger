@@ -509,6 +509,18 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // advanced (monotonically) whenever a processed row carries a higher value.
   const lastSeenGen = useRef(0);
 
+  // ── "There is something to retry that isn't in pendingQueue" ──────────────
+  // Both of these gate flushQueue's empty-queue branch, which otherwise clears
+  // an 'error' status back to 'idle' about a second later and parks the sync
+  // pill on green. That branch is correct for its own case (AVE-871: a failed
+  // write whose queue another path already drained) — it simply cannot see
+  // failures that never produce a queue entry.
+  //
+  // Declared here, ahead of subscribe/flushQueue/replaceRow, so no callback
+  // closes over a not-yet-initialized binding.
+  const channelDown   = useRef(false);  // Realtime channel is not subscribed (AVE-938)
+  const replaceFailed = useRef(false);  // a full-row replaceRow failed (AVE-937)
+
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
     const list = (selfWrites.current.get(section) || []).filter(e => now - e.at < SELF_WRITE_TTL_MS);
@@ -683,7 +695,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       channelRef.current = null;
     }
 
-    const channel = client
+    // `let` + assignment (not `const`) so the status callback below can compare
+    // against the channel it belongs to — see the ownership check there.
+    let channel;
+    channel = client
       .channel(`campaign:${id}`)
       .on(
         'postgres_changes',
@@ -702,8 +717,28 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         }
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED')    setSyncStatus('idle');
-        if (status === 'CHANNEL_ERROR') setSyncStatus('error');
+        // Only the channel we currently own may drive status. subscribe()
+        // removes the previous channel first, and removeChannel makes THAT
+        // channel emit CLOSED — without this check, every foreground and every
+        // reconnect would flag a sync error (AVE-938).
+        if (channelRef.current !== channel) return;
+
+        if (status === 'SUBSCRIBED') {
+          channelDown.current = false;
+          setSyncStatus('idle');
+          setSyncError(null);
+          return;
+        }
+
+        // CHANNEL_ERROR | TIMED_OUT | CLOSED — we are not receiving live
+        // updates. TIMED_OUT and CLOSED used to fall through both `if`s, which
+        // left syncStatus on 'idle' and showed the player a green "Synced"
+        // badge while inbound edits had silently stopped arriving. Outbound
+        // writes are unaffected (merge_section is plain HTTP), so this is the
+        // only signal that anything is wrong.
+        channelDown.current = true;
+        setSyncError('Live updates disconnected — reconnecting…');
+        setSyncStatus('error');
       });
 
     channelRef.current = channel;
@@ -721,13 +756,21 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const flushQueue = useCallback(async () => {
     if (!client || !campaignIdRef.current) return;
     if (pendingQueue.current.size === 0) {
-      // Nothing left to send. An error status with an empty queue (e.g. a
-      // CHANNEL_ERROR from subscribe, or a queue drained by another path) has
-      // nothing to retry, and leaving it set would park the UI on a permanent
-      // red "Sync error" — while the retry effect, whose only trigger is a
-      // syncStatus change, never re-runs to recover it (AVE-871). Functional
-      // update so a concurrent 'offline' transition isn't clobbered.
-      setSyncStatus(s => (s === 'error' ? 'idle' : s));
+      // Nothing left in the queue to send. An error status with an empty queue
+      // (e.g. a queue drained by another path) has nothing to retry, and
+      // leaving it set would park the UI on a permanent red "Sync error" —
+      // while the retry effect, whose only trigger is a syncStatus change,
+      // never re-runs to recover it (AVE-871). Functional update so a
+      // concurrent 'offline' transition isn't clobbered.
+      //
+      // But two failures never produce a queue entry and ARE retryable, so
+      // clearing the status for them would hide a real problem behind a green
+      // pill: a dead Realtime channel (AVE-938) and a failed full-row
+      // replacement (AVE-937). Both are recovered elsewhere — recoverSync
+      // resubscribes, and the player retries the replacement from a banner.
+      if (!channelDown.current && !replaceFailed.current) {
+        setSyncStatus(s => (s === 'error' ? 'idle' : s));
+      }
       return;
     }
     if (flushInFlight.current) return;
@@ -781,6 +824,31 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       flushInFlight.current = false;
     }
   }, [client, noteSelfWrite, unnoteSelfWrite, persistQueue, bumpRetryTick]);
+
+  /**
+   * One recovery step for the backoff ladder (AVE-938).
+   *
+   * The ladder used to call `flushQueue` directly, which retries queued writes
+   * and nothing else — useless for a dead socket, and resubscription otherwise
+   * only ever happens on `online`, foreground, or a campaign change. A channel
+   * that dies while the tab stays foregrounded (phone propped up on the table,
+   * a wifi blip that produces no browser `offline` event) had nothing that
+   * would notice.
+   *
+   * Resubscribing alone only delivers *future* events, so the refetch is what
+   * pulls in whatever was missed while disconnected (AVE-372). The resubscribe
+   * is conditional on `channelDown` so the pure write-retry case behaves
+   * exactly as it did before.
+   */
+  const recoverSync = useCallback(() => {
+    const id = campaignIdRef.current;
+    if (!client || !id) return;
+    if (channelDown.current) {
+      subscribe(id);
+      refetchRow();
+    }
+    flushQueue();
+  }, [client, subscribe, refetchRow, flushQueue]);
 
   // ── Online / offline detection ────────────────────────────────────────────
 
@@ -846,9 +914,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     }
     const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000);
     retryCountRef.current += 1;
-    const timer = setTimeout(() => flushQueue(), delay);
+    const timer = setTimeout(() => recoverSync(), delay);
     return () => clearTimeout(timer);
-  }, [syncStatus, retryTick, client, flushQueue]);
+  }, [syncStatus, retryTick, client, recoverSync]);
 
   // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
 
@@ -989,6 +1057,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
    */
   const joinCampaign = useCallback(async (code) => {
     if (!client) return { state: null, error: 'Supabase not configured' };
+    // Offline is not a wrong code. Checked before the request so the player is
+    // never told to re-read a code that was correct (AVE-942).
+    if (!isOnline.current) {
+      return { state: null, error: "You're offline — connect to the internet and try again." };
+    }
 
     // Codes get read aloud across a table, so the entered text routinely
     // differs from the stored id by punctuation alone (missing hyphen,
@@ -996,20 +1069,36 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // exact-match lookup — and store that normalized id, never the raw
     // input (AVE-786).
     const id = normalizeCampaignCode(code);
+    const notFound = `No campaign found with code ${id}. Check the code and try again.`;
     const { data, error } = await client
       .from('campaigns')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error || !data) {
-      return { state: null, error: 'Campaign not found. Check the code and try again.' };
+    if (error) {
+      // PostgREST returns PGRST116 ("JSON object requested, multiple (or no)
+      // rows returned") for .single() against a missing row. That, and only
+      // that, is a genuinely wrong code. Everything else — a network failure, a
+      // captive portal, RLS, a database missing a migration (AVE-870) — used to
+      // report "Campaign not found. Check the code and try again.", sending the
+      // group off to re-read a correct code and eventually to Create a new
+      // campaign, abandoning the one they were actually in (AVE-942).
+      if (error.code === 'PGRST116') return { state: null, error: notFound };
+      return {
+        state: null,
+        error: `Couldn't reach the campaign server (${error.message}). Check your connection and try again.`,
+      };
     }
+    if (!data) return { state: null, error: notFound };
 
     // Drop any queued writes from a previous campaign so they can't replay into
     // the one we're joining (AVE-522). Joining adopts the remote row wholesale.
     pendingQueue.current.clear();
     persistQueue();
+    // A replacement that failed against the campaign we're leaving must not
+    // park the one we're joining on red (AVE-937).
+    replaceFailed.current = false;
 
     // Apply each synced section from the remote row (normalizing any pre-AVE-83
     // single-`guards`-blob row to per-guard columns first). No section includes
@@ -1047,6 +1136,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     setCampaignId(null);
     pendingQueue.current.clear();
     persistQueue(); // drop the persisted queue so it can't replay into another campaign (AVE-522)
+    // Neither retryable failure outlives the campaign it belongs to, or the
+    // status we set below would be re-flagged by the next flush.
+    channelDown.current   = false;  // AVE-938
+    replaceFailed.current = false;  // AVE-937
     setSyncStatus('idle');
     setSyncError(null);
   }, [persistQueue]);
@@ -1083,6 +1176,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     if (!client || !id) return { error: null };
 
     setSyncStatus('syncing');
+    replaceFailed.current = false;
 
     // Read the current generation so the replacement can bump it.
     const { data: cur, error: readErr } = await client
@@ -1091,6 +1185,12 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       .eq('id', id)
       .single();
     if (readErr) {
+      // Nothing was written and nothing is queued (a replacement deliberately
+      // does NOT go through pendingQueue — those entries deep-merge, which is
+      // exactly the chimera a full replacement exists to avoid). Flag it so
+      // flushQueue's empty-queue branch doesn't clear the error a second later
+      // and leave the row silently diverged behind a green pill (AVE-937).
+      replaceFailed.current = true;
       setSyncError(readErr.message);
       setSyncStatus('error');
       return { error: readErr.message };
@@ -1101,6 +1201,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
     const { error } = await client.from('campaigns').update(row).eq('id', id);
     if (error) {
+      replaceFailed.current = true;   // see the readErr branch above (AVE-937)
       setSyncError(error.message);
       setSyncStatus('error');
       return { error: error.message };

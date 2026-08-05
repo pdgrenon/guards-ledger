@@ -187,6 +187,36 @@ export default function App() {
           </div>
         )}
 
+        {/* A full-row replacement (import / reset / demo load) reached local
+            state but not the shared campaign row. Local and server have
+            diverged and the next ordinary edit will deep-merge into the stale
+            row, so this must be visible and retryable rather than logged to the
+            console and forgotten (AVE-937). */}
+        {game.replaceError && (
+          <div className="corruption-banner" role="alert">
+            <div className="corruption-banner-icon" aria-hidden="true">⚠</div>
+            <div className="corruption-banner-body">
+              <div className="corruption-banner-title">Campaign not updated</div>
+              <div className="corruption-banner-message">
+                Your ledger was replaced on this device, but the change could not be sent
+                {campaignId ? ` to campaign ${campaignId}` : ''}. Your co-players still see the old data.
+              </div>
+              <div className="corruption-banner-message">{game.replaceError}</div>
+              <div className="corruption-banner-actions">
+                <button className="corruption-banner-btn" onClick={game.retryReplacement}>
+                  Retry
+                </button>
+                <button
+                  className="corruption-banner-btn corruption-banner-btn--ghost"
+                  onClick={game.dismissReplaceError}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Top bar */}
         <div className="top-bar">
           <div className="top-bar-brand">

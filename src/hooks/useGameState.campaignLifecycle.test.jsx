@@ -148,3 +148,97 @@ describe('createCampaign clears the pending debounce (AVE-581)', () => {
     }
   });
 });
+
+// ── Full-row replacement failures (AVE-937) ─────────────────────────────────
+//
+// import / reset / demo load all push the whole ledger to the campaign row.
+// Those pushes used to be fire-and-forget — the result went to console.error,
+// with no `.catch`, no state, and no retry — so a failed push left local state
+// replaced and the server holding the old ledger, diverging silently. (The
+// `error` status replaceRow sets was then cleared back to green ~1s later by
+// the backoff timer, which found an empty queue.)
+describe('replacement failures are surfaced and retryable (AVE-937)', () => {
+  function makeSaveFile(state) {
+    return new File([JSON.stringify(state)], 'save.json', { type: 'application/json' });
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('sets replaceError when a reset fails to reach the campaign row', async () => {
+    mockReplaceRow.mockImplementationOnce(() => Promise.resolve({ error: 'boom' }));
+    const { result } = renderHook(() => useGameState());
+
+    await act(async () => { result.current.resetState(); });
+
+    expect(result.current.replaceError).toBe('boom');
+  });
+
+  it('sets replaceError when a demo load fails', async () => {
+    mockReplaceRow.mockImplementationOnce(() => Promise.resolve({ error: 'boom' }));
+    const { result } = renderHook(() => useGameState());
+
+    await act(async () => { result.current.loadDemoData(); });
+
+    expect(result.current.replaceError).toBe('boom');
+  });
+
+  it('sets replaceError when an import fails', async () => {
+    const { result } = renderHook(() => useGameState());
+    const file = makeSaveFile(result.current.state);
+    mockReplaceRow.mockImplementationOnce(() => Promise.resolve({ error: 'boom' }));
+
+    await act(async () => { await result.current.importState(file); });
+
+    expect(result.current.replaceError).toBe('boom');
+  });
+
+  it('leaves replaceError null when the push succeeds', async () => {
+    const { result } = renderHook(() => useGameState());
+    await act(async () => { result.current.resetState(); });
+    expect(result.current.replaceError).toBe(null);
+  });
+
+  // A rejection (rather than a returned { error }) used to escape as an
+  // unhandled promise rejection — the `.then()` chain had no `.catch`.
+  it('surfaces a rejected push instead of letting it escape unhandled', async () => {
+    mockReplaceRow.mockImplementationOnce(() => Promise.reject(new Error('net')));
+    const { result } = renderHook(() => useGameState());
+
+    await act(async () => { result.current.resetState(); });
+
+    expect(result.current.replaceError).toBe('net');
+  });
+
+  it('retryReplacement re-sends the exact same state and clears the error on success', async () => {
+    mockReplaceRow.mockImplementationOnce(() => Promise.resolve({ error: 'boom' }));
+    const { result } = renderHook(() => useGameState());
+
+    await act(async () => { result.current.resetState(); });
+    expect(result.current.replaceError).toBe('boom');
+
+    await act(async () => { result.current.retryReplacement(); });
+
+    expect(mockReplaceRow).toHaveBeenCalledTimes(2);
+    expect(mockReplaceRow.mock.calls[1][0]).toEqual(mockReplaceRow.mock.calls[0][0]);
+    expect(result.current.replaceError).toBe(null);
+  });
+
+  it('retryReplacement is a no-op when nothing is outstanding', async () => {
+    const { result } = renderHook(() => useGameState());
+    await act(async () => { result.current.retryReplacement(); });
+    expect(mockReplaceRow).not.toHaveBeenCalled();
+  });
+
+  it('dismissReplaceError hides the banner without retrying', async () => {
+    mockReplaceRow.mockImplementationOnce(() => Promise.resolve({ error: 'boom' }));
+    const { result } = renderHook(() => useGameState());
+
+    await act(async () => { result.current.resetState(); });
+    act(() => { result.current.dismissReplaceError(); });
+
+    expect(result.current.replaceError).toBe(null);
+    expect(mockReplaceRow).toHaveBeenCalledTimes(1);
+  });
+});

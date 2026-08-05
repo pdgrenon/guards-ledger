@@ -38,6 +38,7 @@ import {
   reduceToggleBountyComplete,
   reduceTogglePuzzleQuestComplete,
   reduceSetCampaign,
+  reduceSetFtIstraBuilding,
   normalizeCompletedEncounters,
   withUndoTombstones,
   isPlainObject,
@@ -48,6 +49,7 @@ import {
   healStashSection,
   healCampaignSection,
 } from './gameReducers';
+import { downloadJson } from '../utils/downloadUtils';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
 import { BOUNTIES, bountiesForCity } from '../data/bounties';
 import { useSupabaseSync, guardColumn, applyRemoteSection } from './useSupabaseSync';
@@ -399,6 +401,14 @@ export function useGameState() {
     // banner so the player knows their progress isn't being saved instead of
     // finding out when they reload. Auto-clears on the next successful save.
     const [saveError, setSaveError] = useState(null);
+    // Set when a full-row replacement (import / reset / demo load) failed to
+    // reach the shared campaign row. Local state was replaced but the server
+    // still holds the old ledger, so the two diverge until this is retried —
+    // and the next ordinary edit deep-merges into the stale row, producing the
+    // exact chimera AVE-374 exists to prevent (AVE-937).
+    const [replaceError, setReplaceError] = useState(null);
+    // The state that failed to push, held so Retry can re-send the same value.
+    const pendingReplaceState = useRef(null);
     const saveTimer = useRef(null);
     const upsertTimer = useRef(null);
     const stateRef = useRef(state);
@@ -483,6 +493,39 @@ export function useGameState() {
     const syncRef = useRef(sync);
     useEffect(() => { syncRef.current = sync; }, [sync]);
 
+    // ── Full-row replacement push (AVE-937) ─────────────────────────────────
+    // Shared by import / reset / demo load. These three used to each write
+    // `.then(r => { if (r?.error) console.error(...) })` — no state, no banner,
+    // no retry, and no `.catch`, so a rejection surfaced as an unhandled
+    // promise rejection. `replaceRow` does set syncStatus 'error', but a
+    // replacement is never queued, so the AVE-376 backoff timer found an empty
+    // queue and AVE-871's branch cleared the status back to green about a
+    // second later. The failure was invisible within a second of happening.
+    const dismissReplaceError = useCallback(() => setReplaceError(null), []);
+
+    const pushReplacement = useCallback((next, label) => {
+      pendingReplaceState.current = next;
+      Promise.resolve(syncRef.current.replaceRow?.(next))
+        .then(r => {
+          if (r?.error) {
+            console.error(`${label} failed to sync to campaign:`, r.error);
+            setReplaceError(r.error);
+          } else {
+            pendingReplaceState.current = null;
+            setReplaceError(null);
+          }
+        })
+        .catch(e => {
+          console.error(`${label} failed to sync to campaign:`, e);
+          setReplaceError(String(e?.message ?? e));
+        });
+    }, []);
+
+    const retryReplacement = useCallback(() => {
+      const next = pendingReplaceState.current;
+      if (next) pushReplacement(next, 'Retry');
+    }, [pushReplacement]);
+
     // ── Core setState — persists locally and upserts the changed section(s) ──
     // sectionName: which Supabase column this change belongs to, or null for local-only.
     // Multiple distinct sections may be touched within one debounce window (e.g.
@@ -513,27 +556,38 @@ export function useGameState() {
         }
       }, []);
 
-      // Flush pending section upserts (and persist) when the tab is closed or
-      // backgrounded, so an edit made right before leaving isn't lost (AVE-377).
-      // These effects depend on flushPendingSync, so they must be declared
-      // after it — referencing it earlier is a temporal dead-zone crash.
+      // Last-chance persistence: flush pending section upserts AND write local
+      // state, when the tab is closed, backgrounded, or hidden (AVE-377,
+      // AVE-936). This effect depends on flushPendingSync, so it must be
+      // declared after it — referencing it earlier is a temporal dead-zone crash.
+      //
+      // `beforeunload` alone is not enough. Mobile browsers routinely discard a
+      // backgrounded tab — and kill a swiped-away standalone PWA — without ever
+      // firing it, so the 400ms save debounce loses the last edit. `pagehide`
+      // and `visibilitychange: hidden` do fire in those cases.
+      //
+      // The saveState call is the part the hidden path used to be missing. In
+      // solo mode it is the ONLY durable copy: flushPendingSync's
+      // enqueuePendingSections returns immediately when no campaign is active,
+      // so hiding the tab did nothing at all. Writing the same value more than
+      // once is harmless; missing the write is not. Nothing here touches React
+      // state — the component may be tearing down.
       useEffect(() => {
         const flush = () => {
           flushPendingSync();
           saveState(stateRef.current);
         };
-        window.addEventListener('beforeunload', flush);
-        return () => window.removeEventListener('beforeunload', flush);
-      }, [flushPendingSync]);
-
-      useEffect(() => {
-        const handleVisibility = () => {
-          if (document.visibilityState === 'hidden') {
-            flushPendingSync();
-          }
+        const onVisibility = () => {
+          if (document.visibilityState === 'hidden') flush();
         };
-        document.addEventListener('visibilitychange', handleVisibility);
-        return () => document.removeEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('beforeunload', flush);
+        window.addEventListener('pagehide', flush);
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+          window.removeEventListener('beforeunload', flush);
+          window.removeEventListener('pagehide', flush);
+          document.removeEventListener('visibilitychange', onVisibility);
+        };
       }, [flushPendingSync]);
 
       const setState = useCallback((updater, sectionName = null) => {
@@ -707,29 +761,17 @@ export function useGameState() {
   const setCampaign = useCallback((campaignId) =>
     setState(s => reduceSetCampaign(s, campaignId), 'campaign'), [setState]);
 
-  const setFtIstraBuilding = useCallback((buildingName, state) => {
-    setState(s => ({
-      ...s,
-      campaign: {
-        ...s.campaign,
-        ftIstraBuildings: {
-          ...s.campaign.ftIstraBuildings,
-          [buildingName]: state,
-        },
-      },
-    }), 'campaign');
-  }, [setState]);
+  const setFtIstraBuilding = useCallback((buildingName, buildingState) =>
+    setState(s => reduceSetFtIstraBuilding(s, buildingName, buildingState), 'campaign'), [setState]);
 
   // ── Save data ────────────────────────────────────────────────────────────
-  const exportState = useCallback(() => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `guards-ledger-save-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [state]);
+  // Returns true if the download was initiated — callers beside a destructive
+  // control (the save-error banner's "Export save…") can surface a failure
+  // instead of silently producing nothing (AVE-941).
+  const exportState = useCallback(() => downloadJson(
+    `guards-ledger-save-${new Date().toISOString().slice(0, 10)}.json`,
+    JSON.stringify(state, null, 2),
+  ), [state]);
 
   const importState = useCallback((file) => {
     return new Promise((resolve) => {
@@ -766,9 +808,7 @@ export function useGameState() {
           setState(newState, null);
 
           // Propagate to all players when a campaign is active (AVE-374).
-          syncRef.current.replaceRow?.(newState).then(r => {
-            if (r?.error) console.error('Import failed to sync to campaign:', r.error);
-          });
+          pushReplacement(newState, 'Import');
 
           resolve({ success: true });
         } catch {
@@ -778,7 +818,7 @@ export function useGameState() {
       reader.onerror = () => resolve({ success: false, error: 'Failed to read file.' });
       reader.readAsText(file);
     });
-  }, [setState]);
+  }, [setState, pushReplacement]);
 
     const resetState = useCallback(() => {
     const newState = createInitialState();
@@ -797,10 +837,8 @@ export function useGameState() {
     setState(newState, null);
 
     // Propagate to all players when a campaign is active (AVE-374).
-    syncRef.current.replaceRow?.(newState).then(r => {
-      if (r?.error) console.error('Reset failed to sync to campaign:', r.error);
-    });
-  }, [setState]);
+    pushReplacement(newState, 'Reset');
+  }, [setState, pushReplacement]);
 
     // ── Leave campaign — also compact tombstones ───────────────────────────
     // Clearing campaignId means no merge to defeat, so tombstones become dead
@@ -876,10 +914,8 @@ export function useGameState() {
       // must be pushed to all players as a full-row replacement, exactly like
       // resetState (AVE-374) — otherwise the local ledger silently diverges from
       // the shared row (AVE-489 follow-up).
-      syncRef.current.replaceRow?.(next).then(r => {
-        if (r?.error) console.error('Demo load failed to sync to campaign:', r.error);
-      });
-    }, [setState]);
+      pushReplacement(next, 'Demo load');
+    }, [setState, pushReplacement]);
 
   return {
     state,
@@ -887,6 +923,9 @@ export function useGameState() {
     dismissCorruption,      // hide the banner and clear the backed-up raw string
     saveError,              // string | null — set when a localStorage write is rejected
     dismissSaveError,       // hide the save-error banner (reappears if the next save also fails)
+    replaceError,           // string | null — import/reset/demo failed to reach the campaign row
+    retryReplacement,       // re-send the failed full-row replacement
+    dismissReplaceError,    // hide the banner without retrying
     sync: { ...sync, leaveCampaign, joinCampaign, createCampaign }, // override campaign lifecycle to clear pending sync state
     setActiveGuard,
     setPartySlot,

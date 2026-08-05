@@ -12,6 +12,7 @@
  *   - Dismiss: hide the banner and clear the backed-up raw string.
  */
 import { useRef, useState } from 'react';
+import { downloadJson } from '../utils/downloadUtils';
 
 const REASON_LABEL = {
   'parse-failure':      'Your save file could not be parsed (the data is corrupted or truncated).',
@@ -26,21 +27,22 @@ function reasonText(reason) {
 
 export function CorruptionBanner({ corruption, onDismiss, onImport }) {
   const fileRef = useRef(null);
-  const [importError, setImportError] = useState(null);
+  const [message, setMessage] = useState(null);
 
+  // A failed download must say so. This is the only route to the raw corrupted
+  // save, and the button beside it (Dismiss) clears the backup from
+  // localStorage — so a silent no-op here loses the data for good (AVE-941).
   function handleDownload() {
     const payload = JSON.stringify({
       reason:      corruption.reason,
       raw:         corruption.raw,
       backedUpAt:  new Date().toISOString(),
     }, null, 2);
-    const blob = new Blob([payload], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `guards-ledger-corrupted-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const ok = downloadJson(
+      `guards-ledger-corrupted-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      payload,
+    );
+    setMessage(ok ? null : 'Could not download the backup file.');
   }
 
   function handleImportClick() {
@@ -65,10 +67,10 @@ export function CorruptionBanner({ corruption, onDismiss, onImport }) {
     if (result?.success) {
       // The ledger is restored — take the alarm down and drop the backed-up
       // raw string, exactly as the Dismiss button would.
-      setImportError(null);
+      setMessage(null);
       onDismiss();
     } else {
-      setImportError(result?.error ?? 'Import failed.');
+      setMessage(result?.error ?? 'Import failed.');
     }
   }
 
@@ -82,13 +84,13 @@ export function CorruptionBanner({ corruption, onDismiss, onImport }) {
           The raw save has been backed up to <code>guards_ledger_corrupted_backup</code> in your browser.
           You can download it, import a previously exported save, or start fresh.
         </div>
-        {importError && (
+        {message && (
           <div
             className="corruption-banner-message"
             style={{ color: 'var(--c-red)' }}
             role="status"
           >
-            {importError}
+            {message}
           </div>
         )}
         <div className="corruption-banner-actions">

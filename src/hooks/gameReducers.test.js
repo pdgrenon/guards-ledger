@@ -8,6 +8,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { BOUNTIES } from '../data/bounties';
+import { PUZZLE_QUESTS } from '../data/puzzleQuests';
+import { TRAINING_YARD_FIGHTS } from '../data/encounters';
+import { FT_ISTRA_BUILDINGS } from '../data/buildings';
 import {
   createInitialState,
   createInitialResources,
@@ -23,6 +27,7 @@ import {
   compactTombstones,
   deriveUndoLabel,
   reduceSetPartySlot,
+  reduceSetFtIstraBuilding,
   reduceSetSil,
   reduceSetLux,
   reduceAdjustGuardHp,
@@ -1077,9 +1082,24 @@ describe('reduceSetCampaignLocation', () => {
     expect(next.campaign.locations.mainQuest).toBe('');
   });
 
-  it('does not log', () => {
-    const next = reduceSetCampaignLocation(s, 'party', 'Forest');
-    expect(next.log.length).toBe(s.log.length);
+  it('logs the location change with a humanized key (AVE-940)', () => {
+    const next = reduceSetCampaignLocation(s, 'mainQuest', 'Vouno');
+    expect(next.log.length).toBe(s.log.length + 1);
+    expect(next.log[0].message).toBe('Campaign Main Quest → Vouno');
+  });
+
+  it('logs a clear when the value is emptied', () => {
+    const s1   = reduceSetCampaignLocation(s, 'party', 'Forest');
+    const next = reduceSetCampaignLocation(s1, 'party', '');
+    expect(next.log[0].message).toBe('Campaign Party cleared');
+  });
+
+  // DraftInput re-commits on blur; a write that changes nothing must not spam
+  // the log, wipe the undo snapshot, or fire a sync write (AVE-536).
+  it('returns the same state reference and does not log when the value is unchanged', () => {
+    const s1   = reduceSetCampaignLocation(s, 'party', 'Forest');
+    const next = reduceSetCampaignLocation(s1, 'party', 'Forest');
+    expect(next).toBe(s1);
   });
 });
 
@@ -1101,9 +1121,10 @@ describe('reduceAddDynamicLocation', () => {
     );
   });
 
-  it('does not log', () => {
+  it('logs the addition (AVE-940)', () => {
     const next = reduceAddDynamicLocation(s, 'sideQuests');
-    expect(next.log.length).toBe(s.log.length);
+    expect(next.log.length).toBe(s.log.length + 1);
+    expect(next.log[0].message).toBe('Campaign side quest added');
   });
 });
 
@@ -1132,9 +1153,16 @@ describe('reduceUpdateDynamicLocation', () => {
     expect(next.campaign.locations.sideQuests[0].label).toBe('');
   });
 
-  it('does not log', () => {
+  it('logs the new label (AVE-940)', () => {
     const next = reduceUpdateDynamicLocation(s1, 'sideQuests', id, 'Thief Camp');
-    expect(next.log.length).toBe(s.log.length);
+    expect(next.log.length).toBe(s1.log.length + 1);
+    expect(next.log[0].message).toBe('Campaign side quest → Thief Camp');
+  });
+
+  it('returns the same state reference and does not log when the label is unchanged', () => {
+    const s2   = reduceUpdateDynamicLocation(s1, 'sideQuests', id, 'Thief Camp');
+    const next = reduceUpdateDynamicLocation(s2, 'sideQuests', id, 'Thief Camp');
+    expect(next).toBe(s2);
   });
 });
 
@@ -1164,9 +1192,15 @@ describe('reduceRemoveDynamicLocation', () => {
     expect(next.campaign.locations.sideQuests).toHaveLength(1);
   });
 
-  it('does not log', () => {
+  it('logs the removal with the entry label (AVE-940)', () => {
+    const named = reduceUpdateDynamicLocation(s1, 'sideQuests', id, 'Thief Camp');
+    const next  = reduceRemoveDynamicLocation(named, 'sideQuests', id);
+    expect(next.log[0].message).toBe('Campaign side quest removed — Thief Camp');
+  });
+
+  it('logs "empty" when removing an unlabelled entry', () => {
     const next = reduceRemoveDynamicLocation(s1, 'sideQuests', id);
-    expect(next.log.length).toBe(s.log.length);
+    expect(next.log[0].message).toBe('Campaign side quest removed — empty');
   });
 });
 
@@ -1459,8 +1493,11 @@ describe('deriveUndoLabel', () => {
     expect(deriveUndoLabel(prev, next, 'guard_0')).toBe('Grigory HP +1 → 5');
   });
 
-  it('falls back to guard name section label when no new log entry', () => {
-    const next = reduceSetCampaignLocation(s, 'fort', 'Fort Istra');
+  it('falls back to the section label when no new log entry', () => {
+    // Built by hand rather than via a reducer: since AVE-940 every campaign
+    // reducer logs, so the fallback is only reachable from a state change that
+    // added no entry.
+    const next = { ...s, campaign: { ...s.campaign, locations: { ...s.campaign.locations, fort: 'Fort Istra' } } };
     expect(deriveUndoLabel(s, next, 'campaign')).toBe('Campaign update');
   });
 
@@ -2059,5 +2096,137 @@ describe('createInitialCampaign location keys (AVE-795)', () => {
     const locs = createInitialCampaign().campaign.locations;
     expect(locs).not.toHaveProperty('bounties');
     expect(Object.keys(locs)).toEqual(['party', 'caravan', 'mainQuest', 'boat', 'sideQuests']);
+  });
+});
+
+// ── Session log coverage for campaign actions (AVE-940) ─────────────────────
+//
+// These twelve actions used to produce no log entry at all, so the session log
+// recorded HP and stash changes but not a single campaign milestone — and
+// deriveUndoLabel fell back to "Campaign update" for eleven distinct actions.
+// Ids are taken from the real data modules so the name-resolution branch is
+// genuinely exercised; a made-up id would silently take the fallback path.
+describe('campaign actions write to the session log (AVE-940)', () => {
+  const s = createInitialState();
+
+  it('reduceToggleBountyComplete names the city and the bounty', () => {
+    const b    = BOUNTIES[0];
+    const next = reduceToggleBountyComplete(s, b.id);
+    expect(next.log.length).toBe(s.log.length + 1);
+    expect(next.log[0].message).toContain(b.city);
+    expect(next.log[0].message).toContain(b.name);
+    expect(next.log[0].message).toContain('completed');
+  });
+
+  it('reduceToggleBountyComplete logs an un-complete on the second toggle', () => {
+    const b     = BOUNTIES[0];
+    const once  = reduceToggleBountyComplete(s, b.id);
+    const twice = reduceToggleBountyComplete(once, b.id);
+    expect(twice.log[0].message).toContain('un-completed');
+  });
+
+  it('reduceTogglePuzzleQuestComplete names the city', () => {
+    const q    = PUZZLE_QUESTS[0];
+    const next = reduceTogglePuzzleQuestComplete(s, q.id);
+    expect(next.log[0].message).toContain(q.city);
+    expect(next.log[0].message).toContain('completed');
+  });
+
+  it('reduceToggleEncounterComplete names the encounter', () => {
+    const e    = TRAINING_YARD_FIGHTS[0];
+    const next = reduceToggleEncounterComplete(s, e.id);
+    expect(next.log[0].message).toContain(e.name);
+  });
+
+  it('falls back to the raw id when a completion id resolves to nothing', () => {
+    const next = reduceToggleEncounterComplete(s, 'not-a-real-encounter');
+    expect(next.log[0].message).toContain('not-a-real-encounter');
+    expect(next.log[0].message).not.toContain('undefined');
+  });
+
+  // The payload shape is what syncs — adding a log entry must not disturb it.
+  it('leaves the completion array shape untouched', () => {
+    const b    = BOUNTIES[0];
+    const next = reduceToggleBountyComplete(s, b.id);
+    expect(next.campaign.completedBounties).toEqual([{ id: b.id, deleted: false }]);
+  });
+
+  it('reduceAddPlan / reduceTogglePlan / reduceDeletePlan each log once with the plan text', () => {
+    const added = reduceAddPlan(s, 'Buy a boat');
+    expect(added.log.length).toBe(s.log.length + 1);
+    expect(added.log[0].message).toContain('Buy a boat');
+
+    const id     = added.campaign.plans[0].id;
+    const done   = reduceTogglePlan(added, id);
+    expect(done.log[0].message).toMatch(/plan done/);
+    expect(done.log[0].message).toContain('Buy a boat');
+
+    const undone = reduceTogglePlan(done, id);
+    expect(undone.log[0].message).toMatch(/plan reopened/);
+
+    const deleted = reduceDeletePlan(added, id);
+    expect(deleted.log[0].message).toMatch(/plan deleted/);
+    expect(deleted.log[0].message).toContain('Buy a boat');
+  });
+
+  it('reduceAddPlan still ignores whitespace-only text without logging', () => {
+    expect(reduceAddPlan(s, '   ')).toBe(s);
+  });
+
+  it('reduceSetCampaign logs the chapter change and no-ops when unchanged', () => {
+    const next = reduceSetCampaign(s, 3);
+    expect(next.log[0].message).toBe('Campaign → Campaign 3');
+    expect(reduceSetCampaign(next, 3)).toBe(next);
+  });
+
+  it('reduceSetPartySlot logs with a "Party" prefix so it classifies as party', () => {
+    const next = reduceSetPartySlot(s, 0, 'Vera');
+    expect(next.log[0].message).toBe('Party guard 1 → Vera');
+    expect(next.log[0].message.split(' ')[0]).toBe('Party');
+  });
+
+  it('every new campaign message starts with "Campaign" so it classifies as system', () => {
+    const messages = [
+      reduceToggleBountyComplete(s, BOUNTIES[0].id),
+      reduceTogglePuzzleQuestComplete(s, PUZZLE_QUESTS[0].id),
+      reduceToggleEncounterComplete(s, TRAINING_YARD_FIGHTS[0].id),
+      reduceAddPlan(s, 'x'),
+      reduceAddDynamicLocation(s, 'sideQuests'),
+      reduceSetCampaignLocation(s, 'boat', 'Ryba'),
+      reduceSetCampaign(s, 2),
+      reduceSetFtIstraBuilding(s, FT_ISTRA_BUILDINGS[0].name, 'built'),
+    ].map(next => next.log[0].message);
+
+    for (const m of messages) expect(m.split(' ')[0]).toBe('Campaign');
+  });
+});
+
+describe('reduceSetFtIstraBuilding (AVE-940)', () => {
+  const s    = createInitialState();
+  const name = FT_ISTRA_BUILDINGS[0].name;
+
+  it('sets the building state and logs the human-readable label', () => {
+    const next = reduceSetFtIstraBuilding(s, name, 'built');
+    expect(next.campaign.ftIstraBuildings[name]).toBe('built');
+    expect(next.log[0].message).toBe(`Campaign ${name} → Built`);
+  });
+
+  it('produces the same map the inline updater it replaced produced', () => {
+    const next = reduceSetFtIstraBuilding(s, name, 'upgraded');
+    expect(next.campaign.ftIstraBuildings).toEqual({
+      ...s.campaign.ftIstraBuildings,
+      [name]: 'upgraded',
+    });
+  });
+
+  it('no-ops when the building is already in that state', () => {
+    const built = reduceSetFtIstraBuilding(s, name, 'built');
+    expect(reduceSetFtIstraBuilding(built, name, 'built')).toBe(built);
+  });
+
+  // An absent key reads as 'not_owned' everywhere (AVE-925), so setting it back
+  // to 'not_owned' from absent is a no-op, not a write.
+  it('treats an absent key as not_owned', () => {
+    expect(reduceSetFtIstraBuilding(s, name, 'not_owned')).toBe(s);
   });
 });
