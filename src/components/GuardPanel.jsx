@@ -39,7 +39,15 @@ function initials(name) { return name.slice(0, 2).toUpperCase(); }
 
 function GuardAvatar({ name, colorKey }) {
   const src = GUARD_IMAGES[name];
-  const [failed, setFailed] = useState(false);
+  // Track WHICH portrait failed, not merely that one did. GuardPanel is not
+  // remounted when the player switches between the two active guards (same
+  // position in the tree, no key), so a bare boolean stuck at `true` and every
+  // guard viewed afterwards fell back to initials — including the seven whose
+  // portraits load fine. One slow or blocked request (offline before the
+  // service worker precached `public/guards/`) took out the portraits for the
+  // whole session.
+  const [failedSrc, setFailedSrc] = useState(null);
+  const failed = failedSrc !== null && failedSrc === src;
 
   // Render initials instead of fighting React's DOM ownership when the
   // portrait is missing — a state toggle keeps the node fully React-managed.
@@ -53,7 +61,7 @@ function GuardAvatar({ name, colorKey }) {
         src={src}
         alt={name}
         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 'inherit' }}
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(src)}
       />
     </div>
   );

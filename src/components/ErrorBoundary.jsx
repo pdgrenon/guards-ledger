@@ -163,12 +163,32 @@ function GuardLevelFallback({ guardName }) {
 export class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, resetKey: props.resetKey };
     this.reset = this.reset.bind(this);
   }
 
   static getDerivedStateFromError(error) {
     return { error };
+  }
+
+  /**
+   * Clear a caught error when `resetKey` changes.
+   *
+   * A boundary holds its error until it unmounts, but the guard-level boundary
+   * sits in a fixed position in App's tree: switching guards re-renders it with
+   * new props rather than replacing it. So one guard's corrupt record left the
+   * fallback up for every guard after it — re-labelled with the NEW guard's
+   * name, blaming a record that is fine — and the fallback's own instruction
+   * ("switch to a different guard to keep playing") could not work. The Guards
+   * tab stayed dead until a full reload.
+   *
+   * Keyed rather than unconditional: re-rendering for any other reason must not
+   * clear an error, or the boundary would loop between the fallback and a child
+   * that throws again. App passes the guard's name.
+   */
+  static getDerivedStateFromProps(props, state) {
+    if (props.resetKey === state.resetKey) return null;
+    return { resetKey: props.resetKey, error: null };
   }
 
   componentDidCatch(error, info) {

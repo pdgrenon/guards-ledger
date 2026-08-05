@@ -726,10 +726,13 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       channelRef.current = null;
     }
 
-    // `let` + assignment (not `const`) so the status callback below can compare
-    // against the channel it belongs to — see the ownership check there.
-    let channel;
-    channel = client
+    // Build and register the channel BEFORE subscribing. The status callback's
+    // ownership check compares against `channelRef.current`, so publishing the
+    // ref afterwards left a window in which a status emitted synchronously from
+    // `.subscribe()` (an immediate CHANNEL_ERROR) saw the *previous* channel in
+    // the ref, failed the check, and returned — swallowing the failure, leaving
+    // `channelDown` unset and the badge on green while nothing was arriving.
+    const channel = client
       .channel(`campaign:${id}`)
       .on(
         'postgres_changes',
@@ -746,8 +749,13 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
           // (AVE-371).
           applyRemoteRow(payload.new);
         }
-      )
-      .subscribe((status) => {
+      );
+
+    // Publish before subscribing, so the ownership check below can never reject
+    // a status for the channel that is actually current.
+    channelRef.current = channel;
+
+    channel.subscribe((status) => {
         // Only the channel we currently own may drive status. subscribe()
         // removes the previous channel first, and removeChannel makes THAT
         // channel emit CLOSED — without this check, every foreground and every
@@ -770,9 +778,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         channelDown.current = true;
         setSyncError('Live updates disconnected — reconnecting…');
         setSyncStatus('error');
-      });
-
-    channelRef.current = channel;
+    });
   }, [client, applyRemoteRow]);
 
   // ── Upsert helpers ────────────────────────────────────────────────────────
@@ -862,8 +868,20 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
         }
       }
 
-      // All succeeded — remove flushed entries from the queue.
-      for (const [section] of entries) pendingQueue.current.delete(section);
+      // All succeeded — remove flushed entries from the queue, but only where
+      // the queued payload is still the exact one we sent. `entries` is a
+      // snapshot taken before the first await; a section can pick up a NEWER
+      // payload while the batch is in flight (going offline mid-flush routes
+      // upsertSection straight to the queue, and a generation rejection
+      // re-queues). Deleting by key alone threw that newer edit away without
+      // ever sending it — and because applyRemoteRow skips sections still in
+      // the queue, dropping the entry also removed the guard that was keeping
+      // the next refetch from reverting the edit. extractSection builds a fresh
+      // object per call, so identity is an exact "unchanged since we sent it"
+      // test; a false negative merely costs one redundant write next flush.
+      for (const [section, payload] of entries) {
+        if (pendingQueue.current.get(section) === payload) pendingQueue.current.delete(section);
+      }
       persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       setSyncStatus('idle');
       setSyncError(null);

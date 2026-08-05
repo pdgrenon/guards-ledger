@@ -321,7 +321,13 @@ export default function App() {
                     className="guard-card-wrapper"
                     style={{ '--guard-color': activeColor.border }}
                   >
-                    <ErrorBoundary level="guard" guardName={activeGuard.name}>
+                    {/* resetKey clears a caught error when the player switches
+                        guards. This boundary sits in a fixed position, so
+                        without it one guard's corrupt record left the fallback
+                        up for every guard after it — and the fallback's own
+                        advice ("switch to a different guard to keep playing")
+                        could not work. */}
+                    <ErrorBoundary level="guard" guardName={activeGuard.name} resetKey={activeGuard.name}>
                       <GuardPanel
                         guard={activeGuard}
                         guardIdx={safeActiveIdx}
