@@ -20,6 +20,7 @@ import { renderHook, act } from '@testing-library/react';
 import {
   useSupabaseSync,
   PENDING_QUEUE_KEY,
+  isGenerationRejected,
   loadPendingQueue,
   persistPendingQueue,
 } from './useSupabaseSync';
@@ -39,7 +40,9 @@ import { createInitialState } from '../data/constants';
  *   - rpc(name, params)                             → Promise<{ data, error }>
  *
  * Each terminal call resolves with the override passed to makeMockClient, or
- * { data: null, error: null } by default.
+ * { data: null, error: null } by default — except `rpc`, which defaults to
+ * { data: {}, error: null }, because a null `data` from merge_section is the
+ * generation-gate rejection signal rather than a success (AVE-826).
  */
 function makeMockClient({ upsertResult, insertResult, selectResult, rpcResult, rpcResults } = {}) {
   const overrides = { upsertResult, insertResult, selectResult };
@@ -54,7 +57,8 @@ function makeMockClient({ upsertResult, insertResult, selectResult, rpcResult, r
   };
 
   // Per-RPC overrides keyed by RPC name. Falls back to `rpcResult` if the
-  // name isn't in the map, then to { data: null, error: null }.
+  // name isn't in the map, then to { data: {}, error: null } — a committed
+  // merge_section, not the null-data rejection shape (AVE-826).
   const rpcOverrideMap = rpcResults ?? {};
 
   function makeBuilder(table) {
@@ -121,7 +125,11 @@ function makeMockClient({ upsertResult, insertResult, selectResult, rpcResult, r
     removeChannel(ch) { calls.removed.push(ch); },
     rpc(name, params) {
       calls.rpc.push({ name, params });
-      const override = rpcOverrideMap[name] ?? rpcResult ?? { data: null, error: null };
+      // Default to a NON-null `data`: a committed merge_section returns the
+      // merged section, and `{ data: null }` is specifically the generation-gate
+      // rejection shape (AVE-826). Defaulting to null here made every sync test
+      // silently exercise the rejection path.
+      const override = rpcOverrideMap[name] ?? rpcResult ?? { data: {}, error: null };
       return Promise.resolve(override);
     },
     calls,
@@ -549,7 +557,7 @@ describe('useSupabaseSync — offline queue', () => {
     client.rpc = (name, params) => {
       client.calls.rpc.push({ name, params });
       const result = rpcResultOverride;
-      rpcResultOverride = { data: null, error: null };
+      rpcResultOverride = { data: {}, error: null }; // committed — see makeMockClient's rpc note
       return Promise.resolve(result);
     };
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
@@ -580,7 +588,7 @@ describe('useSupabaseSync — offline queue', () => {
     client.rpc = (name, params) => {
       client.calls.rpc.push({ name, params });
       const result = rpcResultOverride;
-      rpcResultOverride = { data: null, error: null };
+      rpcResultOverride = { data: {}, error: null }; // committed — see makeMockClient's rpc note
       return Promise.resolve(result);
     };
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
@@ -1032,6 +1040,151 @@ describe('useSupabaseSync — generation gate (AVE-527)', () => {
   });
 });
 
+// ─── A gated-out write must not read as success (AVE-826) ────────────────────
+
+describe('useSupabaseSync — generation-gate rejection (AVE-826)', () => {
+  /** A merge_section that is always gated out: the RPC returns no row. */
+  function rejectingClient(over = {}) {
+    const client = makeMockClient(over);
+    const inner = client.rpc;
+    client.rpc = (name, params) => {
+      if (name !== 'merge_section') return inner(name, params);
+      client.calls.rpc.push({ name, params });
+      return Promise.resolve({ data: null, error: null });
+    };
+    return client;
+  }
+
+  it('classifies only a null-data, no-error response as a rejection', () => {
+    expect(isGenerationRejected(null, null)).toBe(true);
+    expect(isGenerationRejected({ campaign: {} }, null)).toBe(false);
+    expect(isGenerationRejected(null, { message: 'boom' })).toBe(false);
+  });
+
+  it('keeps a rejected write in the persisted queue instead of dropping it', async () => {
+    const client = rejectingClient();
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('campaign', createInitialState());
+    });
+
+    // Persisted as Array.from(map.entries()) — [[section, payload], …].
+    const persisted = JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY));
+    expect(persisted.map(([section]) => section)).toContain('campaign');
+  });
+
+  it('surfaces a rejected write as an error, not a green idle', async () => {
+    const client = rejectingClient();
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('campaign', createInitialState());
+    });
+
+    expect(result.current.syncStatus).toBe('error');
+    expect(result.current.syncError).toMatch(/reset or replaced/);
+  });
+
+  it('re-seeds the generation baseline by refetching the row', async () => {
+    const client = rejectingClient();
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+    const before = client.calls.select.length;
+
+    await act(async () => {
+      await result.current.upsertSection('campaign', createInitialState());
+    });
+
+    // A rejection with no refetch would retry the same stale generation forever.
+    expect(client.calls.select.length).toBeGreaterThan(before);
+  });
+
+  it('protects the queued local edit from the refetch it triggers', async () => {
+    // The rejection re-queues the section, and applyRemoteRow's pendingQueue
+    // guard is what makes the refetch safe: the server row it pulls back is
+    // older than the edit still waiting to be sent, and must not revert it.
+    //
+    // Note on scope: the rejection path also calls unnoteSelfWrite, for the same
+    // reason the error branch does — a write that never committed emits no echo,
+    // so its note would sit in the buffer for the full TTL and eat a later
+    // genuine remote change. That drop is not independently observable here,
+    // because the pendingQueue guard above runs *before* self-echo consumption,
+    // so a queued section is skipped either way. It matters once the entry
+    // drains, which is why it is done rather than left to the queue guard.
+    const state = createInitialState();
+    state.campaign = { ...state.campaign, completedBounties: [{ id: 'local-edit', deleted: false }] };
+    const client = rejectingClient({
+      selectResult: {
+        data: {
+          id: 'WOLF42',
+          campaign: createInitialState().campaign,
+          campaign_updated_at: '2030-01-01T00:00:00+00:00',
+          generation: 9,
+        },
+        error: null,
+      },
+    });
+    let result, onRemoteChange;
+    await act(async () => {
+      ({ result, onRemoteChange } = setupHook({ client, initialCampaignId: 'WOLF42' }));
+    });
+
+    await act(async () => { await result.current.upsertSection('campaign', state); });
+    onRemoteChange.mockClear();
+
+    // Let the rejection's refetch resolve. Its row is the pre-edit server value.
+    await act(async () => { await Promise.resolve(); });
+
+    const reverted = onRemoteChange.mock.calls.some(c => c[0] && 'campaign' in c[0]);
+    expect(reverted).toBe(false);
+  });
+
+  it('retries with the generation the refetch produced, not the stale one', async () => {
+    const client = makeMockClient({
+      selectResult: { data: { id: 'WOLF42', generation: 7 }, error: null },
+    });
+    // First merge_section is gated out; later ones commit.
+    let reject = true;
+    const inner = client.rpc;
+    client.rpc = (name, params) => {
+      if (name !== 'merge_section') return inner(name, params);
+      client.calls.rpc.push({ name, params });
+      if (reject) {
+        reject = false;
+        return Promise.resolve({ data: null, error: null });
+      }
+      return Promise.resolve({ data: {}, error: null });
+    };
+
+    vi.useFakeTimers();
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+    await act(async () => {
+      await result.current.upsertSection('campaign', createInitialState());
+    });
+    // The rejection set status 'error', which arms the AVE-376 backoff ladder.
+    // Its first tick re-runs flushQueue — by then the refetch has re-seeded
+    // lastSeenGen to 7, so the retry carries the right generation.
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    vi.useRealTimers();
+
+    const writes = client.calls.rpc.filter(c => c.name === 'merge_section');
+    expect(writes.length).toBeGreaterThan(1);
+    expect(writes.at(-1).params.expected_generation).toBe(7);
+  });
+
+  it('leaves the success path exactly as it was', async () => {
+    const client = makeMockClient({ rpcResult: { data: { campaign: {} }, error: null } });
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => {
+      await result.current.upsertSection('campaign', createInitialState());
+    });
+
+    expect(result.current.syncStatus).toBe('idle');
+    expect(localStorage.getItem(PENDING_QUEUE_KEY)).toBeNull();
+  });
+});
+
 // ─── Persisted pending queue survives tab death (AVE-522) ────────────────────
 
 describe('useSupabaseSync — persisted pending queue (AVE-522)', () => {
@@ -1235,7 +1388,9 @@ describe('useSupabaseSync — error-recovery backoff', () => {
     client.rpc = (name, params) => {
       client.calls.rpc.push({ name, params });
       times.push(Date.now());
-      return Promise.resolve(failing ? { data: null, error: { message: 'boom' } } : { data: null, error: null });
+      return Promise.resolve(
+        failing ? { data: null, error: { message: 'boom' } } : { data: {}, error: null },
+      );
     };
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
 
@@ -1293,7 +1448,9 @@ describe('useSupabaseSync — error-recovery backoff', () => {
     let failing = true;
     client.rpc = (name, params) => {
       client.calls.rpc.push({ name, params });
-      return Promise.resolve(failing ? { data: null, error: { message: 'boom' } } : { data: null, error: null });
+      return Promise.resolve(
+        failing ? { data: null, error: { message: 'boom' } } : { data: {}, error: null },
+      );
     };
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
 
