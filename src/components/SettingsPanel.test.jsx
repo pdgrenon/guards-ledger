@@ -244,3 +244,43 @@ describe('SettingsPanel — join code input (AVE-786)', () => {
     expect('WOLF - 7F3K9Q '.length).toBeLessThanOrEqual(16);
   });
 });
+
+describe('SettingsPanel — export reports a failed download (AVE-941)', () => {
+  afterEach(() => cleanup());
+
+  // downloadJson returns false rather than throwing (one of its callers is the
+  // ErrorBoundary, where a throw would recurse), so a caller that discards the
+  // return value turns a failed export into a button that silently does
+  // nothing — directly above Reset, and inside the Join confirm whose whole
+  // purpose is "back up before this replaces your ledger".
+  it('shows a message when the export could not be downloaded', () => {
+    const actions = makeActions({ exportState: vi.fn().mockReturnValue(false) });
+    const { getByRole, queryByText } = setup({ actions });
+
+    expect(queryByText(/could not be downloaded/i)).toBeNull();
+    fireEvent.click(getByRole('button', { name: /export json/i }));
+
+    expect(actions.exportState).toHaveBeenCalled();
+    expect(queryByText(/could not be downloaded/i)).not.toBeNull();
+  });
+
+  it('stays silent when the export succeeds — the browser download UI is the confirmation', () => {
+    const actions = makeActions({ exportState: vi.fn().mockReturnValue(true) });
+    const { getByRole, queryByText } = setup({ actions });
+
+    fireEvent.click(getByRole('button', { name: /export json/i }));
+
+    expect(queryByText(/could not be downloaded/i)).toBeNull();
+  });
+
+  it('clears a previous failure once a later export succeeds', () => {
+    const exportState = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const { getByRole, queryByText } = setup({ actions: makeActions({ exportState }) });
+
+    fireEvent.click(getByRole('button', { name: /export json/i }));
+    expect(queryByText(/could not be downloaded/i)).not.toBeNull();
+
+    fireEvent.click(getByRole('button', { name: /export json/i }));
+    expect(queryByText(/could not be downloaded/i)).toBeNull();
+  });
+});

@@ -71,6 +71,15 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
   }, [scrollToMultiplayer]);
 
   const [importError, setImportError] = useState(null);
+  // downloadJson returns false instead of throwing, so an export that produced
+  // nothing is invisible unless the caller says so — and every Export button
+  // here sits beside a destructive one (Reset, or the Join confirm that
+  // replaces local state). AVE-941.
+  const [exportError, setExportError] = useState(null);
+
+  function handleExport() {
+    setExportError(exportState() ? null : 'The save file could not be downloaded.');
+  }
 
   async function handleImport(e) {
     // Capture the element before the await — the handler's synchronous frame
@@ -372,8 +381,13 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           </div>
 
           <div className="settings-row">
-            <div className="settings-label">Export save file</div>
-            <button className="settings-action-btn" onClick={exportState}>Export JSON</button>
+            <div>
+              <div className="settings-label">Export save file</div>
+              {exportError && (
+                <div className="settings-sub" style={{ color: 'var(--c-red)' }} role="status">{exportError}</div>
+              )}
+            </div>
+            <button className="settings-action-btn" onClick={handleExport}>Export JSON</button>
           </div>
 
           <div className="settings-row">
@@ -440,10 +454,13 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           <button
             className="settings-action-btn"
             style={{ width: '100%', justifyContent: 'center', marginBottom: 4 }}
-            onClick={exportState}
+            onClick={handleExport}
           >
             Export save file first
           </button>
+          {exportError && (
+            <p className="confirm-modal-message" style={{ color: 'var(--c-red)' }} role="status">{exportError}</p>
+          )}
         </ConfirmModal>
       )}
 
