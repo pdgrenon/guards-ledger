@@ -14,6 +14,15 @@ export default defineConfig({
         'pwa-192x192.svg',
         'pwa-512x512.svg',
       ],
+      // This block is the ONLY manifest. vite-plugin-pwa generates
+      // manifest.webmanifest from it and injects the link tag into index.html
+      // at build time — do not add a hand-written manifest link there, and do
+      // not add a public/manifest.json. A document may carry only one manifest
+      // link and the user agent uses the first in tree order, so a hand-written
+      // one shadows this with a 404 and the app is treated as having no
+      // manifest at all: no Android install prompt, no standalone display, none
+      // of the icons or colours below. iOS hides the symptom because it reads
+      // the apple-mobile-web-app-* meta tags instead (AVE-939).
       manifest: {
         name: "The Guard's Ledger",
         short_name: "Guard's Ledger",
@@ -43,7 +52,10 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // `webp` matters: the eight guard portraits in public/guards/ are webp,
+        // and without it they were the only referenced asset type left out of
+        // the precache — offline, every guard fell back to initials (AVE-939).
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,woff2}'],
         navigateFallback: 'index.html',
         runtimeCaching: [
           {

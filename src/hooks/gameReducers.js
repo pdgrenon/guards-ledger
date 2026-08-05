@@ -20,19 +20,25 @@
 
 import { SATCHEL_EXPANDED_SIZE, createInitialGuards, createInitialCities, createInitialStash, createInitialCampaign } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, satchelStackLimit } from '../data/materials';
-import { bountiesForCity } from '../data/bounties';
-import { puzzleQuestForCity } from '../data/puzzleQuests';
+import { BOUNTIES, bountiesForCity } from '../data/bounties';
+import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
+import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from '../data/encounters';
+import { BUILDING_STATES, BUILDING_STATE_LABELS } from '../data/buildings';
 
 export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
 
+// `log` is defaulted rather than assumed: healState guarantees it on real
+// state, but a reducer should not throw on a state that happens to be missing a
+// local-only key (partial fixtures, a hand-edited save). Now that most actions
+// log (AVE-940), a crash here would take down a mutation, not just a log line.
 export function addLog(state, message) {
   const now   = new Date();
   const time  = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const entry = { time, message, id: Date.now() + Math.random() };
-  return { ...state, log: [entry, ...state.log].slice(0, 100) };
+  return { ...state, log: [entry, ...(state.log ?? [])].slice(0, 100) };
 }
 
 /**
@@ -62,6 +68,36 @@ export function deriveUndoLabel(prev, next, sectionName) {
   return 'State update';
 }
 
+// ─── Log name resolution (AVE-940) ───────────────────────────────────────────
+//
+// The completion reducers receive only an id. `mir-c1-the-clayhorn-poachers` is
+// not a session record, so each resolves to a human label through the static
+// data modules. Every resolver falls back to the raw id rather than producing
+// "undefined" — an id from a hand-edited save or a future campaign must still
+// yield a readable entry.
+
+function encounterLabel(id) {
+  const e = [...TRAINING_YARD_FIGHTS, ...SPIRIT_BOSSES].find(x => x.id === id);
+  return e?.name ?? id;
+}
+
+function bountyLabel(id) {
+  const b = BOUNTIES.find(x => x.id === id);
+  return b ? `${b.city}: ${b.name}` : id;
+}
+
+function puzzleQuestLabel(id) {
+  // Puzzle quests have no name of their own — one per city per campaign — so
+  // the city is the identifying label.
+  const q = PUZZLE_QUESTS.find(x => x.id === id);
+  return q?.city ?? id;
+}
+
+// mainQuest -> "Main Quest"
+function locationKeyLabel(key) {
+  return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+}
+
 // ─── Party navigation ─────────────────────────────────────────────────────────
 
 export function reduceSetPartySlot(s, slotIdx, name) {
@@ -75,7 +111,13 @@ export function reduceSetPartySlot(s, slotIdx, name) {
     ? s.guards.findIndex(g => g.name === newParty[slotIdx])
     : s.activeGuardIdx;
 
-  return { ...s, activeParty: newParty, activeGuardIdx: newActiveGuardIdx };
+  // Starts with "Party", which is in PARTY_TERMS — so MoreTab's classifyEntry
+  // gives it the party border and colorizeLogMessage tints the guard's name,
+  // matching the existing "Party Sil …" entries (AVE-940).
+  return addLog(
+    { ...s, activeParty: newParty, activeGuardIdx: newActiveGuardIdx },
+    `Party guard ${slotIdx + 1} → ${name}`
+  );
 }
 
 /**
@@ -307,9 +349,16 @@ export function reduceResetEventToken(s, region) {
 }
 
 export function reduceSetCampaignLocation(s, key, value) {
+  // No-op guard: DraftInput re-commits on blur, and a write that changes
+  // nothing would spam the log, destroy the undo snapshot, and fire a sync
+  // write — the AVE-536 failure mode, now that this path logs.
+  if ((s.campaign.locations?.[key] ?? '') === (value ?? '')) return s;
   const locations = { ...s.campaign.locations, [key]: value };
   const campaign  = { ...s.campaign, locations };
-  return { ...s, campaign };
+  const label     = locationKeyLabel(key);
+  return addLog({ ...s, campaign }, value
+    ? `Campaign ${label} → ${value}`
+    : `Campaign ${label} cleared`);
 }
 
 export function reduceAddDynamicLocation(s, type) {
@@ -317,28 +366,36 @@ export function reduceAddDynamicLocation(s, type) {
   const entries   = [...(s.campaign.locations[type] ?? []), { id, label: '' }];
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
-  return { ...s, campaign };
+  return addLog({ ...s, campaign }, 'Campaign side quest added');
 }
 
 export function reduceUpdateDynamicLocation(s, type, id, label) {
+  const existing = (s.campaign.locations[type] ?? []).find(e => e.id === id);
+  if (existing && (existing.label ?? '') === (label ?? '')) return s;  // no-op (AVE-536)
   const entries   = (s.campaign.locations[type] ?? []).map(e =>
     e.id === id ? { ...e, label } : e
   );
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
-  return { ...s, campaign };
+  return addLog({ ...s, campaign }, label
+    ? `Campaign side quest → ${label}`
+    : 'Campaign side quest cleared');
 }
 
 // Tombstone rather than hard-remove so the delete survives the server merge
 // and Realtime echo while a campaign is active (AVE-287). Read sites filter out
 // `deleted` entries.
 export function reduceRemoveDynamicLocation(s, type, id) {
+  const removed   = (s.campaign.locations[type] ?? []).find(e => e.id === id);
   const entries   = (s.campaign.locations[type] ?? []).map(e =>
     e.id === id ? { ...e, deleted: true } : e
   );
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
-  return { ...s, campaign };
+  return addLog(
+    { ...s, campaign },
+    `Campaign side quest removed — ${removed?.label || 'empty'}`
+  );
 }
 
 export function reduceAddPlan(s, text) {
@@ -346,24 +403,30 @@ export function reduceAddPlan(s, text) {
   const id       = Date.now() + Math.random();
   const plan     = { id, text: text.trim(), done: false };
   const campaign = { ...s.campaign, plans: [...s.campaign.plans, plan] };
-  return { ...s, campaign };
+  return addLog({ ...s, campaign }, `Campaign plan added — "${plan.text}"`);
 }
 
 export function reduceTogglePlan(s, id) {
+  const plan     = s.campaign.plans.find(p => p.id === id);
   const plans    = s.campaign.plans.map(p => p.id === id ? { ...p, done: !p.done } : p);
   const campaign = { ...s.campaign, plans };
-  return { ...s, campaign };
+  const nowDone  = !plan?.done;
+  return addLog(
+    { ...s, campaign },
+    `Campaign plan ${nowDone ? 'done' : 'reopened'} — "${plan?.text ?? id}"`
+  );
 }
 
 // Tombstone rather than hard-remove so the delete survives the server merge and
 // Realtime echo while a campaign is active (AVE-287). Read sites filter out
 // `deleted` plans.
 export function reduceDeletePlan(s, id) {
+  const plan     = s.campaign.plans.find(p => p.id === id);
   const plans    = s.campaign.plans.map(p =>
     p.id === id ? { ...p, deleted: true } : p
   );
   const campaign = { ...s.campaign, plans };
-  return { ...s, campaign };
+  return addLog({ ...s, campaign }, `Campaign plan deleted — "${plan?.text ?? id}"`);
 }
 
 // completedEncounters is an id-keyed array of { id, deleted? } objects (AVE-287).
@@ -435,12 +498,32 @@ export function reduceToggleEncounterComplete(s, encounterId) {
   } else {
     next = [...completed, { id: encounterId, deleted: false }];
   }
-  return { ...s, campaign: { ...s.campaign, completedEncounters: next } };
+  const nowComplete = isEncounterCompleted(next, encounterId);
+  return addLog(
+    { ...s, campaign: { ...s.campaign, completedEncounters: next } },
+    `Campaign encounter ${nowComplete ? 'completed' : 'un-completed'} — ${encounterLabel(encounterId)}`
+  );
 }
 
 export function reduceSetCampaign(s, campaignId) {
+  if (s.campaign.campaignId === campaignId) return s;   // no-op (AVE-536)
   const campaign = { ...s.campaign, campaignId };
-  return { ...s, campaign };
+  return addLog({ ...s, campaign }, `Campaign → Campaign ${campaignId}`);
+}
+
+// Fort Istra buildings were the one action still living as an inline updater in
+// useGameState — which is exactly why AVE-925 missed them. Extracted here so
+// they are unit-tested like every other action. The state shape is unchanged:
+// ftIstraBuildings is a growable map whose undo path depends on it.
+export function reduceSetFtIstraBuilding(s, buildingName, buildingState) {
+  const current = s.campaign.ftIstraBuildings?.[buildingName] ?? 'not_owned';
+  if (current === buildingState) return s;               // no-op (AVE-536)
+  const campaign = {
+    ...s.campaign,
+    ftIstraBuildings: { ...s.campaign.ftIstraBuildings, [buildingName]: buildingState },
+  };
+  const label = BUILDING_STATE_LABELS[BUILDING_STATES.indexOf(buildingState)] ?? buildingState;
+  return addLog({ ...s, campaign }, `Campaign ${buildingName} → ${label}`);
 }
 
 // completedBounties mirrors completedEncounters exactly: an id-keyed array of
@@ -476,7 +559,11 @@ export function reduceTogglePuzzleQuestComplete(s, puzzleQuestId) {
   } else {
     next = [...completed, { id: puzzleQuestId, deleted: false }];
   }
-  return { ...s, campaign: { ...s.campaign, completedPuzzleQuests: next } };
+  const nowComplete = isPuzzleQuestCompleted(next, puzzleQuestId);
+  return addLog(
+    { ...s, campaign: { ...s.campaign, completedPuzzleQuests: next } },
+    `Campaign puzzle quest ${nowComplete ? 'completed' : 'un-completed'} — ${puzzleQuestLabel(puzzleQuestId)}`
+  );
 }
 
 // ─── Tombstone compaction (solo-mode GC) ─────────────────────────────────────
@@ -564,7 +651,11 @@ export function reduceToggleBountyComplete(s, bountyId) {
   } else {
     next = [...completed, { id: bountyId, deleted: false }];
   }
-  return { ...s, campaign: { ...s.campaign, completedBounties: next } };
+  const nowComplete = isBountyCompleted(next, bountyId);
+  return addLog(
+    { ...s, campaign: { ...s.campaign, completedBounties: next } },
+    `Campaign bounty ${nowComplete ? 'completed' : 'un-completed'} — ${bountyLabel(bountyId)}`
+  );
 }
 
 // ── Undo tombstones (AVE-523) ───────────────────────────────────────────────

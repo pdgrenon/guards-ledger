@@ -360,16 +360,69 @@ describe('useSupabaseSync — createCampaign', () => {
 // ─── joinCampaign ────────────────────────────────────────────────────────────
 
 describe('useSupabaseSync — joinCampaign', () => {
-  it('returns an error if the campaign does not exist', async () => {
+  // PGRST116 is what PostgREST returns for .single() against a missing row —
+  // the one error that genuinely means "wrong code" (AVE-942).
+  it('returns a not-found error, echoing the normalized code, if the campaign does not exist', async () => {
     const client = makeMockClient({
-      selectResult: { data: null, error: { message: 'not found' } },
+      selectResult: { data: null, error: { code: 'PGRST116', message: 'no rows' } },
     });
     const { result } = setupHook({ client });
     let ret;
-    await act(async () => { ret = await result.current.joinCampaign('NOSUCH'); });
+    await act(async () => { ret = await result.current.joinCampaign('NOSUCHCODE'); });
     expect(ret.state).toBe(null);
-    expect(ret.error).toMatch(/Campaign not found/);
+    expect(ret.error).toMatch(/No campaign found with code NOSU-CHCODE/);
+    expect(ret.error).toMatch(/Check the code/);
     expect(result.current.campaignId).toBe(null);
+  });
+
+  it('reports a connection problem — not a wrong code — for a non-PGRST116 error (AVE-942)', async () => {
+    const client = makeMockClient({
+      selectResult: { data: null, error: { code: '42703', message: 'column "generation" does not exist' } },
+    });
+    const { result } = setupHook({ client });
+    let ret;
+    await act(async () => { ret = await result.current.joinCampaign('WOLF-7F3K9Q'); });
+    expect(ret.error).toMatch(/Couldn't reach the campaign server/);
+    expect(ret.error).toMatch(/column "generation" does not exist/);
+    expect(ret.error).not.toMatch(/Check the code/);
+  });
+
+  it('treats a code-less error (fetch failure) as a connection problem (AVE-942)', async () => {
+    const client = makeMockClient({
+      selectResult: { data: null, error: { message: 'Failed to fetch' } },
+    });
+    const { result } = setupHook({ client });
+    let ret;
+    await act(async () => { ret = await result.current.joinCampaign('WOLF-7F3K9Q'); });
+    expect(ret.error).toMatch(/Couldn't reach the campaign server/);
+    expect(ret.error).not.toMatch(/Check the code/);
+  });
+
+  it('refuses to look up a code at all while offline (AVE-942)', async () => {
+    const client = makeMockClient({
+      selectResult: { data: null, error: { code: 'PGRST116', message: 'no rows' } },
+    });
+    const { result } = setupHook({ client });
+    act(() => { window.dispatchEvent(new Event('offline')); });
+
+    let ret;
+    await act(async () => { ret = await result.current.joinCampaign('WOLF-7F3K9Q'); });
+    expect(ret.error).toMatch(/offline/i);
+    // No SELECT was issued — the player is never told to re-read a correct code.
+    expect(client.calls.select).toHaveLength(0);
+  });
+
+  it('reports a legacy dashless code unmangled in the not-found message (AVE-942)', async () => {
+    const client = makeMockClient({
+      selectResult: { data: null, error: { code: 'PGRST116', message: 'no rows' } },
+    });
+    const { result } = setupHook({ client });
+    let ret;
+    await act(async () => { ret = await result.current.joinCampaign('wolf42'); });
+    // normalizeCampaignCode only hyphenates an exactly-10-character code, so a
+    // pre-AVE-104 id stays bare — the message must show what was looked up.
+    expect(ret.error).toMatch(/code WOLF42\b/);
+    expect(ret.error).not.toMatch(/WOLF-42/);
   });
 
   it('normalizes the code (trim + uppercase) before the lookup', async () => {
@@ -1210,15 +1263,22 @@ describe('useSupabaseSync — error-recovery backoff', () => {
   });
 
   it('clears a stuck error status when the queue is empty', async () => {
-    // A CHANNEL_ERROR sets 'error' with nothing queued. flushQueue used to
+    // An error with nothing queued has nothing to retry. flushQueue used to
     // early-return without touching the status, so the retry effect — whose
     // only trigger is a syncStatus change — never re-ran and the red "Sync
-    // error" indicator was permanent for the session.
+    // error" indicator was permanent for the session (AVE-871).
+    //
+    // An unknown section name is the cleanest way to reach that state: it sets
+    // 'error' and returns before queueing anything. (This used to use a
+    // CHANNEL_ERROR, but since AVE-938 a channel failure IS retryable — it is
+    // recovered by resubscribing — so it deliberately no longer clears here.)
     vi.useFakeTimers();
     const client = makeMockClient();
     const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
 
-    act(() => { client.calls.channels[0].statusCallback('CHANNEL_ERROR'); });
+    await act(async () => {
+      await result.current.upsertSection('not_a_section', createInitialState());
+    });
     expect(result.current.syncStatus).toBe('error');
 
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
@@ -1248,5 +1308,208 @@ describe('useSupabaseSync — error-recovery backoff', () => {
     expect(result.current.syncStatus).toBe('idle');
     expect(loadPendingQueue().size).toBe(0);
     expect(client.calls.rpc[client.calls.rpc.length - 1].params.payload.sil).toBe(9);
+  });
+});
+
+// ─── Realtime channel health (AVE-938) ───────────────────────────────────────
+//
+// @supabase/realtime-js emits four subscribe states. Only SUBSCRIBED and
+// CHANNEL_ERROR used to be handled, so TIMED_OUT and CLOSED left syncStatus on
+// whatever it was — 'idle' after any successful subscribe — and the UI showed a
+// green "Synced" badge while inbound updates had silently stopped.
+
+describe('useSupabaseSync — Realtime channel health (AVE-938)', () => {
+  function bootSubscribed() {
+    const client = makeMockClient();
+    const hook = setupHook({ client, initialCampaignId: 'WOLF42' });
+    act(() => { client.calls.channels[0].statusCallback('SUBSCRIBED'); });
+    return { client, ...hook };
+  }
+
+  it.each(['TIMED_OUT', 'CLOSED', 'CHANNEL_ERROR'])(
+    'reports %s as a sync error instead of leaving the badge on "Synced"',
+    (status) => {
+      const { client, result } = bootSubscribed();
+      expect(result.current.syncStatus).toBe('idle');
+
+      act(() => { client.calls.channels[0].statusCallback(status); });
+
+      expect(result.current.syncStatus).toBe('error');
+      expect(result.current.syncError).toMatch(/Live updates disconnected/);
+    },
+  );
+
+  it('returns to idle and clears the error once the channel resubscribes', () => {
+    const { client, result } = bootSubscribed();
+    act(() => { client.calls.channels[0].statusCallback('TIMED_OUT'); });
+    expect(result.current.syncStatus).toBe('error');
+
+    act(() => { client.calls.channels[0].statusCallback('SUBSCRIBED'); });
+
+    expect(result.current.syncStatus).toBe('idle');
+    expect(result.current.syncError).toBe(null);
+  });
+
+  // subscribe() removes the previous channel first, and removeChannel makes
+  // THAT channel emit CLOSED. Without an ownership check, every foreground and
+  // every reconnect would flag a spurious sync error.
+  it('ignores a CLOSED from a channel we have already replaced', () => {
+    const { client, result } = bootSubscribed();
+
+    // Foregrounding resubscribes — channels[1] is now the live one.
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(client.calls.channels.length).toBeGreaterThan(1);
+    act(() => { client.calls.channels[1].statusCallback('SUBSCRIBED'); });
+    expect(result.current.syncStatus).toBe('idle');
+
+    // The torn-down channel reports CLOSED. It is not ours any more.
+    act(() => { client.calls.channels[0].statusCallback('CLOSED'); });
+
+    expect(result.current.syncStatus).toBe('idle');
+  });
+
+  it('keeps the error status while the channel is down even though the queue is empty', async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, result } = bootSubscribed();
+      act(() => { client.calls.channels[0].statusCallback('TIMED_OUT'); });
+
+      // The AVE-871 empty-queue branch would otherwise clear this back to
+      // 'idle' ~1s later and park the pill on green while sync was dead.
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+      expect(result.current.syncStatus).toBe('error');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('the backoff ladder resubscribes and refetches after a channel failure', async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, result } = bootSubscribed();
+      const channelsBefore = client.calls.channels.length;
+      const selectsBefore  = client.calls.select.length;
+
+      act(() => { client.calls.channels[0].statusCallback('TIMED_OUT'); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+      // Resubscribing alone only delivers future events, so the refetch is what
+      // pulls in what was missed while disconnected (AVE-372).
+      expect(client.calls.channels.length).toBeGreaterThan(channelsBefore);
+      expect(client.calls.select.length).toBeGreaterThan(selectsBefore);
+      expect(result.current).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The pure write-retry case must behave exactly as it did before.
+  it('does not resubscribe when the ladder is retrying a failed write on a healthy channel', async () => {
+    vi.useFakeTimers();
+    try {
+      const client = makeMockClient({ rpcResult: { data: null, error: { message: 'boom' } } });
+      const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+      act(() => { client.calls.channels[0].statusCallback('SUBSCRIBED'); });
+
+      await act(async () => {
+        await result.current.upsertSection('resources', createInitialState());
+      });
+      expect(result.current.syncStatus).toBe('error');
+
+      const channelsBefore = client.calls.channels.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+      expect(client.calls.channels.length).toBe(channelsBefore);
+      expect(client.calls.rpc.length).toBeGreaterThan(1);   // the write was retried
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaving the campaign clears a channel-down error', () => {
+    const { client, result } = bootSubscribed();
+    act(() => { client.calls.channels[0].statusCallback('TIMED_OUT'); });
+    expect(result.current.syncStatus).toBe('error');
+
+    act(() => { result.current.leaveCampaign(); });
+
+    expect(result.current.syncStatus).toBe('idle');
+    expect(result.current.syncError).toBe(null);
+  });
+});
+
+// ─── Failed full-row replacement (AVE-937) ───────────────────────────────────
+//
+// replaceRow is a raw UPDATE and never queues anything, so flushQueue's
+// empty-queue branch used to clear its error status back to 'idle' about a
+// second later — the sync pill went green while the server still held the
+// pre-replacement ledger.
+
+describe('useSupabaseSync — failed replaceRow keeps the error visible (AVE-937)', () => {
+  const genRead = { data: { generation: 1 }, error: null };
+
+  it('keeps the error status after a failed replaceRow even with an empty queue', async () => {
+    vi.useFakeTimers();
+    try {
+      const client = makeMockClient({
+        selectResult: genRead,
+        upsertResult: { data: null, error: { message: 'boom' } },
+      });
+      const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+      act(() => { client.calls.channels[0].statusCallback('SUBSCRIBED'); });
+
+      let ret;
+      await act(async () => { ret = await result.current.replaceRow(createInitialState()); });
+      expect(ret.error).toBe('boom');
+      expect(result.current.syncStatus).toBe('error');
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+      expect(result.current.syncStatus).toBe('error');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a successful replaceRow leaves the empty-queue clear working (AVE-871 unregressed)', async () => {
+    vi.useFakeTimers();
+    try {
+      const client = makeMockClient({ selectResult: genRead });
+      const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+      act(() => { client.calls.channels[0].statusCallback('SUBSCRIBED'); });
+
+      await act(async () => { await result.current.replaceRow(createInitialState()); });
+      expect(result.current.syncStatus).toBe('idle');
+
+      // An unrelated error with nothing queued still clears.
+      await act(async () => {
+        await result.current.upsertSection('not_a_section', createInitialState());
+      });
+      expect(result.current.syncStatus).toBe('error');
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+      expect(result.current.syncStatus).toBe('idle');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaving the campaign clears a replacement failure', async () => {
+    const client = makeMockClient({
+      selectResult: genRead,
+      upsertResult: { data: null, error: { message: 'boom' } },
+    });
+    const { result } = setupHook({ client, initialCampaignId: 'WOLF42' });
+
+    await act(async () => { await result.current.replaceRow(createInitialState()); });
+    expect(result.current.syncStatus).toBe('error');
+
+    act(() => { result.current.leaveCampaign(); });
+
+    expect(result.current.syncStatus).toBe('idle');
   });
 });

@@ -16,6 +16,7 @@
  */
 import { Component, useState } from 'react';
 import * as Sentry from '@sentry/react';
+import { downloadJson } from '../utils/downloadUtils';
 
 const CHUNK_LOAD_ERROR_PATTERN = /dynamically imported module|Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i;
 
@@ -23,11 +24,13 @@ function isChunkLoadError(error) {
   return CHUNK_LOAD_ERROR_PATTERN.test(String(error?.message ?? error ?? ''));
 }
 
-function readSaveBlob() {
+// Returns the raw saved string, or null when there is nothing to export or
+// localStorage itself throws. Deliberately reads localStorage directly rather
+// than React state — by the time this fallback renders, state may be exactly
+// what crashed.
+function readSaveRaw() {
   try {
-    const raw = localStorage.getItem('guards_ledger_v2');
-    if (!raw) return null;
-    return new Blob([raw], { type: 'application/json' });
+    return localStorage.getItem('guards_ledger_v2') || null;
   } catch {
     return null;
   }
@@ -44,19 +47,21 @@ function ReloadButton() {
   );
 }
 
-function ExportSaveButton({ onNoData }) {
+function ExportSaveButton({ onProblem }) {
   function handleExport() {
-    const blob = readSaveBlob();
-    if (!blob) {
-      onNoData();
+    const raw = readSaveRaw();
+    if (!raw) {
+      onProblem('No saved game data was found in localStorage.');
       return;
     }
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `guards-ledger-emergency-export-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // The fallback's own copy promises "your saved data is still safe — you can
+    // export it below before reloading", directly above a Reload button. A
+    // download that silently produces nothing turns that into a lie (AVE-941).
+    const ok = downloadJson(
+      `guards-ledger-emergency-export-${new Date().toISOString().slice(0, 10)}.json`,
+      raw,
+    );
+    onProblem(ok ? null : 'The save file could not be downloaded.');
   }
   return (
     <button
@@ -69,7 +74,7 @@ function ExportSaveButton({ onNoData }) {
 }
 
 function AppLevelFallback({ error }) {
-  const [noSaveMsg, setNoSaveMsg] = useState(false);
+  const [exportMsg, setExportMsg] = useState(null);
   return (
     <div className="err-boundary err-boundary--app">
       <div className="err-boundary-card">
@@ -78,9 +83,9 @@ function AppLevelFallback({ error }) {
           The app hit an unexpected error and the current view can't be rendered.
           Your saved data is still safe — you can export it below before reloading.
         </p>
-        {noSaveMsg && (
-          <p className="err-boundary-message" style={{ color: 'var(--c-text2)', marginTop: 8 }}>
-            No saved game data was found in localStorage.
+        {exportMsg && (
+          <p className="err-boundary-message" style={{ color: 'var(--c-text2)', marginTop: 8 }} role="status">
+            {exportMsg}
           </p>
         )}
         {error && (
@@ -90,7 +95,7 @@ function AppLevelFallback({ error }) {
           </details>
         )}
         <div className="err-boundary-actions">
-          <ExportSaveButton onNoData={() => setNoSaveMsg(true)} />
+          <ExportSaveButton onProblem={setExportMsg} />
           <ReloadButton />
         </div>
       </div>
