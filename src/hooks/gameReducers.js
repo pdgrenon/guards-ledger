@@ -202,6 +202,20 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
       if (field === 'item' && value) {
         updated.qty = Math.min(updated.qty, satchelStackLimit(value));
       }
+      if (field === 'item' && !value) {
+        // Clearing a slot must reset its quantity too. `healGuard` already
+        // forces `qty: 1` on any slot with an empty item, so leaving the old
+        // count behind produces a state the healer does not consider healthy —
+        // and healing a healthy section has to be a deep-equal no-op, because
+        // applyRemoteRow's echo suppression compares the raw incoming value
+        // against `extractSection(local)` (AVE-873 / AVE-922). Clearing a
+        // 4-stack left `{ item: '', qty: 4 }` in the campaign row while the
+        // next local load healed to `{ item: '', qty: 1 }`, so that guard's
+        // section differed from the server forever: every boot/foreground
+        // refetchRow saw a "change", applied it (wiping the undo snapshot and
+        // forcing a re-render), and healed it straight back to 1.
+        updated.qty = 1;
+      }
       if (field === 'qty') {
         updated.qty = Math.min(Math.max(1, Math.trunc(updated.qty)), satchelStackLimit(slot.item || ''));
       }
@@ -223,6 +237,27 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
     if (item) return addLog(newState, `${g.name} ${item} ×${value}`);
   }
   return newState;
+}
+
+// Expanding/collapsing the satchel was the last action still written as an
+// inline updater in useGameState — the shape AVE-925 missed reduceSetFtIstraBuilding
+// in, and the one mutating action that produced no log entry at all after
+// AVE-940 made every other one log. It syncs to a guard column like any other
+// guard edit, so the session log recorded the items going in and out of the
+// hidden slots but never the toggle that hid them, and Undo could only offer
+// deriveUndoLabel's generic "<Guard> update" fallback.
+//
+// The message starts with the guard's name, so classifyEntry gives it the guard
+// border and colorizeLogMessage tints the name, matching the other guard entries.
+export function reduceToggleExpandedSatchel(s, guardIdx) {
+  const g = s.guards[guardIdx];
+  if (!g) return s;
+  const expanded = !g.expandedSatchel;
+  const guards   = s.guards.map((g2, i) => i === guardIdx ? { ...g2, expandedSatchel: expanded } : g2);
+  return addLog(
+    { ...s, guards },
+    `${g.name} satchel ${expanded ? 'expanded' : 'collapsed'}`
+  );
 }
 
 // ─── Cities ───────────────────────────────────────────────────────────────────
@@ -824,6 +859,22 @@ export function healCampaignId(v) {
   return Math.min(4, Math.max(1, Math.trunc(Number(v)) || 1));
 }
 
+/**
+ * Clamp an event-token count to the 0–3 range the rest of the app assumes.
+ *
+ * `reduceSetEventToken` clamps to 0–3 and `EventTokensCard` renders exactly
+ * three pips, treats `>= 3` as triggered, and disables `−` at `count === 0`.
+ * A bare `healNumber` accepted any finite value, so a damaged save or an
+ * unmigrated remote row carrying `mountain: 99` rendered a permanently
+ * triggered region whose only control is "Resolve event" — and a negative
+ * value rendered zero pips with the decrement button still enabled. Every
+ * neighbouring healer clamps (healCampaignId, healGuard's hp/maxHp,
+ * healStashSection's counts); this was the one that didn't.
+ */
+export function healEventToken(v) {
+  return Math.min(3, Math.max(0, Math.trunc(healNumber(v, 0))));
+}
+
 export function healGuard(raw) {
   const fresh = createInitialGuards().guards[0];
   if (!isPlainObject(raw)) return fresh;
@@ -941,10 +992,10 @@ export function healCampaignSection(v) {
       ...raw,
       campaignId:  healCampaignId(raw.campaignId),
       eventTokens: isPlainObject(raw.eventTokens)
-        ? { mountain: healNumber(raw.eventTokens.mountain, 0),
-            forest:   healNumber(raw.eventTokens.forest, 0),
-            plains:   healNumber(raw.eventTokens.plains, 0),
-            sea:      healNumber(raw.eventTokens.sea, 0) }
+        ? { mountain: healEventToken(raw.eventTokens.mountain),
+            forest:   healEventToken(raw.eventTokens.forest),
+            plains:   healEventToken(raw.eventTokens.plains),
+            sea:      healEventToken(raw.eventTokens.sea) }
         : init.campaign.eventTokens,
       locations: isPlainObject(raw.locations)
         // `bounties` is the AVE-795 orphan. Same reasoning as the stonebound

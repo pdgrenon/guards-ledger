@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="apple-touch-icon" href="/pwa-192x192.svg">
+    <!-- iOS ignores SVG here: apple-touch-icon must be a PNG, and an unusable
+         one is not retried against the default /apple-touch-icon.png, so the
+         home-screen icon fell back to a screenshot of the page. public/apple-
+         touch-icon.png is a purpose-built 180x180 (the size iOS asks for) that
+         was shipped and precached but never referenced. iOS is exactly the
+         platform that leans on these apple-* tags, since it ignores the
+         generated web app manifest. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

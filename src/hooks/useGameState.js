@@ -19,6 +19,7 @@ import {
   reduceAdjustGuardMaxHp,
   reduceSetGuardEquipment,
   reduceSetGuardSatchelItem,
+  reduceToggleExpandedSatchel,
 
   reduceAdjustStash,
   reduceSetStoneboundMax,
@@ -728,11 +729,7 @@ export function useGameState() {
     setState(s => reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value), guardColumn(guardIdx)), [setState]);
 
   const toggleExpandedSatchel = useCallback((guardIdx) =>
-    setState(s => {
-      const expanded = !s.guards[guardIdx].expandedSatchel;
-      const guards   = s.guards.map((g, i) => i === guardIdx ? { ...g, expandedSatchel: expanded } : g);
-      return { ...s, guards };
-    }, guardColumn(guardIdx)), [setState]);
+    setState(s => reduceToggleExpandedSatchel(s, guardIdx), guardColumn(guardIdx)), [setState]);
 
   // ── Stash ────────────────────────────────────────────────────────────────
   const adjustStash = useCallback((itemName, delta) =>

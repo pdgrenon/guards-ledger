@@ -33,6 +33,7 @@ import {
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
   reduceSetGuardSatchelItem,
+  reduceToggleExpandedSatchel,
 
   cityPrestige,
   isPuzzleQuestCompleted,
@@ -552,6 +553,44 @@ describe('reduceSetGuardSatchelItem', () => {
     s.guards[0].satchel[0] = { item: 'Iron', qty: 1 };
     const next = reduceSetGuardSatchelItem(s, 0, 0, 'qty', 99);
     expect(next.guards[0].satchel[0].qty).toBe(8);
+  });
+
+  it('resets qty to 1 when the slot is cleared', () => {
+    // healGuard forces qty back to 1 on any slot with an empty item, so leaving
+    // the old count behind produced a state the healer does not consider
+    // healthy — and healing a healthy section has to be a deep-equal no-op or
+    // applyRemoteRow's echo suppression stops matching (AVE-873 / AVE-922).
+    s.guards[0].satchel[0] = { item: 'Iron', qty: 6 };
+    const next = reduceSetGuardSatchelItem(s, 0, 0, 'item', '');
+    expect(next.guards[0].satchel[0]).toEqual({ item: '', qty: 1 });
+  });
+});
+
+describe('reduceToggleExpandedSatchel', () => {
+  it('toggles the flag on the addressed guard only', () => {
+    const next = reduceToggleExpandedSatchel(s, 3);
+    expect(next.guards[3].expandedSatchel).toBe(true);
+    expect(next.guards.filter(g => g.expandedSatchel)).toHaveLength(1);
+    expect(reduceToggleExpandedSatchel(next, 3).guards[3].expandedSatchel).toBe(false);
+  });
+
+  it('logs, so Undo names the action instead of falling back to "<Guard> update"', () => {
+    // This was the last action still written as an inline updater in
+    // useGameState — the shape AVE-925 missed — and the only mutating action
+    // producing no log entry after AVE-940 made every other one log.
+    const next = reduceToggleExpandedSatchel(s, 3);
+    expect(next.log[0].message).toBe(`${s.guards[3].name} satchel expanded`);
+    expect(reduceToggleExpandedSatchel(next, 3).log[0].message)
+      .toBe(`${s.guards[3].name} satchel collapsed`);
+  });
+
+  it('starts the message with the guard name so classifyEntry gives it the guard color', () => {
+    const next = reduceToggleExpandedSatchel(s, 3);
+    expect(next.log[0].message.split(' ')[0]).toBe(s.guards[3].name);
+  });
+
+  it('is a no-op for an out-of-range guard index', () => {
+    expect(reduceToggleExpandedSatchel(s, 99)).toBe(s);
   });
 });
 
