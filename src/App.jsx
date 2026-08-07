@@ -7,6 +7,7 @@ import { StashTab } from './components/StashTab';
 import { MaterialSourcePopup } from './components/MaterialSourcePopup';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CorruptionBanner } from './components/CorruptionBanner';
+import { UpdateBanner } from './components/UpdateBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import { safeActiveGuardIdx } from './hooks/gameReducers';
 
@@ -231,6 +232,10 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* Rendered below the three role="alert" banners above: a waiting
+            update is not a problem, and must not outrank a corrupt save. */}
+        <UpdateBanner />
 
         {/* Top bar */}
         <div className="top-bar">

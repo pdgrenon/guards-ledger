@@ -2,11 +2,39 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+// Vitest 3 runs on its own bundled Vite 7, which transforms with **esbuild**;
+// `vite build` runs the Vite 8 in package.json, which transforms with **oxc**.
+// The `esbuild` option below is what lets Vitest import JSX-authored components
+// (e.g. Autocomplete) without a bare `import React`, which the lint config
+// forbids — dropping it fails 41 tests with "React is not defined". It must not
+// be set for the build, though: @vitejs/plugin-react already sets the oxc
+// equivalent there, and Vite 8 warns and discards the esbuild one when both are
+// present. Hence the mode gate rather than an unconditional option.
+export default defineConfig(({ mode }) => ({
+  ...(mode === 'test' ? { esbuild: { jsx: 'automatic' } } : {}),
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // NOT 'autoUpdate'. That emits skipWaiting() + clientsClaim() +
+      // cleanupOutdatedCaches(), so a new deploy took over the page that was
+      // already running and deleted the precache underneath it. The running
+      // page still holds the OLD entry chunk, whose lazy() calls reference old
+      // hashed filenames (AVE-292) — those were now missing from the precache
+      // and 404 on the origin, since Cloudflare Pages serves only the current
+      // deployment. The next tap on Crafting / Campaign / More / Settings /
+      // Search died with "Failed to fetch dynamically imported module", while
+      // Guards / Cities / Stash (statically bundled into the entry chunk that
+      // had already downloaded) kept working. Cache-first index.html made the
+      // window very wide: a backgrounded PWA can boot the stale bundle long
+      // after the deploy.
+      //
+      // With 'prompt' the new worker waits, the old one keeps serving the old
+      // precache for the whole session, and UpdateBanner lets the player take
+      // the update at a moment of their choosing. Registration lives in
+      // main.jsx (see injectRegister below), which is why the plugin must not
+      // inject its own.
+      registerType: 'prompt',
+      injectRegister: null,
       includeAssets: [
         'favicon.svg',
         'icons.svg',
@@ -85,18 +113,19 @@ export default defineConfig({
     }),
   ],
   base: './',
-  // Use the automatic JSX runtime for esbuild's transform too (not just
-  // @vitejs/plugin-react's Babel pass). During `vite build` this is a no-op —
-  // plugin-react transforms JSX first and esbuild only sees plain JS — but it
-  // lets Vitest import JSX-authored components (e.g. Autocomplete) without a
-  // bare `import React`, which the lint config forbids.
-  esbuild: { jsx: 'automatic' },
   build: {
     rollupOptions: {
       output: {
         // Split the heavy third-party deps out of the app bundle (AVE-292).
-        // Supabase and Sentry rarely change and can be cached independently,
-        // and keeping them out of the entry chunk trims first paint.
+        // Supabase and Sentry rarely change, so giving them their own chunks
+        // lets a deploy that only touches app code reuse them from cache.
+        // Note this does NOT trim first paint: both are statically imported by
+        // the entry graph and get a modulepreload link, so the same bytes are
+        // still fetched on the initial load — the win is cache granularity on
+        // repeat visits, not a smaller first download. Removing this block
+        // rebuilds them into a single 577 kB entry chunk, so it is load-bearing
+        // despite `codeSplitting` reading like a Rollup option that Vite 8's
+        // Rolldown might ignore. It does not: verify with `npm run build`.
         codeSplitting: {
           groups: [
             { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
@@ -115,4 +144,4 @@ export default defineConfig({
       include: ['src/hooks/gameReducers.js', 'src/data/recipes.js'],
     },
   },
-});
+}));

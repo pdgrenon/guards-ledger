@@ -2984,6 +2984,55 @@ button, input, select, textarea { font-family: var(--font-ui); }
   color: var(--c-text);
 }
 
+/* A waiting service-worker update (UpdateBanner). Reuses the banner layout but
+   swaps the red alert palette for brand ochre — nothing is wrong, and it sits
+   below three genuine role="alert" banners that must stay visually louder. */
+.corruption-banner--update {
+  background: var(--c-brand-bg);
+  border-color: var(--c-brand);
+  color: var(--c-brand-text);
+}
+
+.corruption-banner--update .corruption-banner-icon,
+.corruption-banner--update .corruption-banner-title,
+.corruption-banner--update .corruption-banner-message {
+  color: var(--c-brand-text);
+}
+
+.corruption-banner--update .corruption-banner-icon {
+  color: var(--c-brand);
+}
+
+.corruption-banner--update .corruption-banner-btn {
+  border-color: var(--c-brand);
+  color: var(--c-brand-text);
+}
+
+.corruption-banner--update .corruption-banner-btn:hover {
+  background: var(--c-brand);
+  color: #fff;
+}
+
+.corruption-banner--update .corruption-banner-btn--ghost {
+  border-color: var(--c-border2);
+  color: var(--c-text2);
+}
+
+.corruption-banner--update .corruption-banner-btn--ghost:hover {
+  background: var(--c-surface2);
+  color: var(--c-text);
+}
+
+.corruption-banner-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.corruption-banner-btn:disabled:hover {
+  background: var(--c-bg);
+  color: inherit;
+}
+
 /* Suspense fallback shown while a lazily-loaded tab chunk downloads */
 .tab-loading {
   padding: 2rem 1rem;
