@@ -20,7 +20,15 @@ import {
   parseItemReq,
   PREREQ_UPGRADES_TO,
 } from './recipes';
-import { ALL_MATERIALS } from './materials';
+import {
+  ALL_MATERIALS,
+  WEAPONS,
+  ARMOR,
+  ACCESSORIES,
+  ITEMS,
+  WEAPON_STATS,
+  ARMOR_STATS,
+} from './materials';
 
 // ─── Test fixtures ───────────────────────────────────────────────────────────
 
@@ -600,6 +608,73 @@ describe('RECIPES data integrity', () => {
                         || r.luxCost   !== null
                         || r.itemReq   !== null;
       expect(hasSomething).toBe(true);
+    }
+  });
+});
+
+// ─── Cross-table data integrity (AVE-544, AVE-545) ───────────────────────────
+// Both of these guard classes of bug that shipped because two hand-transcribed
+// tables were never compared to each other.
+
+describe('recipe statBonus agrees with WEAPON_STATS/ARMOR_STATS (AVE-544)', () => {
+  // The Craft tab renders `statBonus`; the Guards tab computes Attack/Defense from
+  // the stats maps. They were transcribed separately and drifted on 26 items, so a
+  // craft card promised "4👊" and equipping the same weapon gave +3.
+  //
+  // The companion spreadsheet settled all 26 in favour of the stats maps, so there
+  // are deliberately NO known exceptions — if this ever needs one, add it here with
+  // a citation rather than loosening the assertion.
+  const statMap = { ...WEAPON_STATS, ...ARMOR_STATS };
+
+  it('has no disagreement for any recipe present in both tables', () => {
+    const mismatches = [];
+    for (const r of RECIPES) {
+      const m = typeof r.statBonus === 'string' && r.statBonus.match(/^(\d+)/);
+      if (!m) continue;
+      const mapped = statMap[r.name];
+      if (mapped === undefined) continue;
+      if (Number(m[1]) !== mapped) {
+        mismatches.push(`${r.name}: statBonus ${m[1]} vs stats map ${mapped}`);
+      }
+    }
+    expect(mismatches).toEqual([]);
+  });
+
+  it('covers a meaningful number of items, so the check cannot silently pass on an empty set', () => {
+    const compared = RECIPES.filter(
+      r => typeof r.statBonus === 'string' && /^\d/.test(r.statBonus) && statMap[r.name] !== undefined
+    );
+    expect(compared.length).toBeGreaterThan(60);
+  });
+});
+
+describe('every recipe prereq resolves to a real item (AVE-545)', () => {
+  // 'Iron Short Sword' was a prereq naming an item that existed nowhere, so the
+  // requirement could never be satisfied. Five more starter weapons were missing
+  // outright, which is why their upgrade chains had no prereq recorded at all.
+  const known = new Set([
+    ...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS,
+    ...RECIPES.map(r => r.name),
+  ]);
+
+  it('names an equippable item or another recipe', () => {
+    const unresolved = RECIPES
+      .filter(r => r.prereq)
+      .filter(r => !known.has(r.prereq))
+      .map(r => `${r.name} -> "${r.prereq}"`);
+    expect(unresolved).toEqual([]);
+  });
+
+  it('keeps the six starter weapons equippable and at 0 attack', () => {
+    // Not craftable — you begin the game with one. Each is the prereq for its ★★
+    // blacksmith upgrade, so if it is not in WEAPONS it cannot be selected in a
+    // weapon slot and the prereq is permanently unsatisfiable.
+    for (const name of [
+      'Iron Short Sword', "Captain's Blade", 'Iron Hand Axes',
+      "Guard's Spear", 'Long Bow', 'Iron Hammer',
+    ]) {
+      expect(WEAPONS).toContain(name);
+      expect(WEAPON_STATS[name]).toBe(0);
     }
   });
 });

@@ -45,6 +45,18 @@ function CoinIcon() {
   );
 }
 
+function ScrollIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3h11a2 2 0 0 1 2 2v13a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6"/>
+      <path d="M4 6a2 2 0 0 1 4 0v2H4z"/>
+      <line x1="9" y1="8" x2="15" y2="8"/>
+      <line x1="9" y1="12" x2="15" y2="12"/>
+      <line x1="9" y1="16" x2="13" y2="16"/>
+    </svg>
+  );
+}
+
 export function MaterialSourceSections({ sources }) {
   if (!sources) {
     return <p className="source-popup-empty">No source data available.</p>;
@@ -54,6 +66,18 @@ export function MaterialSourceSections({ sources }) {
 
   return (
     <>
+      {sources.questReward && (
+        <div className="source-section">
+          <div className="source-section-label">
+            <ScrollIcon /> Quest &amp; event rewards
+          </div>
+          <p className="source-popup-note">
+            Found through quests, events and story progression. There is no fixed
+            place to buy or farm this one.
+          </p>
+        </div>
+      )}
+
       {sources.enemies?.length > 0 && (
         <div className="source-section">
           <div className="source-section-label">

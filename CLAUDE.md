@@ -178,6 +178,12 @@ Two guards are active at a time (`state.activeParty`, a 2-element name array). T
 
 Each guard in state has: `name`, `hp`, `maxHp`, `baseAtk`, `baseDef`, `expandedSatchel`, `satchel` (8-slot array of `{ item, qty }`), `equipment` (`{ weapon, armor, accessory, item }`).
 
+**`equipment.item` is the *active item* slot, and anything in `ITEMS` may occupy it — consumables included.** Its purpose is to record what a guard can reach mid-battle, so `Health Potion` belongs there (AVE-548). Options come from `ITEMS`, so an item missing from that array cannot be selected at all: it renders if already set, but clearing the slot loses it for good. That is the class of bug to watch for when adding a reward item — `Raven's Beak Flask` was referenced by a bounty reward while existing nowhere in `ITEMS`.
+
+**Attack and Defense come from `WEAPON_STATS`/`ARMOR_STATS`, never from a recipe's `statBonus`.** The two were transcribed separately and drifted on 26 items, so a craft card promised one number and equipping delivered another (AVE-544); the stats maps proved correct on every one. `recipes.test.js` now asserts the two agree for every item in both tables, with no exceptions list — if an item ever genuinely differs, add it there with a citation rather than loosening the assertion.
+
+**Six starter weapons are non-craftable and sit at 0 attack** — `Iron Short Sword`, `Captain's Blade`, `Iron Hand Axes`, `Guard's Spear`, `Long Bow`, `Iron Hammer`. You begin the game with one, and each is the `prereq` of its ★★ blacksmith upgrade, so they must stay in `WEAPONS` or the prereq becomes permanently unsatisfiable (AVE-545). A test asserts every recipe `prereq` resolves to a known item or recipe name.
+
 **Guard identity colors** are defined in `GUARD_COLOR_MAP` in `src/data/constants.js`. Each entry: `{ key, border, bg, text }` where `key` is the CSS variable suffix (e.g. `'amber'` → `--c-guard-amber-*`). Import from constants — do not redefine this map in component files.
 
 Portrait images live in `public/guards/` named in lowercase (e.g. `grigory.webp`). `GuardAvatar` in `GuardPanel.jsx` falls back to initials automatically on `onError`. **It records *which* `src` failed, not a bare `failed` boolean** — `GuardPanel` is rendered in a fixed position with no key, so switching between the two active guards reuses the same component instance, and a boolean stuck at `true` made every guard viewed afterwards fall back to initials too. One slow or blocked request (offline before the service worker had precached `public/guards/`) took out the portraits for the whole session. Same class as the guard-level `ErrorBoundary` below: **anything stateful under the guard switcher has to be scoped to the guard, because nothing there remounts.**
@@ -284,7 +290,7 @@ Guard-restricted recipes (`limitedTo` is non-empty) are hidden entirely from the
 
 ### MATERIAL_SOURCES
 
-`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to six optional fields:
+`MATERIAL_SOURCES` is a plain object exported from `materials.js` mapping item name → source descriptor. It is the sole data source for `MaterialSourcePopup`. Each entry has up to seven optional fields:
 
 ```js
 {
@@ -294,8 +300,13 @@ Guard-restricted recipes (`limitedTo` is non-empty) are hidden entirely from the
   market?: { city: string, price: number }[], // cities that sell it and the Sil price
   sell?: { city: string, price: number }[],   // cities that buy it and the Sil sell price
   ftIstraSell?: number,                       // Ft. Istra Apothecary sell price in Lux Essence (not Sil)
+  questReward?: true,                         // no fixed source — quests/events/story progression
 }
 ```
+
+**An entry's absence is not neutral — `MaterialName` only makes a name tappable when `MATERIAL_SOURCES[item]` exists**, so a material with no entry renders as dead text and reads as a broken control rather than as "unknown". That is why the 15 speaking stones, the 9 `special` ingredients and `Cooked Fish` carry `questReward: true` (AVE-548): they genuinely have no market, node or enemy source — the game deliberately does not tell you where they come from — and saying so is an answer. `materials.test.js` asserts every non-gear material has an entry, so a newly added material cannot silently become untappable.
+
+**Membership of `speaking_stones` deliberately differs from the companion spreadsheet's stone list, in both directions.** `Jade`, `Black Diamond` and `Ancient Roots` live in `special`, and `Diamond` in `ores`, because each is a single physical item usable either as an ingredient or as a stone — tracking one quantity in one category is the point, and an item in two categories renders two stash rows and two search hits (AVE-546). `Topaz`, `Peridot`, `Coral` and `Pearl` are stones (confirmed against the physical game) that the spreadsheet's bonus table omits. Do not "reconcile" these against the spreadsheet.
 
 ### File downloads
 

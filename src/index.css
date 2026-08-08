@@ -2497,6 +2497,14 @@ button, input, select, textarea { font-family: var(--font-ui); }
   margin: 0;
 }
 
+/* Prose answer for quest/event-reward materials, which have no chips to show. */
+.source-popup-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--c-text2);
+  margin: 0;
+}
+
 .source-section {
   margin-bottom: 14px;
 }
