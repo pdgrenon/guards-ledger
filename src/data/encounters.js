@@ -457,7 +457,7 @@ export const SPIRIT_BOSSES = [
     unlockCondition: null,
     specialReq: "Guards may not use the Guard Ability Cards and Stonebound Ability Cards listed below. Guards may only use 1 Star Weapon and Armor Cards. Guards may not use any Item Cards. Chip bags must not have any green chips at the start of the battle.",
     guardSetup: "Pavel: Dark Hammer/Frost Hammer, Frozen Armor (Stonebound Ability Card), Lion's Roar (Stonebound Ability Card)\nYana: Remedy Wave/Water Spring, Prayer of Healing (Stonebound Ability Card)",
-    enemies: "Place a '3 Star - Volkrok' and AI deck on an enemy dashboard in slot I of the battlefield. Place 'C4:1 Boss' on an enemy dashboard in slot III of the battlefield. C4:1 Boss has +1 ATK over base stats.",
+    enemies: "Place a '3 Star - Volrok' and AI deck on an enemy dashboard in slot I of the battlefield. Place 'C4:1 Boss' on an enemy dashboard in slot III of the battlefield. C4:1 Boss has +1 ATK over base stats.",
     reward: '1x Stratagem (Universal Stonebound Ability Card)',
   },
   {

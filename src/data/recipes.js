@@ -256,7 +256,7 @@ export const RECIPES = [
   },
   {
     name: 'Drakondor Armor', type: 'Armor', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '4⛊', bonusChip: 'Evade', effect: null,
+    statBonus: '2⛊', bonusChip: 'Evade', effect: null,
     craftCost: 80, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Catherine'],
     materials: [
       { name: 'Feathers', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -269,7 +269,7 @@ export const RECIPES = [
   {
     name: 'Wanderer of the Fields', type: 'Armor', city: 'Vouno', isFtIstra: false, stars: 4,
     statBonus: '3⛊', bonusChip: 'Evade', effect: null,
-    craftCost: 80, luxCost: null, prereq: null, itemReq: null, limitedTo: ['Vera'],
+    craftCost: 80, luxCost: null, prereq: 'Reinforced Tunic', itemReq: null, limitedTo: ['Vera'],
     materials: [
       { name: 'Carapace', qty: 4, qty2R: 2, isSpeakingStone: false },
       { name: 'Agate', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -330,7 +330,7 @@ export const RECIPES = [
   },
   {
     name: 'Relic Glove', type: 'Weapon', city: "Ft. Istra (The Brothers' Anvil)", isFtIstra: true, stars: 5,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: 50, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Silver', qty: 8, qty2R: null, isSpeakingStone: false },
@@ -352,7 +352,7 @@ export const RECIPES = [
   {
     name: 'Volk Blade', type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 1,
     statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 10, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    craftCost: 10, luxCost: null, prereq: "Captain's Blade", itemReq: null, limitedTo: [],
     materials: [
       { name: 'Pine', qty: 4, qty2R: 2, isSpeakingStone: false },
       { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -401,7 +401,7 @@ export const RECIPES = [
   },
   {
     name: 'Golden Scythe', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: null, effect: null,
+    statBonus: '3👊', bonusChip: null, effect: null,
     craftCost: 45, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Autumn Blaze', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -421,7 +421,7 @@ export const RECIPES = [
   },
   {
     name: 'Swift Gale', type: 'Weapon', city: 'Silny', isFtIstra: false, stars: 3,
-    statBonus: '2👊', bonusChip: 'Evade', effect: null,
+    statBonus: '3👊', bonusChip: 'Evade', effect: null,
     craftCost: 45, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Carapace', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -431,7 +431,7 @@ export const RECIPES = [
   },
   {
     name: 'Star Blade', type: 'Weapon', city: "Ft. Istra (Blacksmith)", isFtIstra: true, stars: 5,
-    statBonus: '4👊', bonusChip: '🗡️⛊', effect: null,
+    statBonus: '5👊', bonusChip: '🗡️⛊', effect: null,
     craftCost: null, luxCost: 50, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
@@ -441,7 +441,7 @@ export const RECIPES = [
   },
   {
     name: 'Jade Sword', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: 'Evade', effect: null,
+    statBonus: '6👊', bonusChip: 'Evade', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
@@ -451,7 +451,7 @@ export const RECIPES = [
   },
   {
     name: 'Sword of Truth', type: 'Weapon', city: 'Silny, Strofa', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '1👊', bonusChip: null, effect: null,
     craftCost: { Strofa: 52, Silny: 44 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Metal Frag.', qty: 3, qty2R: 2, isSpeakingStone: false },
@@ -461,7 +461,7 @@ export const RECIPES = [
   },
   {
     name: 'Euphonic Edge', type: 'Weapon', city: 'Silny, Strofa', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: { Strofa: 52, Silny: 44 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Scales', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -471,7 +471,7 @@ export const RECIPES = [
   },
   {
     name: 'Sky Splitter', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '4👊', bonusChip: null, effect: null,
+    statBonus: '3👊', bonusChip: null, effect: null,
     craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Carapace', qty: 3, qty2R: 2, isSpeakingStone: false },
@@ -480,7 +480,7 @@ export const RECIPES = [
   },
   {
     name: 'Glorious', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: null, effect: null,
+    statBonus: '4👊', bonusChip: null, effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
@@ -490,7 +490,7 @@ export const RECIPES = [
   },
   {
     name: 'Revelation', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '6👊', bonusChip: null, effect: null,
+    statBonus: '5👊', bonusChip: null, effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Skull', qty: 4, qty2R: null, isSpeakingStone: false },
@@ -501,8 +501,8 @@ export const RECIPES = [
   },
   {
     name: 'Alloy Hand Axes', type: 'Weapon', city: 'Razdor, Silny', isFtIstra: false, stars: 2,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: { Razdor: 18, Silny: 15 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    statBonus: '1👊', bonusChip: null, effect: null,
+    craftCost: { Razdor: 18, Silny: 15 }, luxCost: null, prereq: 'Iron Hand Axes', itemReq: null, limitedTo: [],
     materials: [
       { name: 'Ash', qty: 4, qty2R: 2, isSpeakingStone: false },
       { name: 'Silver', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -510,7 +510,7 @@ export const RECIPES = [
   },
   {
     name: 'Ornate Cleavers', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: 48, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -521,7 +521,7 @@ export const RECIPES = [
   },
   {
     name: 'Reckoning Tides', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '4👊', bonusChip: '⛊⛊', effect: null,
+    statBonus: '3👊', bonusChip: '⛊⛊', effect: null,
     craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Shards', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -531,7 +531,7 @@ export const RECIPES = [
   },
   {
     name: 'Dangerous Duo', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: '⛊⛊', effect: null,
+    statBonus: '4👊', bonusChip: '⛊⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
@@ -553,8 +553,8 @@ export const RECIPES = [
   },
   {
     name: "Hunter's Spear", type: 'Weapon', city: 'Mir, Silny', isFtIstra: false, stars: 2,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: { Mir: 14, Silny: 18 }, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    statBonus: '1👊', bonusChip: null, effect: null,
+    craftCost: { Mir: 14, Silny: 18 }, luxCost: null, prereq: "Guard's Spear", itemReq: null, limitedTo: [],
     materials: [
       { name: 'Pine', qty: 4, qty2R: 2, isSpeakingStone: false },
       { name: 'Iron', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -562,7 +562,7 @@ export const RECIPES = [
   },
   {
     name: 'Partisan', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: 44, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -604,7 +604,7 @@ export const RECIPES = [
   {
     name: 'Falmundian Bow', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 1,
     statBonus: '1👊', bonusChip: null, effect: null,
-    craftCost: 12, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    craftCost: 12, luxCost: null, prereq: 'Long Bow', itemReq: null, limitedTo: [],
     materials: [
       { name: 'Ash', qty: 4, qty2R: 2, isSpeakingStone: false },
       { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -612,7 +612,7 @@ export const RECIPES = [
   },
   {
     name: 'Silver Bow', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -623,7 +623,7 @@ export const RECIPES = [
   },
   {
     name: "Hunter's Pride", type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '4👊', bonusChip: null, effect: null,
+    statBonus: '3👊', bonusChip: null, effect: null,
     craftCost: 75, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Scales', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -653,8 +653,8 @@ export const RECIPES = [
   },
   {
     name: 'Silver Hammer', type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 2,
-    statBonus: '2👊', bonusChip: null, effect: null,
-    craftCost: 24, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
+    statBonus: '1👊', bonusChip: null, effect: null,
+    craftCost: 24, luxCost: null, prereq: 'Iron Hammer', itemReq: null, limitedTo: [],
     materials: [
       { name: 'Rosewood', qty: 2, qty2R: 1, isSpeakingStone: false },
       { name: 'Silver', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -662,7 +662,7 @@ export const RECIPES = [
   },
   {
     name: 'Alloy Driver', type: 'Weapon', city: 'Mir', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: 34, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Horn', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -673,7 +673,7 @@ export const RECIPES = [
   },
   {
     name: 'Golden Mallet', type: 'Weapon', city: 'Strofa', isFtIstra: false, stars: 4,
-    statBonus: '4👊', bonusChip: null, effect: null,
+    statBonus: '3👊', bonusChip: null, effect: null,
     craftCost: 60, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Carapace', qty: 2, qty2R: 1, isSpeakingStone: false },
@@ -684,7 +684,7 @@ export const RECIPES = [
   },
   {
     name: 'Ground Shaker', type: 'Weapon', city: "Ft. Istra (Baren's Forge)", isFtIstra: true, stars: 5,
-    statBonus: '5👊', bonusChip: '⛊⛊', effect: null,
+    statBonus: '4👊', bonusChip: '⛊⛊', effect: null,
     craftCost: null, luxCost: 75, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Shards', qty: 4, qty2R: null, isSpeakingStone: false },
@@ -704,7 +704,7 @@ export const RECIPES = [
   },
   {
     name: 'Cerulean Staff', type: 'Weapon', city: 'Silny', isFtIstra: false, stars: 2,
-    statBonus: '2👊', bonusChip: null, effect: null,
+    statBonus: '1👊', bonusChip: null, effect: null,
     craftCost: 20, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Pine', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -713,7 +713,7 @@ export const RECIPES = [
   },
   {
     name: 'Rosewind Staff', type: 'Weapon', city: 'Razdor', isFtIstra: false, stars: 3,
-    statBonus: '3👊', bonusChip: null, effect: null,
+    statBonus: '2👊', bonusChip: null, effect: null,
     craftCost: 40, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Scales', qty: 4, qty2R: 2, isSpeakingStone: false },
@@ -724,7 +724,7 @@ export const RECIPES = [
   },
   {
     name: "Forteller's Staff", type: 'Weapon', city: 'Vouno', isFtIstra: false, stars: 4,
-    statBonus: '4👊', bonusChip: null, effect: null,
+    statBonus: '3👊', bonusChip: null, effect: null,
     craftCost: 56, luxCost: null, prereq: null, itemReq: null, limitedTo: [],
     materials: [
       { name: 'Tenebris Shards', qty: 4, qty2R: 2, isSpeakingStone: false },

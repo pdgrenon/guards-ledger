@@ -5,10 +5,13 @@
 
 export const WEAPONS = [
   'Alloy Driver', 'Alloy Hand Axes', 'Alloy Short Sword', 'Argent Blade',
-  'Bleeding Heart Dagger', 'Cerulean Pike', 'Cerulean Staff', 'Contorted Staff',
+  'Bleeding Heart Dagger', "Captain's Blade", 'Cerulean Pike', 'Cerulean Staff',
+  'Contorted Staff',
   'Dangerous Duo', 'Drakonbow', 'Euphonic Edge', 'Falmundian Bow', 'Final Wish',
   "Forteller's Staff", 'Glorious', 'Golden Mallet', 'Golden Scythe', 'Ground Shaker',
-  'Guardian Lance', "Hunter's Pride", "Hunter's Spear", 'Jade Sword', 'Lapis Blade',
+  "Guard's Spear", 'Guardian Lance', "Hunter's Pride", "Hunter's Spear",
+  'Iron Hammer', 'Iron Hand Axes', 'Iron Short Sword', 'Jade Sword', 'Lapis Blade',
+  'Long Bow',
   "Magi's Command", 'Nadya', 'Ornate Cleavers', 'Partisan', 'Radiance', 'Reckoning Tides',
   'Relic Glove', 'Revelation', 'Rosewind Staff', 'Ryban Glaive', 'Sapphire Staff',
   'Scaled Dagger', 'Silver Bow', 'Silver Flame', 'Silver Hammer', 'Sky Splitter',
@@ -37,11 +40,14 @@ export const ACCESSORIES = [
   'Traveling Boots', 'Twilight Guantlet', 'Umbral Ring', 'Wolf Head Tunic', 'Wolf Tooth Ring',
 ];
 
+// Anything here can occupy a guard's "Item" (active) equipment slot — consumables
+// included, since knowing what you can reach mid-battle is the point of that slot.
 export const ITEMS = [
   'Aged Drink', 'Barrier Tonic', 'Bottled Courage',
-  'Expanded Satchel', 'Invigorating Potion', 'Natural Remedies Volume 1',
+  'Expanded Satchel', 'Health Potion', 'Invigorating Potion',
+  'Natural Remedies Volume 1',
   'Natural Remedies Volume 2', 'Natural Remedies Volume 3', 'Order from Chaos',
-  'Pickaxe', 'Purifying Dust', 'Ruinous Dust', 'Smoke Bomb',
+  'Pickaxe', 'Purifying Dust', "Raven's Beak Flask", 'Ruinous Dust', 'Smoke Bomb',
   'Spicy Stew', 'The Foundations of Telios', 'Wood Chopping Axe',
   'Zamar', "Zoya's Elixir",
 ];
@@ -83,7 +89,10 @@ export const MATERIAL_CATEGORIES = [
   {
     id: 'market',
     label: 'Market & misc',
-    items: ['Health Potion', 'Tent'],
+    // 'Health Potion' moved to ITEMS (and so into Gear) — it is equippable in a
+    // guard's active Item slot (AVE-548). It must appear in exactly one category,
+    // or it renders as two stash rows and two search hits (AVE-546).
+    items: ['Tent'],
   },
   {
     id: 'special',
@@ -184,6 +193,14 @@ export const WEAPON_STATS = {
   'Sapphire Staff': 2,
   'Snow Hunter Bow': 2,
   "Squire's Blade": 1,
+  // Starter weapons — not craftable; you begin the game with one (AVE-545).
+  // Each is the prereq for its ★★ blacksmith upgrade, and all are 0 attack.
+  "Captain's Blade": 0,
+  "Guard's Spear": 0,
+  'Iron Hammer': 0,
+  'Iron Hand Axes': 0,
+  'Iron Short Sword': 0,
+  'Long Bow': 0,
   'Ornate Cleavers': 2, 'Partisan': 2, 'Radiance': 3,
   'Reckoning Tides': 3, 'Relic Glove': 2, 'Revelation': 5,
   'Rosewind Staff': 2, 'Ryban Glaive': 3, 'Scaled Dagger': 2,
@@ -214,6 +231,9 @@ export const ARMOR_STATS = {
 //   ftIstraSell — number: Ft. Istra Apothecary sell price (pays Lux Essence)
 //   nodes       — node labels for resource harvesting (ores + timber)
 //   ftIstra     — { label, luxPer4 } for Ft. Istra building purchases
+//   questReward — true: comes from quests/events/story progression, with no fixed
+//                 place to buy or farm it. Deliberate, not a gap — see the block
+//                 at the end of this map.
 
 export const MATERIAL_SOURCES = {
   // ── Animal drops ────────────────────────────────────────────────────────────
@@ -461,6 +481,29 @@ export const MATERIAL_SOURCES = {
   // Barrier Tonic, Bottled Courage, Invigorating Potion, Zoya's Elixir,
   // Purifying Dust, Ruinous Dust, Expanded Satchel: sell '-' — no entry
   // Tent already handled above in Market & misc
-  // Quest/Ft. Istra items (Aged Drink, Spicy Stew, Cooked Fish, Natural Remedies Vol 1-3,
+  // Quest/Ft. Istra items (Aged Drink, Spicy Stew, Natural Remedies Vol 1-3,
   // Zamar, The Foundations of Telios, Order from Chaos, Wood Chopping Axe, Pickaxe): sell data unknown — no entry
+
+  // ── Quest & event rewards ────────────────────────────────────────────────────
+  // Every speaking stone, every special ingredient, and Cooked Fish. These have no
+  // market, node or enemy source *by design* — they come from random quests, events
+  // and story progression, and the game deliberately does not tell you where (AVE-548).
+  //
+  // `questReward: true` is therefore a real answer, not a placeholder for missing data.
+  // Without an entry these 25 names are not tappable at all (MaterialName only links an
+  // item that has a MATERIAL_SOURCES key), so a player tapping them got silence — which
+  // reads as a bug rather than as "nobody knows".
+  ...Object.fromEntries(
+    [
+      // Speaking stones
+      'Adamant', 'Aquamarine', 'Aventurine', 'Carnelian', 'Coral', 'Garnet',
+      'Lapis Lazuli', 'Obsidian', 'Orichalcum', 'Pearl', 'Peridot',
+      'Rainbow Obsidian', 'Star Fragment', 'Star Quartz', 'Topaz',
+      // Special ingredients (Ancient Roots, Jade, Onyx and Black Diamond double as stones)
+      'Ancient Roots', 'Black Diamond', 'Coastal Bluecaps', 'Falmundian Rosehips',
+      'Jade', 'Midnight Hydrangea', 'Onyx', 'Purifying Seed', 'Ruinous Seed',
+      // Fish & food
+      'Cooked Fish',
+    ].map(name => [name, { questReward: true }])
+  ),
 };

@@ -97,11 +97,23 @@ describe('searchAll', () => {
     expect(searchAll('IRON').materials.length).toEqual(searchAll('iron').materials.length);
   });
 
-  it('returns bounties whose target lists name volkrok', () => {
-    const res = searchAll('volkrok', {});
+  // "Volrok" (the enemy) and "Volkrok" (the place) are different things, and neither
+  // string contains the other — so the two queries must return different sets. This
+  // test previously searched 'volkrok' for combat targets, back when the target lists
+  // misspelled the enemy as the place (AVE-548).
+  it('returns bounties whose target lists name the volrok enemy', () => {
+    const res = searchAll('volrok', {});
     const ids = res.bounties.map(b => b.id).sort();
     expect(ids).toContain('razdor-c3-beast-from-the-depths');
     expect(ids).toContain('strofa-c1-something-in-the-water');
+  });
+
+  it('returns only the Strofa inn bounties when querying volkrok, the place', () => {
+    const res = searchAll('volkrok', {});
+    expect(res.bounties.length).toBeGreaterThan(0);
+    expect(res.bounties.every(b => b.inn === 'Strofa: The Volkrok')).toBe(true);
+    // The Razdor bounty matched only through its misspelled target list.
+    expect(res.bounties.map(b => b.id)).not.toContain('razdor-c3-beast-from-the-depths');
   });
 
   it('returns every bounty for an inn when querying the inn name', () => {

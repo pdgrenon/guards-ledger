@@ -126,7 +126,7 @@ const SOURCE = [
   {
     inn: 'Razdor: The Lookout Inn', campaign: 3, name: 'Beast from the depths',
     location: 'Node 82',
-    targets: '★★★★ Volkrok (I)',
+    targets: '★★★★ Volrok (I)',
     conditions: 'All enemies have +2 ATK, +1 DEF, and +10 HP above base stats.',
     rewards: '2x Amethyst Trout (Item); 1x Aquamarine (Speaking Stone)',
   },
@@ -272,7 +272,7 @@ const SOURCE = [
   {
     inn: 'Strofa: The Volkrok', campaign: 1, name: 'Something In The Water',
     location: 'Node 89',
-    targets: '★★★★ Volkrok (I); ★★★★ Flesh Eating Fish (III); ★★★★ Flesh Eating Fish (IV)',
+    targets: '★★★★ Volrok (I); ★★★★ Flesh Eating Fish (III); ★★★★ Flesh Eating Fish (IV)',
     conditions: 'This battle is an Ambush, and all enemies have +1 ATK above base stats.',
     rewards: '30 Sil; 2x Falmundian Rosehips (Item); 1x Adamant (Speaking Stone)',
   },
@@ -332,7 +332,7 @@ const SOURCE = [
     location: 'Node 6',
     targets: '★★★★ Tenebris Hunter (I)',
     conditions: 'All enemies have +3 ATK, +3 DEF, and +24 HP above base stats.',
-    rewards: '50 Sil; 1x Natural Remedies Vol. 3 (Item)',
+    rewards: '50 Sil; 1x Natural Remedies Volume 3 (Item)',
   },
   {
     inn: 'Vouno: Vrachos Inn', campaign: 2, name: 'Creatures of the Forest',
