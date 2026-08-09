@@ -359,11 +359,18 @@ function ExchangeList({ exchange }) {
 }
 
 
-function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
+export function BuildingCard({ building, state, stash, onSetState, onShowSource }) {
   const currentIdx = BUILDING_STATES.indexOf(state ?? 'not_owned');
   const isBuilt = currentIdx >= 1;
   const showCost = currentIdx === 0 ? building.buildCost : (currentIdx === 1 && building.hasUpgrade ? building.upgradeCost : null);
-  const description = currentIdx >= 1 && building.upgradeDescription
+  // Gated on `>= 2` (Upgraded), not `>= 1` (Built) — the upgrade description
+  // describes what the *upgrade* buys, so showing it the moment a building is
+  // merely Built promises the player something they have not bought yet. The
+  // Barracks is the sharpest case: Built removes 1 negative chip, Upgraded
+  // removes all, and a Built card claiming "remove all negative chips" is a
+  // rules error at the table. Matches the exchange-list gate below, which has
+  // always shown `upgradeExchange` only at `>= 2`.
+  const description = currentIdx >= 2 && building.upgradeDescription
     ? building.upgradeDescription
     : building.description;
   return (
