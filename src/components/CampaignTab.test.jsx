@@ -14,7 +14,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, fireEvent, cleanup } from '@testing-library/react';
-import { LocationsCard, DraftInput } from './CampaignTab';
+import { LocationsCard, DraftInput, BuildingCard } from './CampaignTab';
+import { FT_ISTRA_BUILDINGS } from '../data/buildings';
 
 const h = React.createElement;
 
@@ -244,5 +245,60 @@ describe('DraftInput remote-update behavior (AVE-784)', () => {
     rerender(h(DraftInput, { value: 'remote', onCommit, className: 'x' }));
     expect(input.value).toBe('my typing');   // local edit is not clobbered
     expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The upgrade description belongs to the Upgraded state alone. Gated at
+ * `>= 1` it appeared the moment a building was merely Built, promising a
+ * benefit the player had not bought — for the Barracks, "remove all negative
+ * chips" when a Built Barracks removes exactly one. Asserted against the real
+ * FT_ISTRA_BUILDINGS entries so the data and the gate cannot drift apart.
+ */
+describe('BuildingCard description by state', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => cleanup());
+
+  const barracks = FT_ISTRA_BUILDINGS.find(b => b.name === 'Barracks');
+
+  function descFor(building, state) {
+    const { container } = render(h(BuildingCard, {
+      building, state, stash: {}, onSetState: vi.fn(), onShowSource: vi.fn(),
+    }));
+    return container.querySelector('.fi-building-desc').textContent;
+  }
+
+  it('shows the base description when the building is Not Owned', () => {
+    expect(descFor(barracks, 'not_owned')).toBe(barracks.description);
+  });
+
+  it('shows the base description when the building is Built, not the upgrade one', () => {
+    expect(descFor(barracks, 'built')).toBe(barracks.description);
+  });
+
+  it('shows the upgrade description only once Upgraded', () => {
+    expect(descFor(barracks, 'upgraded')).toBe(barracks.upgradeDescription);
+  });
+
+  it('says 1 negative chip when Built and all negative chips only when Upgraded', () => {
+    expect(descFor(barracks, 'built')).toMatch(/remove 1 negative chip/i);
+    expect(descFor(barracks, 'built')).not.toMatch(/all negative chips/i);
+    expect(descFor(barracks, 'upgraded')).toMatch(/all negative chips/i);
+  });
+
+  it('holds for every Ft. Istra building, not just the Barracks', () => {
+    for (const b of FT_ISTRA_BUILDINGS) {
+      expect(descFor(b, 'built')).toBe(b.description);
+      cleanup();
+      if (b.upgradeDescription) {
+        expect(descFor(b, 'upgraded')).toBe(b.upgradeDescription);
+        cleanup();
+      }
+    }
+  });
+
+  it('falls back to the base description when a building has no upgrade text', () => {
+    const noUpgrade = { ...barracks, upgradeDescription: null };
+    expect(descFor(noUpgrade, 'upgraded')).toBe(noUpgrade.description);
   });
 });
