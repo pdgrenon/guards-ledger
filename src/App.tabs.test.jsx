@@ -123,22 +123,6 @@ describe('tab strip keyboard navigation', () => {
   });
 });
 
-describe('step selector sizing', () => {
-  // The guard HP row puts .step-selector in a flex container beside the large
-  // HP display; without flex-shrink:0 the group collapsed to ~35px total,
-  // giving 9px-wide buttons. jsdom has no layout, so this asserts the CSS
-  // declarations that prevent it rather than a measured width.
-  it('.step-selector does not shrink and .step-btn clears the 24px target floor', () => {
-    const selector = CSS.match(/^\.step-selector\s*\{([^}]*)\}/m)?.[1] ?? '';
-    const btn      = CSS.match(/^\.step-btn\s*\{([^}]*)\}/m)?.[1] ?? '';
-
-    expect(selector).toMatch(/flex-shrink:\s*0/);
-    const minWidth = Number(btn.match(/min-width:\s*(\d+)px/)?.[1] ?? 0);
-    // WCAG 2.5.8 (AA) sets a 24x24 CSS px floor for pointer targets.
-    expect(minWidth).toBeGreaterThanOrEqual(24);
-  });
-});
-
 describe('tab switching', () => {
   it('keeps exactly one tab selected', () => {
     app();

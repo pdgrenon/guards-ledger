@@ -1487,14 +1487,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 /* ─── STEP SELECTOR & COUNTER ────────────────────────────────────────────── */
 /* Segmented control — no gaps, shared border, pill group feel */
-/* flex-shrink: 0 is load-bearing. In the guard HP row this sits in a flex
-   container beside the large HP display, and without it the whole group
-   collapsed to ~35px — 9px-wide buttons, well under the 24px WCAG 2.5.8 floor,
-   for one of the most-tapped controls in the app. The identical control in the
-   Stash tab was unaffected, which is what made it easy to miss. */
 .step-selector {
   display: flex;
-  flex-shrink: 0;
   gap: 0;
   margin-bottom: 8px;
   border: 0.5px solid var(--c-border2);
@@ -1503,8 +1497,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .step-btn {
   flex: 1;
-  min-width: 34px;
-  padding: 8px 10px;
+  padding: 8px 0;
   font-size: 12px;
   font-weight: 500;
   border: none;

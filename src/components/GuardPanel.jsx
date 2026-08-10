@@ -76,8 +76,6 @@ export function GuardPanel({ guard, guardIdx, actions }) {
 
   } = actions;
 
-  const [hpStep, setHpStep] = useState(1);
-
   const satchelSize = guard.expandedSatchel ? SATCHEL_EXPANDED_SIZE : SATCHEL_SIZE;
 
   // Derive color key from the shared map; fall back to 'gold' if guard name is unknown.
@@ -109,22 +107,16 @@ export function GuardPanel({ guard, guardIdx, actions }) {
           <span className="hp-sep">/</span>
           <span className="hp-max">{guard.maxHp}</span>
         </div>
-        <div className="step-selector">
-          {[1, 5, 10].map(s => (
-            <button
-              key={s}
-              className={`step-btn${hpStep === s ? ' active' : ''}`}
-              onClick={() => setHpStep(s)}
-              aria-pressed={hpStep === s}
-              aria-label={`Set HP step to ${s}`}
-            >{s}</button>
-          ))}
-        </div>
+        {/* HP always steps by 1. There used to be a 1/5/10 step selector here,
+            but ±1 is the only step the table ever used, and squeezing three
+            more buttons into this row is what collapsed them to 9px wide. The
+            Sil/Lux steppers in StashTab keep theirs — craft costs run to 75
+            Sil, so ×5/×10 earns its keep there. */}
         <div className="adj-pair">
-          <button className="stat-adj-btn adj-btn-sm minus" onClick={() => adjustGuardHp(guardIdx, -hpStep)}
-            aria-label={`Decrease ${guard.name} HP by ${hpStep}`}>−</button>
-          <button className="stat-adj-btn adj-btn-sm plus" onClick={() => adjustGuardHp(guardIdx, hpStep)}
-            aria-label={`Increase ${guard.name} HP by ${hpStep}`}>+</button>
+          <button className="stat-adj-btn adj-btn-sm minus" onClick={() => adjustGuardHp(guardIdx, -1)}
+            aria-label={`Decrease ${guard.name} HP by 1`}>−</button>
+          <button className="stat-adj-btn adj-btn-sm plus" onClick={() => adjustGuardHp(guardIdx, 1)}
+            aria-label={`Increase ${guard.name} HP by 1`}>+</button>
         </div>
       </div>
 
