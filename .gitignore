@@ -15,7 +15,20 @@ dist-ssr/
 *.local
 
 # Environment
-.env
+#
+# `.env` is deliberately TRACKED — do not add it here.
+#
+# It is the only source of build configuration for the Cloudflare Pages deploy:
+# the build runs on Cloudflare from this repo, Vite inlines VITE_-prefixed vars
+# at build time, and the project has no environment variables set in its
+# dashboard. Untracking it therefore ships a production bundle with no Supabase
+# config at all, which disables multiplayer silently — the app degrades to
+# local-only by design, so nothing errors and nothing looks wrong.
+#
+# It holds no secret. VITE_ vars are compiled into the public client bundle, and
+# a Supabase anon key is public by construction. The real cost is that a clone or
+# CI job points at the live project; AVE-971 (membership RLS) retires that, after
+# which config can move to the Pages dashboard and this file can be ignored again.
 .env.*
 !.env.example
 
