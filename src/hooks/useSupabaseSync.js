@@ -189,7 +189,29 @@ export function normalizeRow(row) {
   return out;
 }
 
-/** Build the full Supabase row payload from state (all sections + columns). */
+/**
+ * Build the full Supabase row payload from state (all sections + columns).
+ *
+ * KNOWN LIMITATION — the `_updated_at` values here come from the *client*
+ * clock, while every other write path (`merge_section`) fills them with the
+ * server's `now()`. `sectionChanged` compares all of them as one timeline, so a
+ * creating device with a fast clock writes a baseline from the future: until
+ * real time catches up, every genuine edit from either player is gated out,
+ * silently, with the badge on green. Only `createCampaign` and `replaceRow`
+ * (reset / import / demo load) go through here, so it is a once-per-campaign
+ * and once-per-replacement exposure rather than a per-edit one.
+ *
+ * Fixing it properly means moving the full-row write into a `replace_row` RPC
+ * that sets each timestamp to `now()` and bumps `generation` in one statement —
+ * which would also close the read-then-write generation race that replaceRow
+ * concedes below. That needs a database migration and a live instance to verify
+ * against, so it is deliberately left for the same change that adds the
+ * membership RPCs rather than shipping a second unverified migration.
+ *
+ * What IS closed here: the baseline seeded from these values is merged
+ * monotonically, so a *slow* clock can no longer regress the baseline and
+ * re-admit already-applied events.
+ */
 function buildFullRow(campaignId, state) {
   const now = new Date().toISOString();
   const row = { id: campaignId };
@@ -545,6 +567,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // closes over a not-yet-initialized binding.
   const channelDown   = useRef(false);  // Realtime channel is not subscribed (AVE-938)
   const replaceFailed = useRef(false);  // a full-row replaceRow failed (AVE-937)
+  const refetchFailed = useRef(false);  // the boot/foreground SELECT failed
 
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
@@ -705,7 +728,28 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       .select('*')
       .eq('id', id)
       .single();
-    if (error || !data) return;
+    if (error) {
+      // This was the only network call in the file that failed silently: no
+      // status, no message, no flag. A healthy subscribe leaves syncStatus on
+      // 'idle', which SyncBadge paints green, so a failed boot refetch left
+      // local state stale behind a "Synced" pill — and nothing retried it,
+      // because the backoff ladder needs 'error' to arm and recoverSync only
+      // re-reads when the channel is known down.
+      refetchFailed.current = true;
+      setSyncStatus('error');
+      setSyncError(
+        error.code === 'PGRST116'
+          ? `Campaign ${id} no longer exists on the server.`
+          : `Could not read the campaign${error.message ? ` — ${error.message}` : ''}.`
+      );
+      return;
+    }
+    // Clear only our own flag. A successful read says nothing about whether
+    // writes are landing, so it must not clear an error another path set;
+    // flushQueue's empty-queue branch is what returns the badge to green, and
+    // it now consults this flag alongside its siblings.
+    refetchFailed.current = false;
+    if (!data) return;
     applyRemoteRow(data, requestedAt);
   }, [client, applyRemoteRow]);
 
@@ -805,7 +849,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       // pill: a dead Realtime channel (AVE-938) and a failed full-row
       // replacement (AVE-937). Both are recovered elsewhere — recoverSync
       // resubscribes, and the player retries the replacement from a banner.
-      if (!channelDown.current && !replaceFailed.current) {
+      if (!channelDown.current && !replaceFailed.current && !refetchFailed.current) {
         setSyncStatus(s => (s === 'error' ? 'idle' : s));
       }
       return;
@@ -910,6 +954,10 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     if (!client || !id) return;
     if (channelDown.current) {
       subscribe(id);
+      refetchRow();
+    } else if (refetchFailed.current) {
+      // The channel is fine but our last read wasn't, so local may still be
+      // behind whatever landed before we reconnected. Retry the read alone.
       refetchRow();
     }
     flushQueue();
@@ -1180,9 +1228,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // the one we're joining (AVE-522). Joining adopts the remote row wholesale.
     pendingQueue.current.clear();
     persistQueue();
-    // A replacement that failed against the campaign we're leaving must not
-    // park the one we're joining on red (AVE-937).
+    // A replacement or read that failed against the campaign we're leaving must
+    // not park the one we're joining on red (AVE-937). The join's own SELECT
+    // just succeeded, so a stale refetch failure is definitely not current.
     replaceFailed.current = false;
+    refetchFailed.current = false;
 
     // Apply each synced section from the remote row (normalizing any pre-AVE-83
     // single-`guards`-blob row to per-guard columns first). No section includes
@@ -1224,6 +1274,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // status we set below would be re-flagged by the next flush.
     channelDown.current   = false;  // AVE-938
     replaceFailed.current = false;  // AVE-937
+    refetchFailed.current = false;
     setSyncStatus('idle');
     setSyncError(null);
   }, [persistQueue]);
@@ -1307,7 +1358,15 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
     // Update timestamp baseline so unrelated future events gate correctly. Do
     // NOT seed lastSeenGen — see the doc comment above (AVE-527).
-    lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
+    //
+    // Monotonic, like every other baseline write in this file. A plain spread
+    // was the one exception, and it is the dangerous direction: `row` carries
+    // client-clock timestamps (see buildFullRow), so a device whose clock runs
+    // *behind* would move the baseline backwards and re-admit events this
+    // client had already applied. mergeSeenTimestamps keeps max(existing,
+    // incoming) per section, so a slow clock can only fail to advance the
+    // baseline — never regress it.
+    lastSeenTs.current = mergeSeenTimestamps(lastSeenTs.current, snapshotTimestamps(row));
     setSyncStatus('idle');
     setSyncError(null);
     return { error: null };

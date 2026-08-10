@@ -4,7 +4,7 @@
 // Live state (stash counts, city quest progress) is passed in; everything else
 // is static module data, so the only per-call work is the filtering itself.
 
-import { RECIPES } from './recipes';
+import { RECIPES, parseItemReq } from './recipes';
 import { ALL_MATERIALS, MATERIAL_SOURCES, ENEMIES } from './materials';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from './encounters';
 import { BOUNTIES } from './bounties';
@@ -45,11 +45,17 @@ export function searchAll(rawQuery, { stash = {}, cities = [] } = {}) {
   const q = (rawQuery ?? '').trim().toLowerCase();
   if (q.length < MIN_QUERY_LENGTH) return null;
 
+  // itemReq is searched alongside materials: the five apothecary recipes have
+  // an empty `materials` array and express their whole ingredient list through
+  // `itemReq`, so without this a player holding "Coastal Bluecaps" searches for
+  // it and is told nothing consumes it, while two recipes do. Every other
+  // consumer (craftStatus, shortageCount, the have/need rows) already counts it.
   const recipes = RECIPES.filter(r =>
     includes(r.name, q) ||
     includes(r.city, q) ||
     includes(r.prereq, q) ||
-    r.materials.some(m => includes(m.name, q))
+    r.materials.some(m => includes(m.name, q)) ||
+    parseItemReq(r.itemReq).some(req => includes(req.name, q))
   ).slice(0, PER_GROUP_LIMIT);
 
   const materials = MATERIAL_NAMES

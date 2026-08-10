@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { useDialogA11y } from '../hooks/useDialogA11y';
 
@@ -28,6 +28,8 @@ function SyncBadge({ status }) {
 export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, scrollToMultiplayer, onClose }) {
   const { guards, activeParty = ['Alek', 'Grigory'] } = state;
   const { adjustGuardMaxHp, setPartySlot, exportState, importState, resetState } = actions;
+
+  const partySelectId = useId();
 
   // Multiplayer UI state
   const [joinCode,  setJoinCode]  = useState('');
@@ -179,7 +181,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
         <div className="settings-panel-body" ref={bodyRef}>
 
           {/* ── Active party ── */}
-          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-brand)' }}>
+          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-brand)', '--guard-color-text': 'var(--c-brand-text)' }}>
             <span className="settings-guard-dot" style={{ background: 'var(--c-brand)' }} aria-hidden="true" />
             Active party
           </div>
@@ -193,9 +195,15 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
             return (
               <div className="settings-row" key={slotIdx}>
                 <div>
-                  <div className="settings-label">Guard {slotIdx + 1}</div>
+                  {/* A real <label for>, not aria-label: the text is already
+                      visible, so associating it also makes it clickable and
+                      keeps one source of truth for the control's name. */}
+                  <label className="settings-label" htmlFor={`${partySelectId}-${slotIdx}`}>
+                    Guard {slotIdx + 1}
+                  </label>
                 </div>
                 <select
+                  id={`${partySelectId}-${slotIdx}`}
                   className="settings-select"
                   value={currentName}
                   onChange={e => setPartySlot(slotIdx, e.target.value)}
@@ -219,7 +227,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
               <div key={gi}>
                 <div
                   className="settings-guard-header"
-                  style={c ? { '--guard-color': c.border } : {}}
+                  style={c ? { '--guard-color': c.border, '--guard-color-text': c.text } : {}}
                 >
                   <span
                     className="settings-guard-dot"
@@ -249,7 +257,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           {/* ── Multiplayer ── */}
           <div
             className="settings-guard-header"
-            style={{ '--guard-color': 'var(--c-green)' }}
+            style={{ '--guard-color': 'var(--c-green)', '--guard-color-text': 'var(--c-green-text)' }}
             ref={multiplayerRef}
           >
             <span className="settings-guard-dot" style={{ background: 'var(--c-green)' }} aria-hidden="true" />
@@ -375,7 +383,7 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           <div className="settings-section-divider" />
 
           {/* ── Save data ── */}
-          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-city)' }}>
+          <div className="settings-guard-header" style={{ '--guard-color': 'var(--c-city)', '--guard-color-text': 'var(--c-brand-text)' }}>
             <span className="settings-guard-dot" style={{ background: 'var(--c-city)' }} aria-hidden="true" />
             Save data
           </div>

@@ -1097,6 +1097,50 @@ export function availableInCity(recipe, cityName) {
   return craftCities(recipe).some(c => c === cityName);
 }
 
+/**
+ * Collapse a recipe's material rows by item name, summing what each name needs.
+ *
+ * A recipe may list the same material twice — Ground Shaker needs 8 Diamond
+ * plus 2 Diamond as speaking stones. `Diamond` is deliberately one stash key
+ * (AVE-546: an item lives in exactly one category), so checking the rows
+ * independently answered "do I have 8?" and "do I have 2?" and concluded a
+ * player holding 8 was ready to craft something that costs 10 — a green Ready
+ * badge on the one control whose entire job is "what can I make right now?".
+ *
+ * Returns one entry per distinct name, in first-appearance order:
+ *   { name, need, qty, stoneQty, showDiscount }
+ * where `need` is the summed effective requirement (post-discount) and `qty`
+ * the summed pre-discount requirement. `stoneQty` is how much of `qty` is
+ * flagged as a speaking stone, which is what lets the UI keep saying so
+ * without rendering the material twice.
+ *
+ * For the 100 recipes with no repeated material every group has size 1 and
+ * these fields reduce to the per-row values they replace.
+ */
+export function aggregateMaterials(materials, useDiscount = false) {
+  const byName = new Map();
+  for (const m of materials) {
+    const need = (useDiscount && m.qty2R !== null) ? m.qty2R : m.qty;
+    const discounted = useDiscount && m.qty2R !== null && m.qty2R < m.qty;
+    const existing = byName.get(m.name);
+    if (existing) {
+      existing.need     += need;
+      existing.qty      += m.qty;
+      existing.stoneQty += m.isSpeakingStone ? m.qty : 0;
+      existing.showDiscount = existing.showDiscount || discounted;
+    } else {
+      byName.set(m.name, {
+        name:         m.name,
+        need,
+        qty:          m.qty,
+        stoneQty:     m.isSpeakingStone ? m.qty : 0,
+        showDiscount: discounted,
+      });
+    }
+  }
+  return [...byName.values()];
+}
+
 // Craftability check given current stash, sil, lux, and optional city context.
 // selectedCity: string | null — if set, checks cost for that city only and
 //   applies qty2R quantities when that city has prestige >= 2.
@@ -1120,11 +1164,14 @@ export function craftStatus(recipe, stash, sil, lux, selectedCity = null, cityPr
     return have > 0 ? 'partial' : 'missing';
   }
 
-  let totalNeeded = mats.length + reqs.length;
+  // Aggregated by name, not per row: a material listed twice in one recipe is
+  // still one stash key, so its rows have to be checked against their sum.
+  const groups = aggregateMaterials(mats, useDiscount);
+
+  let totalNeeded = groups.length + reqs.length;
   let totalHave = 0;
-  for (const mat of mats) {
-    const needed = (useDiscount && mat.qty2R !== null) ? mat.qty2R : mat.qty;
-    if ((stash[mat.name] ?? 0) >= needed) totalHave++;
+  for (const group of groups) {
+    if ((stash[group.name] ?? 0) >= group.need) totalHave++;
   }
   for (const req of reqs) {
     if ((stash[req.name] ?? 0) >= req.qty) totalHave++;
@@ -1155,10 +1202,8 @@ function checkCost(recipe, sil, lux, selectedCity) {
 // Shortage count — number of distinct materials (plus required items) where
 // stash < needed. Required items are never discounted (AVE-783).
 export function shortageCount(recipe, stash, useDiscount = false) {
-  const matShort = recipe.materials.filter(m => {
-    const needed = (useDiscount && m.qty2R !== null) ? m.qty2R : m.qty;
-    return (stash[m.name] ?? 0) < needed;
-  }).length;
+  const matShort = aggregateMaterials(recipe.materials, useDiscount)
+    .filter(g => (stash[g.name] ?? 0) < g.need).length;
   const reqShort = parseItemReq(recipe.itemReq)
     .filter(r => (stash[r.name] ?? 0) < r.qty).length;
   return matShort + reqShort;

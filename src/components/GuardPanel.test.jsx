@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Tests for the GuardPanel HP step selector.
+ * Tests for the GuardPanel HP controls.
  *
- * The step selector lets a player pick 1/5/10 as the HP adjustment delta
- * instead of the fixed ±1. The step choice is local component state (never
- * synced), applied to both the + and − buttons.
+ * HP adjusts by exactly ±1. There used to be a 1/5/10 step selector here, but
+ * ±1 was the only step the table ever used, and fitting three more buttons into
+ * the HP row is what collapsed them to 9px wide. The Sil/Lux steppers in
+ * StashTab deliberately keep theirs — craft costs run to 75 Sil.
  *
  * Built with React.createElement rather than JSX to match the project's
  * automatic-JSX-runtime lint config (no bare React import flagged as unused).
@@ -40,61 +41,50 @@ function setup(guard = GUARD_FIXTURE, guardIdx = 0) {
   return { actions, ...utils };
 }
 
-describe('GuardPanel HP step selector', () => {
-  function getAttr(el, attr) { return el.getAttribute(attr); }
-
-  it('defaults to step 1 on mount', () => {
+describe('GuardPanel HP controls', () => {
+  it('renders no step selector', () => {
     const { container } = setup();
-    const stepButtons = container.querySelectorAll('.step-btn');
-    expect(stepButtons).toHaveLength(3);
-    expect(stepButtons[0].classList.contains('active')).toBe(true);
-    expect(getAttr(stepButtons[0], 'aria-pressed')).toBe('true');
-    expect(stepButtons[1].classList.contains('active')).toBe(false);
-    expect(getAttr(stepButtons[1], 'aria-pressed')).toBe('false');
-    expect(stepButtons[2].classList.contains('active')).toBe(false);
-    expect(getAttr(stepButtons[2], 'aria-pressed')).toBe('false');
+    expect(container.querySelectorAll('.step-btn')).toHaveLength(0);
+    expect(container.querySelectorAll('.step-selector')).toHaveLength(0);
   });
 
-  it('calls adjustGuardHp(guardIdx, 1) with step 1 and + button', () => {
+  it('+ adjusts by exactly +1', () => {
     const { actions, container } = setup();
-    const plus = container.querySelector('.adj-pair .plus');
-    fireEvent.click(plus);
+    fireEvent.click(container.querySelector('.adj-pair .plus'));
     expect(actions.adjustGuardHp).toHaveBeenCalledTimes(1);
     expect(actions.adjustGuardHp).toHaveBeenCalledWith(0, 1);
   });
 
-  it('calls adjustGuardHp(guardIdx, 5) with step 5 and + button', () => {
+  it('− adjusts by exactly −1', () => {
     const { actions, container } = setup();
-    const stepButtons = container.querySelectorAll('.step-btn');
-    fireEvent.click(stepButtons[1]); // step 5
+    fireEvent.click(container.querySelector('.adj-pair .minus'));
+    expect(actions.adjustGuardHp).toHaveBeenCalledTimes(1);
+    expect(actions.adjustGuardHp).toHaveBeenCalledWith(0, -1);
+  });
+
+  it('repeated taps each send ±1 rather than accumulating a step', () => {
+    const { actions, container } = setup();
     const plus = container.querySelector('.adj-pair .plus');
     fireEvent.click(plus);
-    expect(actions.adjustGuardHp).toHaveBeenCalledWith(0, 5);
-  });
-
-  it('calls adjustGuardHp(guardIdx, -5) with step 5 and - button', () => {
-    const { actions, container } = setup();
-    const stepButtons = container.querySelectorAll('.step-btn');
-    fireEvent.click(stepButtons[1]); // step 5
-    const minus = container.querySelector('.adj-pair .minus');
-    fireEvent.click(minus);
-    expect(actions.adjustGuardHp).toHaveBeenCalledWith(0, -5);
-  });
-
-  it('updates active class and aria-pressed when step changes', () => {
-    const { container } = setup();
-    const stepButtons = container.querySelectorAll('.step-btn');
-    fireEvent.click(stepButtons[2]); // step 10
-    expect(stepButtons[2].classList.contains('active')).toBe(true);
-    expect(getAttr(stepButtons[2], 'aria-pressed')).toBe('true');
-    expect(stepButtons[0].classList.contains('active')).toBe(false);
-    expect(getAttr(stepButtons[0], 'aria-pressed')).toBe('false');
+    fireEvent.click(plus);
+    fireEvent.click(plus);
+    expect(actions.adjustGuardHp).toHaveBeenCalledTimes(3);
+    for (const call of actions.adjustGuardHp.mock.calls) {
+      expect(call).toEqual([0, 1]);
+    }
   });
 
   it('passes the correct guardIdx to adjustGuardHp', () => {
     const { actions, container } = setup(GUARD_FIXTURE, 1);
-    const plus = container.querySelector('.adj-pair .plus');
-    fireEvent.click(plus);
+    fireEvent.click(container.querySelector('.adj-pair .plus'));
     expect(actions.adjustGuardHp).toHaveBeenCalledWith(1, 1);
+  });
+
+  it('names both HP buttons for screen readers, including the step', () => {
+    const { container } = setup();
+    expect(container.querySelector('.adj-pair .plus').getAttribute('aria-label'))
+      .toBe('Increase Grigory HP by 1');
+    expect(container.querySelector('.adj-pair .minus').getAttribute('aria-label'))
+      .toBe('Decrease Grigory HP by 1');
   });
 });

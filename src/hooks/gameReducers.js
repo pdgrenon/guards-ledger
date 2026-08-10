@@ -135,8 +135,16 @@ export function safeActiveGuardIdx(guards, activeParty, activeGuardIdx) {
 
 // ─── Party resources ──────────────────────────────────────────────────────────
 
+// The clamping reducers below each bail out when the clamp swallows the delta
+// entirely. Returning a new state for a change that did not happen defeats
+// setState's no-op guard (which compares next === prev), so a "−" tap on Sil 0
+// or a "+" tap at full HP wrote a false log line, discarded the player's real
+// pending undo, and dispatched a sync write. None of these controls are
+// disabled at their limits, so it is reachable by simply tapping twice.
+
 export function reduceSetSil(s, delta) {
   const newVal = Math.max(0, s.sil + delta);
+  if (newVal === s.sil) return s;
   return addLog({ ...s, sil: newVal },
     `Party Sil ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`
   );
@@ -144,6 +152,7 @@ export function reduceSetSil(s, delta) {
 
 export function reduceSetLux(s, delta) {
   const newVal = Math.max(0, s.lux + delta);
+  if (newVal === s.lux) return s;
   return addLog({ ...s, lux: newVal },
     `Party Lux ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`
   );
@@ -154,6 +163,7 @@ export function reduceSetLux(s, delta) {
 export function reduceAdjustGuardHp(s, guardIdx, delta) {
   const g     = s.guards[guardIdx];
   const newHp = Math.min(g.maxHp, Math.max(0, g.hp + delta));
+  if (newHp === g.hp) return s;
   const guards = s.guards.map((g2, i) => i === guardIdx ? { ...g2, hp: newHp } : g2);
   return addLog({ ...s, guards }, `${g.name} HP ${delta >= 0 ? '+' : ''}${delta} → ${newHp}`);
 }
@@ -162,6 +172,7 @@ export function reduceAdjustGuardMaxHp(s, guardIdx, delta) {
   const g      = s.guards[guardIdx];
   const newMax = Math.max(1, g.maxHp + delta);
   const newHp  = Math.min(g.hp, newMax);
+  if (newMax === g.maxHp && newHp === g.hp) return s;
   const guards = s.guards.map((g2, i) =>
     i === guardIdx ? { ...g2, maxHp: newMax, hp: newHp } : g2
   );
@@ -191,6 +202,7 @@ export function reduceSetGuardEquipment(s, guardIdx, slot, value) {
 
 export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
   const g      = s.guards[guardIdx];
+  let changed  = false;
   const guards = s.guards.map((gi, i) => {
     if (i !== guardIdx) return gi;
     const full    = Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) =>
@@ -219,10 +231,22 @@ export function reduceSetGuardSatchelItem(s, guardIdx, slotIdx, field, value) {
       if (field === 'qty') {
         updated.qty = Math.min(Math.max(1, Math.trunc(updated.qty)), satchelStackLimit(slot.item || ''));
       }
+      // A write that resolves to the slot's existing value is not a change.
+      // Reached by tapping "+" at the stack cap (the caller already clamps, so
+      // it re-sends the current qty) and by re-selecting the item already in
+      // the slot. Without this the reducer returns a fresh object either way,
+      // which defeats setState's no-op guard: a bogus log line, the player's
+      // pending undo replaced by a snapshot of the state they were already in,
+      // and a sync write for a section nothing changed in.
+      if (updated.item === slot.item && updated.qty === slot.qty) return slot;
+      changed = true;
       return updated;
     });
     return { ...gi, satchel };
   });
+  // Bail out only when the satchel was already full length — otherwise the
+  // padding `full` performs above is itself a real (healing) change.
+  if (!changed && (g.satchel?.length ?? 0) === SATCHEL_EXPANDED_SIZE) return s;
   const newState = { ...s, guards };
 
   if (field === 'item' && value && ALL_MATERIALS_SET.has(value)) {
@@ -290,10 +314,13 @@ export function cityPrestige(city, campaignId, completedBounties, completedPuzzl
 export function reduceAdjustStash(s, itemName, delta) {
   const current = s.stash[itemName] ?? 0;
   const newVal  = Math.max(0, current + delta);
-  const stash   = { ...s.stash, [itemName]: newVal };
-  // Don't materialize a tombstone for an item that was never in the stash
-  // (e.g. clamping a decrement on an absent key).
-  if (newVal === 0 && !(itemName in s.stash)) delete stash[itemName];
+  // A clamp that swallows the delta changes nothing, so don't spend the
+  // player's pending undo on it. This also subsumes the old "don't materialize
+  // a tombstone for an item that was never in the stash" guard: an absent key
+  // reads as current 0, so any clamped result equals `current` and returns here
+  // before a key could be created.
+  if (newVal === current) return s;
+  const stash = { ...s.stash, [itemName]: newVal };
   return addLog({ ...s, stash },
     `Stash ${itemName} ${delta >= 0 ? '+' : ''}${delta} → ${newVal}`
   );
@@ -303,6 +330,7 @@ export function reduceAdjustStash(s, itemName, delta) {
 
 export function reduceSetStoneboundMax(s, delta) {
   const newMax = Math.max(0, s.stonebound.max + delta);
+  if (newMax === s.stonebound.max) return s;
   return addLog(
     { ...s, stonebound: { ...s.stonebound, max: newMax } },
     `Stonebound cube cap → ${newMax}`
@@ -366,6 +394,7 @@ export function reduceUpdateStoneboundLocation(s, id, field, value) {
 export function reduceSetEventToken(s, region, delta) {
   const current   = s.campaign.eventTokens[region] ?? 0;
   const next      = Math.max(0, Math.min(3, current + delta));
+  if (next === current) return s;
   const triggered = next === 3 && current < 3;
   const newTokens = { ...s.campaign.eventTokens, [region]: next };
   const campaign  = { ...s.campaign, eventTokens: newTokens };
@@ -711,16 +740,50 @@ export function reduceToggleBountyComplete(s, bountyId) {
 // Side-effect free; safe unconditionally (compactTombstones GCs solo state and
 // all read sites filter `deleted` / treat 0 as absent).
 
-// Append { id, deleted: true } for every id present in `curr` but absent from
-// `prev`. Both default to [] so a missing array on either side is handled.
+// Reconcile `prev` (the undo snapshot) against `curr` (current state) in BOTH
+// directions. Both default to [] so a missing array on either side is handled.
+//
+//   undo of an ADD    — id in curr, not in prev → append { id, deleted: true }
+//   undo of a DELETE  — id in both, tombstoned in curr but live in prev
+//                       → send { ...prevEl, deleted: false }
+//
+// The second direction is not optional. Passing the snapshot element through
+// unchanged looks correct locally, but it carries no `deleted` key at all, and
+// the server merge preserves keys the payload omits — so the row stays
+// `deleted: true` on the server and the write's own Realtime echo re-deletes it
+// about a second later, with the undo snapshot already cleared. That is exactly
+// the revert loop documented for the completion reducers, which is why all
+// three of them emit an explicit `deleted: false` on complete rather than a
+// bare { id }. The undo path needs the same discipline.
+//
+// An element whose snapshot value already carries an explicit `deleted` key is
+// left alone: it already states its own truth, so rewriting it would only cost
+// the identity contract below.
+//
+// Returns the `prev` reference unchanged when nothing needed negating or
+// reviving — callers use `!==` to decide whether anything changed.
 function appendUndoArrayTombstones(prev, curr) {
   const prevArr = prev ?? [];
   const currArr = curr ?? [];
   const prevIds = new Set(prevArr.map(e => e?.id));
+  const currById = new Map(
+    currArr.filter(e => e && 'id' in e).map(e => [e.id, e]),
+  );
+
+  let revived = false;
+  const restored = prevArr.map(e => {
+    if (!e || !('id' in e) || e.deleted !== undefined) return e;
+    if (currById.get(e.id)?.deleted !== true) return e;
+    revived = true;
+    return { ...e, deleted: false };
+  });
+
   const tombstones = currArr
     .filter(e => e && 'id' in e && !prevIds.has(e.id))
     .map(e => ({ id: e.id, deleted: true }));
-  return tombstones.length ? [...prevArr, ...tombstones] : prevArr;
+
+  if (!revived && !tombstones.length) return prevArr;
+  return [...restored, ...tombstones];
 }
 
 // Pin every key present in `curr` but absent from `prev` to `neutral` — the

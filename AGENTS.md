@@ -89,7 +89,7 @@ Every feature and bug fix gets a test. Tests live in `src/hooks/gameReducers.tes
 
 ## Security baseline
 
-**Never persist local UI navigation state to Supabase.** `activeGuardIdx` (which guard a player is viewing) was previously synced inside the `guards` section, causing one player to overwrite the other's tab position mid-session. This was a live bug. See `docs/agents/sync.md` for the full sync boundary.
+**Never persist local UI navigation state to Supabase.** `activeGuardIdx` (which guard a player is viewing) was previously synced inside the `guards` section, causing one player to overwrite the other's tab position mid-session. This was a live bug. See `docs/sync.md` for the full sync boundary.
 
 **New top-level state keys:** decide sync vs. local-only before deploying. Enforce in `useSupabaseSync.js`. An undeclared key defaults to local-only — make the decision explicit.
 
@@ -104,9 +104,9 @@ Load on demand — do not read every session.
 | When you need to... | Read |
 |---|---|
 | Architecture, state shape, component responsibilities | `CLAUDE.md` |
-| Sync sections, local-only keys, upsert behavior | `docs/agents/sync.md` |
-| Game data rules (Ft. Istra, crafting, speaking stones) | `docs/agents/game-data.md` |
-| Benchmark two models against the same ticket | `docs/agents/eval.md` |
+| Sync sections, local-only keys, upsert behavior | `docs/sync.md` |
+| Game data rules (Ft. Istra, crafting, speaking stones) | `docs/game-data.md` |
+| Benchmark two models against the same ticket | `docs/eval.md` |
 
 ---
 
@@ -123,11 +123,22 @@ npm run test    # Vitest
 
 ### State schema migrations
 
-Adding a new top-level state key requires **both**:
+Adding a new top-level state key requires **all** of:
 1. Add it to the appropriate section factory in `constants.js` (e.g. `createInitialStash()`).
-2. Add a default guard in `loadState()` in `useGameState.js`.
+2. Add it to that section's healer in `gameReducers.js` (`healStashSection` and
+   friends), clamping to the range its consumers assume. The healers — not
+   `loadState` — are what repair an older or damaged save.
+3. Walk the new reducer in `gameReducers.healIdempotence.test.js`. Healing a
+   *healthy* section must be a deep-equal no-op, or every Realtime echo reads as
+   a genuine remote change.
+4. Declare whether it is synced: add it to `SECTION_KEYS` in `useSupabaseSync.js`,
+   or leave it out deliberately if it is local-only UI state.
 
-Missing either step silently breaks existing saves for live users.
+Missing any step silently breaks existing saves for live users. Step 2 is the
+one that is easy to get wrong: the healers run on **both** the local load path
+and every section arriving from Supabase, so patching only the local side leaves
+remote rows unrepaired. See CLAUDE.md ("State shape and sync sections") for the
+full rationale — do not restate it here.
 
 ### Features deliberately removed — do not reintroduce
 

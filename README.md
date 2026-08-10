@@ -8,7 +8,7 @@
 
 ## What it does
 
-*The Isofarian Guard* generates a lot of bookkeeping. Each guard has HP, attack, defense, a chip bag, a satchel, and four equipment slots. Six cities each have prestige and three quest tracks. A shared stash holds 60+ crafting materials. A stonebound cube tracker covers the campaign map. Managing all of that on paper, mid-session, is genuinely painful.
+*The Isofarian Guard* generates a lot of bookkeeping. Each guard has HP, attack, defense, a satchel, and four equipment slots. Six cities each have prestige, a puzzle quest, and two campaign bounties. A shared stash holds 60+ crafting materials. A stonebound cube tracker covers the campaign map. Managing all of that on paper, mid-session, is genuinely painful.
 
 This app handles that bookkeeping on your phone, saves automatically after every action, and stays out of the way of the game itself.
 
@@ -22,11 +22,10 @@ Two guards are active at a time. The active party is configured in Settings; the
 
 Each guard card shows:
 
-- **HP** — large numeric display (current / max) with +/− controls
+- **HP** — large numeric display (current / max) with +/− controls, adjusting by 1
 - **Combat stats** — Attack and Defense, each showing the base value plus any equipment bonus, with a breakdown (e.g. "2 base + 3 weapon")
 - **Equipment** — Weapon, Armor, Accessory, and Item slots, each with a searchable autocomplete pulling from the full item lists
 - **Satchel** — 4 slots by default, expandable to 8 via a toggle. Each slot has a material name (autocomplete) and a quantity (1–4)
-- **Chip bag** — Black, Green, Red, and Purple chip counts with +/− controls and a one-tap reset back to each guard's configured starting count
 
 Portrait images load from `public/guards/<name>.webp`. If a portrait is missing the avatar shows the guard's initials instead.
 
@@ -35,7 +34,8 @@ Portrait images load from `public/guards/<name>.webp`. If a portrait is missing 
 Six cities: Mir, Razdor, Ryba, Silny, Strofa, and Vouno. Each city card shows:
 
 - **Prestige pips** (0–3) — derived automatically from completed quests; no separate input needed
-- **Quest rows** — Puzzle quest, Bounty 1, Bounty 2. Tapping a row toggles it done/undone and the prestige pip count updates instantly
+- **Puzzle quest row** — a checkbox row showing the active campaign's location for that city. Tapping it toggles done/undone and the prestige pips update instantly
+- **Bounty cards** — the two bounties for the active campaign, each opening a detail sheet with targets, conditions, and rewards. Bounties and puzzle quests are campaign-scoped, so the card shows only the active campaign's
 
 ### Stash tab
 
@@ -43,7 +43,7 @@ Six cities: Mir, Razdor, Ryba, Silny, Strofa, and Vouno. Each city card shows:
 
 **Stonebound** — Tracks cube placement across the campaign map. Add location entries, pick a City, Resource node, or Enemy node from grouped dropdowns, set a cube count per location, and adjust the overall cube cap. The header shows cubes used vs. cap and turns red if over budget.
 
-**Fort Istra stash** — Inventory for all craftable materials across 7 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Market & misc, and Special ingredients. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
+**Fort Istra stash** — Inventory for all craftable materials across 8 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Special ingredients, Speaking stones, and Gear. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
 
 Items in the stash that serve as a prerequisite for a craftable recipe show an inline "→ Item Name ★★★" hint so you know what they upgrade into.
 
@@ -85,7 +85,7 @@ Tapping an ingredient name opens the material source popup.
 ### Campaign tab
 
 - **Event tokens** — Mountain, Forest, Plains, and Sea token counters (0–3 each). At 3, a "Resolve event" button replaces the +/− controls. Resolving resets the counter to 0.
-- **Locations** — Fixed fields for Party, Caravan, Main quest, and Boat. Dynamic lists for Side quests and Bounties (add, edit, and remove entries freely).
+- **Locations** — Fixed fields for Party, Caravan, Main quest, and Boat, plus a dynamic list of Side quests (add, edit, and remove entries freely).
 - **Session plans** — A simple checklist for anything you want to accomplish this session. Add, check off, and delete entries.
 
 ### Session log tab
@@ -110,7 +110,7 @@ Not all materials have source data. The sheet closes by tapping the backdrop, th
 A bottom-sheet overlay (gear icon in the top bar) with:
 
 - **Active party** — two dropdowns to select which guards are in your current party (all 8 guards are always tracked; only the two active ones appear in the Guard tab switcher)
-- **Per-guard config** (active party only) — max HP adjustment and starting black chip count
+- **Per-guard config** (active party only) — max HP adjustment
 - **Multiplayer** — create or join a campaign for real-time sync with a co-player (see below)
 - **Export** — downloads a dated JSON snapshot (`guards-ledger-save-YYYY-MM-DD.json`)
 - **Import** — restores from a previously exported file
@@ -120,7 +120,7 @@ A bottom-sheet overlay (gear icon in the top bar) with:
 
 ## Persistence
 
-All state saves to `localStorage` under the key `guards_ledger_v2` automatically after every action. On first load with no saved data the app opens a demo save so the UI isn't empty.
+All state saves to `localStorage` under the key `guards_ledger_v2` automatically after every action. On first load with no saved data the app shows a short onboarding sheet offering **Start fresh** or **Load demo data**.
 
 Saves from the previous `v1` format are migrated automatically on first load — no manual action needed.
 
@@ -165,7 +165,7 @@ Sync is optional. Without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` confi
 
 **Graceful degradation.** The Supabase client is instantiated only when env vars are present. When they are absent — as in a portfolio or local-only deployment — `useSupabaseSync` returns `isConfigured: false` and all sync calls are no-ops. The Multiplayer section in Settings shows a single explanatory line rather than the create/join UI.
 
-**No UI library.** Every component is hand-rolled with plain CSS. This trades upfront effort for full control over touch targets, theming, and interaction patterns: large tap areas, chip counters, custom autocomplete.
+**No UI library.** Every component is hand-rolled with plain CSS. This trades upfront effort for full control over touch targets, theming, and interaction patterns: large tap areas, custom autocomplete.
 
 **CSS custom properties for theming.** Light and dark mode are handled entirely via `prefers-color-scheme` and a set of semantic tokens (`--c-bg`, `--c-text`, `--c-brand`, `--c-hp`, `--c-green`, eight guard identity color triples, etc.) defined in `src/index.css`. No runtime theming logic needed.
 
@@ -186,12 +186,22 @@ src/
   App.jsx                  # Shell: tabs, top bar, campaign pill, log view, settings trigger
   index.css                # Single stylesheet with CSS custom properties (light + dark)
   components/
-    GuardPanel.jsx         # Per-guard card: HP, combat stats, equipment, satchel, chips
-    CitiesTab.jsx          # City grid: prestige pips + quest checkboxes
+    GuardPanel.jsx         # Per-guard card: HP, combat stats, equipment, satchel
+    CitiesTab.jsx          # City grid: prestige pips, puzzle quest, bounty cards
     StashTab.jsx           # Party resources (Sil/Lux), stonebound, Fort Istra stash, custom items
     CraftTab.jsx           # Stash-aware recipe reference: 101 items, filters, prestige discounts
+    CampaignTab.jsx        # Event tokens, locations, session plans, Ft. Istra buildings
+    MoreTab.jsx            # Encounters (Training Yard, Spirit Bosses) + session log
+    GlobalSearch.jsx       # Cross-cutting search overlay: recipes, materials, enemies, encounters
     MaterialSourcePopup.jsx  # Bottom-sheet: where to find or sell a given material/item
+    MaterialSourceSections.jsx # The grouped source/sell chips inside that sheet
+    MaterialName.jsx       # Makes a material name tappable when it has source data
     SettingsPanel.jsx      # Bottom-sheet: active party, per-guard config, multiplayer, save/load/reset
+    ConfirmModal.jsx       # Confirmation dialog for destructive actions
+    ErrorBoundary.jsx      # App / tab / guard-level crash fallbacks
+    CorruptionBanner.jsx   # Recovery UI when a save can't be parsed
+    UpdateBanner.jsx       # Prompt shown when a new deploy is waiting
+    Checkmark.jsx          # Shared tick glyph
     Autocomplete.jsx       # Reusable searchable dropdown (no external library)
   hooks/
     useGameState.js        # All state + action callbacks; loads/saves localStorage; wires sync
@@ -199,12 +209,23 @@ src/
     gameReducers.js        # Pure state-transition functions (unit-testable, no React)
     gameReducers.test.js   # Vitest unit tests for all reducers
   data/
-    constants.js           # Guard names, city names, chip types, GUARD_COLOR_MAP, section factories, createInitialState()
+    constants.js           # Guard names, city names, GUARD_COLOR_MAP, section factories, createInitialState()
     materials.js           # Item lists, MATERIAL_SOURCES (enemy drops, nodes, market buy/sell prices)
     recipes.js             # All 101 crafting recipes + craftStatus/shortageCount/PREREQ_UPGRADES_TO helpers
-    demoSave.json          # Shown on first load when no localStorage save exists
+    bounties.js            # 48 Bounty Quests (6 inns x 4 campaigns x 2)
+    puzzleQuests.js        # 24 Puzzle Quests (6 cities x 4 campaigns)
+    encounters.js          # Training Yard fights and Spirit Bosses
+    buildings.js           # Ft. Istra buildings and their states
+    search.js              # Backing query for the global search overlay
+    demoSave.json          # Offered by the first-run onboarding sheet
+  utils/
+    downloadUtils.js       # The single save-file download path
+    logUtils.js            # Session-log colorization
+    swUpdate.js            # Bridge from the service worker to UpdateBanner
+    chunkReload.js         # Recovery for a stale lazy chunk after a deploy
 supabase/
-  schema.sql               # Campaigns table, RLS policies, Realtime setup — run once in Supabase SQL editor
+  schema.sql               # Campaigns table, RLS policies, Realtime setup — fresh installs
+  migrations/              # Ordered migrations for an existing database — see CLAUDE.md
 public/
   guards/                  # Guard portrait images (*.webp, lowercase filenames)
 ```
@@ -226,7 +247,16 @@ To add a new crafting material: add its name to the appropriate category array i
 
 ### Supabase setup (multiplayer only)
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor
+**Follow the full setup in `CLAUDE.md` ("Supabase setup"), not an abbreviated version.**
+`schema.sql` alone is only correct for a *fresh* database; an existing one needs
+the numbered migrations in `supabase/migrations/`, and skipping the most recent
+leaves an install that reads fine and rejects every write. The short version:
+
+1. Run `supabase/schema.sql` (fresh installs), or every migration in
+   `supabase/migrations/` in order (existing databases)
 2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table
-3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` —
+   use a scratch project, not your live one; `.env` is gitignored and must stay untracked
 4. `npm install @supabase/supabase-js`
+
+`CLAUDE.md` also carries the SQL query that verifies a database is fully migrated.

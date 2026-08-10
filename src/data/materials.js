@@ -42,13 +42,25 @@ export const ACCESSORIES = [
 
 // Anything here can occupy a guard's "Item" (active) equipment slot — consumables
 // included, since knowing what you can reach mid-battle is the point of that slot.
+//
+// Every recipe with `type: 'Item'` must appear here, or the thing you just
+// crafted cannot be selected at all: the slot's options come from this array, so
+// a missing entry renders only if already set and is lost for good once cleared
+// (AVE-548). `materials.test.js` asserts that, which is how `Tent` was found —
+// it was the last `type: 'Item'` recipe still filed as a plain material.
+//
+// An item belongs to exactly one MATERIAL_CATEGORIES entry (AVE-546), and the
+// `gear` category is derived from this array, so adding a name here means
+// removing it from any hand-written category — as was done for `Health Potion`
+// and then `Tent`. ALL_MATERIALS is a plain flatMap with no dedup, so a name in
+// two categories appears twice in every Autocomplete and twice in search.
 export const ITEMS = [
   'Aged Drink', 'Barrier Tonic', 'Bottled Courage',
   'Expanded Satchel', 'Health Potion', 'Invigorating Potion',
   'Natural Remedies Volume 1',
   'Natural Remedies Volume 2', 'Natural Remedies Volume 3', 'Order from Chaos',
   'Pickaxe', 'Purifying Dust', "Raven's Beak Flask", 'Ruinous Dust', 'Smoke Bomb',
-  'Spicy Stew', 'The Foundations of Telios', 'Wood Chopping Axe',
+  'Spicy Stew', 'Tent', 'The Foundations of Telios', 'Wood Chopping Axe',
   'Zamar', "Zoya's Elixir",
 ];
 
@@ -87,14 +99,6 @@ export const MATERIAL_CATEGORIES = [
     ],
   },
   {
-    id: 'market',
-    label: 'Market & misc',
-    // 'Health Potion' moved to ITEMS (and so into Gear) — it is equippable in a
-    // guard's active Item slot (AVE-548). It must appear in exactly one category,
-    // or it renders as two stash rows and two search hits (AVE-546).
-    items: ['Tent'],
-  },
-  {
     id: 'special',
     label: 'Special ingredients',
     // Jade, Black Diamond, and Ancient Roots are also speaking stones —
@@ -128,10 +132,11 @@ export const MATERIAL_CATEGORIES = [
 export const ALL_MATERIALS = MATERIAL_CATEGORIES.flatMap(c => c.items).sort();
 
 // Pre-computed { item, category } pairs for the stash UI — avoids re-deriving in components.
-// Deduped by name with first-category-wins so an item listed in two categories (e.g.
-// "Cooked Fish" in Fish & food and Gear, "Tent" in Market & misc and Gear — AVE-546)
-// produces only one row. The root cause entries are kept out of ITEMS; this Set guard
-// future-proofs against the same mistake.
+// Deduped by name with first-category-wins so an item listed in two categories would
+// still produce only one row (AVE-546). Note this Set guard protects the stash UI ONLY:
+// ALL_MATERIALS below is a plain flatMap, so a genuinely double-listed item would still
+// appear twice in every Autocomplete and twice in search. Membership of exactly one
+// category remains the real invariant — see the equippable-items note on ITEMS.
 const seen = new Set();
 export const ALL_ITEMS_WITH_CATEGORY = MATERIAL_CATEGORIES.flatMap(cat =>
   cat.items.flatMap(item => {
