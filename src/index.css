@@ -309,6 +309,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
   letter-spacing: 0.03em;
   color: var(--c-text);
   line-height: 1;
+  /* This is the document's <h1>; neutralise the UA heading margin. */
+  margin: 0;
 }
 
 /* Thin ochre rule — anchors the wordmark to the brand color, fills the space cleanly */
@@ -397,7 +399,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .tabs::-webkit-scrollbar { display: none; }
 
 .tab {
-  padding: 8px 14px;
+  padding: 8px 8px;
   font-size: 13px;
   border: none;
   border-bottom: 2px solid transparent;
@@ -412,8 +414,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
   line-height: 1;
   transition: color 0.15s;
 }
-/* Active tab: accent colour + font-weight for clear distinction */
-.tab.active {
+/* Active tab: accent colour + font-weight for clear distinction.
+   Keyed off aria-selected, not a class: App sets aria-selected to drive the
+   ARIA tab pattern, so the visual and assistive states cannot drift apart.
+   They previously did — the stylesheet matched `.tab.active` while App emitted
+   `tab--active`, so this rule was dead and no tab had any active state at all. */
+.tab[aria-selected="true"] {
   color: var(--c-interact);
   border-bottom-color: var(--c-interact);
   font-weight: 600;
@@ -1481,8 +1487,14 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 /* ─── STEP SELECTOR & COUNTER ────────────────────────────────────────────── */
 /* Segmented control — no gaps, shared border, pill group feel */
+/* flex-shrink: 0 is load-bearing. In the guard HP row this sits in a flex
+   container beside the large HP display, and without it the whole group
+   collapsed to ~35px — 9px-wide buttons, well under the 24px WCAG 2.5.8 floor,
+   for one of the most-tapped controls in the app. The identical control in the
+   Stash tab was unaffected, which is what made it easy to miss. */
 .step-selector {
   display: flex;
+  flex-shrink: 0;
   gap: 0;
   margin-bottom: 8px;
   border: 0.5px solid var(--c-border2);
@@ -1491,7 +1503,8 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .step-btn {
   flex: 1;
-  padding: 8px 0;
+  min-width: 34px;
+  padding: 8px 10px;
   font-size: 12px;
   font-weight: 500;
   border: none;

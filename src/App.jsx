@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
 import { useDialogA11y } from './hooks/useDialogA11y';
 import { useGameState } from './hooks/useGameState';
 import { GuardPanel } from './components/GuardPanel';
@@ -89,6 +89,44 @@ export default function App() {
   // that ignores it turns "Export a save file now so you don't lose progress"
   // into a button that can silently do nothing (AVE-941).
   const [exportProblem, setExportProblem] = useState(null);
+  // The tab strip is horizontally scrollable — six tabs need ~364px and a
+  // 390px phone gives the strip 366px, so a narrower screen (or a larger text
+  // size) puts a tab out of sight. Switching tabs programmatically — global
+  // search deep-links to Crafting / Cities / More — could therefore land on a
+  // tab scrolled entirely out of view, leaving no visible selection anywhere.
+  const activeTabRef = useRef(null);
+  useEffect(() => {
+    const el = activeTabRef.current;
+    // Progressive enhancement — the tab is still selected and styled without
+    // it, so never let a missing implementation take down the render.
+    // `block: 'nearest'` keeps this from scrolling the page vertically.
+    if (typeof el?.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [tab]);
+
+  // Roving tabindex means only the selected tab is in the Tab order, so the
+  // others are reachable only via arrow keys — this handler is required by that
+  // choice, not an extra. Matches the ARIA tabs pattern (automatic activation).
+  const onTabKeyDown = useCallback(e => {
+    const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    let next = null;
+    if (delta !== 0) {
+      const i = TABS.indexOf(e.currentTarget.textContent);
+      next = TABS[(i + delta + TABS.length) % TABS.length];
+    } else if (e.key === 'Home') {
+      next = TABS[0];
+    } else if (e.key === 'End') {
+      next = TABS[TABS.length - 1];
+    }
+    if (!next) return;
+    e.preventDefault();
+    setTab(next);
+    // The newly selected tab is the only one with tabIndex 0; move focus to it
+    // so the arrow keys keep working from there.
+    requestAnimationFrame(() => activeTabRef.current?.focus());
+  }, []);
+
   const clearCraftSeed       = useCallback(() => setCraftSeed(null), []);
   const clearEncounterTarget = useCallback(() => setEncounterTarget(null), []);
   const clearCityTarget      = useCallback(() => setCityTarget(null), []);
@@ -238,10 +276,10 @@ export default function App() {
         <UpdateBanner />
 
         {/* Top bar */}
-        <div className="top-bar">
+        <header className="top-bar">
           <div className="top-bar-brand">
             <div className="wordmark-the">The</div>
-            <div className="wordmark-title">Guard's Ledger</div>
+            <h1 className="wordmark-title">Guard's Ledger</h1>
             <div className="wordmark-rule" aria-hidden="true" />
           </div>
 
@@ -278,25 +316,39 @@ export default function App() {
           <button className="icon-btn" onClick={openSettings} aria-label="Settings">
             <SettingsIcon />
           </button>
-        </div>
+        </header>
 
         {/* Tabs */}
-        <div className="tabs" role="tablist">
+        <div className="tabs" role="tablist" aria-label="Sections">
           {TABS.map(t => (
             <button
               key={t}
+              ref={tab === t ? activeTabRef : null}
               role="tab"
+              id={`tab-${t}`}
               aria-selected={tab === t}
-              className={`tab${tab === t ? ' tab--active' : ''}`}
+              aria-controls="tab-panel"
+              tabIndex={tab === t ? 0 : -1}
+              className="tab"
               onClick={() => setTab(t)}
+              onKeyDown={onTabKeyDown}
             >
               {t}
             </button>
           ))}
         </div>
 
-        {/* Tab content */}
-        <div className="tab-content">
+        {/* Tab content. The tabpanel role sits on an inner element, not on
+            <main> — an explicit role replaces the implicit one, so a <main
+            role="tabpanel"> is no longer a main landmark at all. */}
+        <main>
+        <div
+          className="tab-content"
+          id="tab-panel"
+          role="tabpanel"
+          aria-labelledby={`tab-${tab}`}
+          tabIndex={-1}
+        >
         <Suspense fallback={<div className="tab-loading" role="status">Loading…</div>}>
 
           {/* ── Guards tab ── */}
@@ -437,6 +489,7 @@ export default function App() {
           )}
         </Suspense>
         </div>
+        </main>
 
         {/* Settings overlay */}
         {settingsOpen && (
