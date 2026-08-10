@@ -8,10 +8,12 @@ import { describe, it, expect } from 'vitest';
 import {
   MATERIAL_CATEGORIES,
   ALL_ITEMS_WITH_CATEGORY,
+  ALL_MATERIALS,
   MATERIAL_SOURCES,
   ENEMIES,
   ITEMS,
 } from './materials';
+import { RECIPES } from './recipes';
 import { BOUNTIES } from './bounties';
 import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from './encounters';
 
@@ -103,5 +105,31 @@ describe('bounty targets name real enemies (AVE-548)', () => {
       }
     }
     expect(unresolved).toEqual([]);
+  });
+});
+
+describe('every craftable Item can occupy the Item slot (AVE-548)', () => {
+  // The guard's Item slot draws its options from ITEMS, so a recipe with
+  // `type: 'Item'` that is missing from that array produces something you can
+  // craft but never equip — and which is lost for good the moment the slot is
+  // cleared, since it cannot be re-selected. This is the class that
+  // `Raven's Beak Flask` was filed under; `Tent` was the last instance,
+  // shipped as a plain material in the retired "Market & misc" category.
+  it('every recipe with type "Item" appears in ITEMS', () => {
+    const missing = RECIPES
+      .filter(r => r.type === 'Item')
+      .map(r => r.name)
+      .filter(name => !ITEMS.includes(name));
+    expect(missing).toEqual([]);
+  });
+
+  // The other direction of AVE-546: `gear` is derived from ITEMS, so adding a
+  // name there without removing it from its hand-written category double-lists
+  // it. ALL_ITEMS_WITH_CATEGORY dedupes for the stash UI, but ALL_MATERIALS is
+  // a plain flatMap — a duplicate reaches every Autocomplete and search result.
+  it('ALL_MATERIALS contains no duplicate names', () => {
+    const seen = new Set();
+    const dupes = ALL_MATERIALS.filter(n => seen.size === seen.add(n).size);
+    expect([...new Set(dupes)]).toEqual([]);
   });
 });

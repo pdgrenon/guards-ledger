@@ -1,6 +1,6 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo, useEffect } from 'react';
-import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 import { MaterialName } from './MaterialName';
@@ -153,23 +153,29 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
       {/* Materials */}
       {recipe.materials.length > 0 && (
         <div className="craft-materials">
-          {recipe.materials.map((mat, i) => {
-            const effectiveQty = (useDiscount && mat.qty2R !== null) ? mat.qty2R : mat.qty;
+          {/* Grouped by name, not one row per entry: a material listed twice
+              (Ground Shaker's 8 Diamond + 2 Diamond as speaking stones) is one
+              stash key, so two rows would show two independently-satisfiable
+              numbers for a single 10-Diamond requirement. */}
+          {aggregateMaterials(recipe.materials, useDiscount).map(mat => {
             const have = combined[mat.name] ?? 0;
-            const ok = have >= effectiveQty;
-            const showDiscount = useDiscount && mat.qty2R !== null && mat.qty2R < mat.qty;
+            const ok = have >= mat.need;
             return (
-              <div key={i} className="craft-mat-row">
+              <div key={mat.name} className="craft-mat-row">
                 <MaterialName item={mat.name} className="craft-mat-name" onShowSource={onShowSource}>
                   {mat.name}
-                  {mat.isSpeakingStone && (
-                    <span className="craft-stone-tag"> · speaking stone</span>
+                  {mat.stoneQty > 0 && (
+                    <span className="craft-stone-tag">
+                      {mat.stoneQty === mat.qty
+                        ? ' · speaking stone'
+                        : ` · ${mat.stoneQty} as speaking stone`}
+                    </span>
                   )}
                 </MaterialName>
                 <span className={`craft-mat-qty ${ok ? 'craft-mat-qty--have' : 'craft-mat-qty--short'}`}>
-                  {have} / {showDiscount
-                    ? <><s className="craft-mat-qty-original">{mat.qty}</s> {mat.qty2R}</>
-                    : effectiveQty
+                  {have} / {mat.showDiscount
+                    ? <><s className="craft-mat-qty-original">{mat.qty}</s> {mat.need}</>
+                    : mat.need
                   }
                 </span>
               </div>

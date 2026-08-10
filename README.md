@@ -43,7 +43,7 @@ Six cities: Mir, Razdor, Ryba, Silny, Strofa, and Vouno. Each city card shows:
 
 **Stonebound** — Tracks cube placement across the campaign map. Add location entries, pick a City, Resource node, or Enemy node from grouped dropdowns, set a cube count per location, and adjust the overall cube cap. The header shows cubes used vs. cap and turns red if over budget.
 
-**Fort Istra stash** — Inventory for all craftable materials across 7 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Market & misc, and Special ingredients. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
+**Fort Istra stash** — Inventory for all craftable materials across 8 categories: Ores, Timber, Animal drops, Tenebris drops, Fish & food, Special ingredients, Speaking stones, and Gear. Only items with a non-zero count are shown. A filter input narrows by name. A search panel at the bottom lets you add items not yet in the stash.
 
 Items in the stash that serve as a prerequisite for a craftable recipe show an inline "→ Item Name ★★★" hint so you know what they upgrade into.
 

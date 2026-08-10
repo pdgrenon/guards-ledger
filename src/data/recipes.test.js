@@ -18,6 +18,7 @@ import {
   shortageCount,
   buildCombined,
   parseItemReq,
+  aggregateMaterials,
   PREREQ_UPGRADES_TO,
 } from './recipes';
 import {
@@ -676,5 +677,89 @@ describe('every recipe prereq resolves to a real item (AVE-545)', () => {
       expect(WEAPONS).toContain(name);
       expect(WEAPON_STATS[name]).toBe(0);
     }
+  });
+});
+
+// ─── Repeated materials ──────────────────────────────────────────────────────
+//
+// A recipe may list the same material twice: Ground Shaker needs 8 Diamond plus
+// 2 Diamond as speaking stones. Diamond is deliberately a single stash key
+// (AVE-546 — an item lives in exactly one category), so checking the two rows
+// independently asked "do I have 8?" and "do I have 2?" and answered yes at 8,
+// putting a green Ready badge on a craft that costs 10 and letting it through
+// the "Can craft" filter.
+
+describe('aggregateMaterials', () => {
+  const groundShaker = RECIPES.find(r => r.name === 'Ground Shaker');
+
+  it('Ground Shaker still lists Diamond twice in the raw data', () => {
+    // Guards the premise: if the data is ever de-duplicated upstream, these
+    // tests should be revisited rather than silently passing for a new reason.
+    const diamondRows = groundShaker.materials.filter(m => m.name === 'Diamond');
+    expect(diamondRows).toHaveLength(2);
+    expect(diamondRows.map(m => m.qty).sort()).toEqual([2, 8]);
+  });
+
+  it('collapses repeated names and sums what they need', () => {
+    const groups = aggregateMaterials(groundShaker.materials);
+    const diamond = groups.filter(g => g.name === 'Diamond');
+    expect(diamond).toHaveLength(1);
+    expect(diamond[0].need).toBe(10);
+    // 2 of the 10 are speaking stones — kept so the UI can still say so
+    // without rendering the material twice.
+    expect(diamond[0].stoneQty).toBe(2);
+  });
+
+  it('leaves single-entry recipes byte-identical to their rows', () => {
+    for (const recipe of RECIPES) {
+      const names = recipe.materials.map(m => m.name);
+      if (new Set(names).size !== names.length) continue;   // skip the repeats
+      const groups = aggregateMaterials(recipe.materials);
+      expect(groups.map(g => g.name)).toEqual(names);
+      expect(groups.map(g => g.need)).toEqual(recipe.materials.map(m => m.qty));
+    }
+  });
+
+  it('preserves first-appearance order', () => {
+    const groups = aggregateMaterials(groundShaker.materials);
+    expect(groups.map(g => g.name)).toEqual(['Tenebris Shards', 'Diamond']);
+  });
+
+  it('sums the discounted requirement when a discount applies', () => {
+    const mats = [
+      { name: 'Iron', qty: 4, qty2R: 2, isSpeakingStone: false },
+      { name: 'Iron', qty: 2, qty2R: 1, isSpeakingStone: false },
+    ];
+    expect(aggregateMaterials(mats, false)[0].need).toBe(6);
+    const discounted = aggregateMaterials(mats, true)[0];
+    expect(discounted.need).toBe(3);
+    expect(discounted.qty).toBe(6);          // struck-through original
+    expect(discounted.showDiscount).toBe(true);
+  });
+});
+
+describe('craftStatus with a repeated material', () => {
+  const groundShaker = RECIPES.find(r => r.name === 'Ground Shaker');
+  // Ft. Istra: 75 Lux, no Sil cost.
+  const status = (diamond, lux = 999) =>
+    craftStatus(groundShaker, { 'Tenebris Shards': 99, Diamond: diamond }, 0, lux, null, 0);
+
+  it('is not ready at 8 Diamond — the craft costs 10', () => {
+    expect(status(8)).toBe('partial');
+  });
+
+  it('is not ready at 9 Diamond', () => {
+    expect(status(9)).toBe('partial');
+  });
+
+  it('is ready at 10 Diamond', () => {
+    expect(status(10)).toBe('ready');
+  });
+
+  it('shortageCount counts the material once, not twice', () => {
+    expect(shortageCount(groundShaker, { 'Tenebris Shards': 99, Diamond: 8 })).toBe(1);
+    expect(shortageCount(groundShaker, { 'Tenebris Shards': 99, Diamond: 10 })).toBe(0);
+    // Both short: two distinct names, not three rows.
+    expect(shortageCount(groundShaker, {})).toBe(2);
   });
 });
