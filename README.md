@@ -255,8 +255,13 @@ leaves an install that reads fine and rejects every write. The short version:
 1. Run `supabase/schema.sql` (fresh installs), or every migration in
    `supabase/migrations/` in order (existing databases)
 2. In the Supabase dashboard go to **Database → Replication** and enable Realtime for the `campaigns` table
-3. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` —
-   use a scratch project, not your live one; `.env` is gitignored and must stay untracked
+3. `.env` is **committed** and already holds the deployed project's URL and anon key —
+   it is the Cloudflare Pages build's only source of configuration, so removing it
+   ships a bundle with multiplayer silently disabled. It contains no secret (`VITE_`
+   vars are compiled into the public bundle and a Supabase anon key is public by
+   design), but it does mean a clone points at the live project: **use a scratch
+   project for local development** by overriding the values in a `.env.local`,
+   which is ignored
 4. `npm install @supabase/supabase-js`
 
 `CLAUDE.md` also carries the SQL query that verifies a database is fully migrated.
