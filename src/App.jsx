@@ -318,7 +318,11 @@ export default function App() {
           </button>
         </header>
 
-        {/* Tabs */}
+        {/* Tabs. The <nav> is the landmark; the tablist role stays on the
+            inner element, because an explicit role would replace nav's
+            implicit navigation role and leave this content outside any
+            landmark again. */}
+        <nav aria-label="Sections">
         <div className="tabs" role="tablist" aria-label="Sections">
           {TABS.map(t => (
             <button
@@ -337,6 +341,7 @@ export default function App() {
             </button>
           ))}
         </div>
+        </nav>
 
         {/* Tab content. The tabpanel role sits on an inner element, not on
             <main> — an explicit role replaces the implicit one, so a <main
@@ -376,7 +381,10 @@ export default function App() {
                 {activeGuard && (
                   <div
                     className="guard-card-wrapper"
-                    style={{ '--guard-color': activeColor.border }}
+                    style={{
+                      '--guard-color': activeColor.border,
+                      '--guard-color-text': activeColor.text,
+                    }}
                   >
                     {/* resetKey clears a caught error when the player switches
                         guards. This boundary sits in a fixed position, so

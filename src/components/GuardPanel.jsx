@@ -155,13 +155,21 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       <div className="sec-label-primary">Equipment</div>
       <div className="equip-grid mb-2">
         {EQUIPMENT_SLOTS.map(({ key, label, options }) => (
-          <div key={key} className="equip-slot">
+          // Keyed by guard as well as slot. GuardPanel is rendered in a fixed
+          // position with no key of its own, so switching the displayed guard
+          // reuses these instances — and Autocomplete holds an uncommitted
+          // `draft` in local state. Without the guard in the key, a party change
+          // arriving from a co-player mid-edit would swap the guard underneath a
+          // live draft while onChange rebound to the new guardIdx, committing
+          // typed text onto a guard the player never touched.
+          <div key={`${guard.name}-${key}`} className="equip-slot">
             <div className="equip-lbl">{label}</div>
             <Autocomplete
               value={guard.equipment[key]}
               onChange={val => setGuardEquipment(guardIdx, key, val)}
               options={options}
               placeholder="— empty —"
+              ariaLabel={`${label} — ${guard.name}`}
             />
           </div>
         ))}
@@ -192,12 +200,14 @@ export function GuardPanel({ guard, guardIdx, actions }) {
         {Array(satchelSize).fill(0).map((_, si) => {
           const slot = guard.satchel[si] || { item: '', qty: 1 };
           return (
-            <div key={si} className="satchel-slot">
+            // Keyed by guard as well as slot — see the equipment grid above.
+            <div key={`${guard.name}-${si}`} className="satchel-slot">
               <Autocomplete
                 value={slot.item}
                 onChange={val => setGuardSatchelItem(guardIdx, si, 'item', val)}
                 options={ALL_MATERIALS}
                 placeholder="empty"
+                ariaLabel={`Satchel slot ${si + 1} — ${guard.name}`}
               />
               {slot.item && (
                 <div className="satchel-qty-row">

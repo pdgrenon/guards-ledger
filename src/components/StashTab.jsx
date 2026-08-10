@@ -150,6 +150,7 @@ export function StashTab({
                   <select
                     className="sb-select"
                     value={loc.selection}
+                    aria-label="Stonebound location"
                     onChange={e => updateStoneboundLocation(loc.id, 'selection', e.target.value)}
                   >
                     <option value="">— select location —</option>

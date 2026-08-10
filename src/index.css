@@ -19,10 +19,17 @@ a:focus-visible {
   --c-border:  rgba(0, 0, 0, 0.10);
   --c-border2: rgba(0, 0, 0, 0.20);
 
-  /* Text — near-black primary; dark gray secondary (7:1); medium gray hints (4.6:1) */
+  /* Text — near-black primary; dark gray secondary; medium gray hints.
+     Every one of these must clear WCAG AA 4.5:1 against ALL THREE surfaces
+     (--c-bg, --c-surface, --c-surface2), because each is used on all three and
+     all of it is 10–13px text. --c-text3 was #8a8880, which measured 3.01:1 on
+     --c-surface2 while a comment here claimed 4.6:1; it carried transcribed
+     companion-book data (puzzle-quest locations, bounty locations, the
+     LOCATION/TARGETS/REWARDS labels) and the session log's timestamps.
+     Enforced by contrast.test.js. */
   --c-text:  #1e1e1c;
   --c-text2: #5a5856;
-  --c-text3: #8a8880;
+  --c-text3: #6d6b63;
 
   /* ── Brand color — stone ochre ───────────────────────────────────────────
      The app's identity color. Used for structural accents (card borders,
@@ -31,6 +38,18 @@ a:focus-visible {
   --c-brand:      #8a6f3e;
   --c-brand-bg:   #f5edd8;
   --c-brand-text: #4a3110;
+  /* Text drawn ON a solid --c-brand fill. Not a literal #fff, because the
+     brand inverts to a bright ochre in dark mode where white measures 2.70:1
+     against it — the tone that reads as "solid accent" flips between themes,
+     so the text on it has to flip too. Light: white on #8a6f3e = 4.75:1.
+     Dark: near-black on #c4963c = 6.45:1. */
+  --c-on-brand:   #ffffff;
+  /* The brand ochre as TEXT on a neutral surface. --c-brand itself is tuned for
+     borders, pips and fills, where 4.02:1 is fine; as 10-11px text it misses AA
+     on every surface. Barely darker, so the ochre character is intact. In dark
+     mode the brand already clears 5.04:1, so ink and brand are the same value
+     there. Text sitting on --c-brand-bg uses --c-brand-text, not this. */
+  --c-brand-ink:  #80673a;
 
   /* ── Interactive color — slate blue ─────────────────────────────────────
      Purely functional. Used only for active/selected UI states:
@@ -55,6 +74,9 @@ a:focus-visible {
   --c-red:      #c94b28;
   --c-red-bg:   #faece7;
   --c-red-text: #712b13;
+  /* Text drawn ON a solid --c-red fill — same reasoning as --c-on-brand.
+     Light: white on #c94b28 = 4.65:1. Dark: near-black on #f0997b = 7.92:1. */
+  --c-on-red:   #ffffff;
 
   /* Semantic — AP / success */
   --c-green:      #3b6d11;
@@ -135,11 +157,14 @@ a:focus-visible {
 
     --c-text:  #f0ede6;
     --c-text2: #a8a6a0;
-    --c-text3: #6a6866;
+    /* was #6a6866 — 2.45:1 on --c-surface2. See the light-mode note above. */
+    --c-text3: #969492;
 
     --c-brand:      #c4963c;
     --c-brand-bg:   #2e2010;
     --c-brand-text: #f0c070;
+    --c-on-brand:   #1a1a18;
+    --c-brand-ink:  var(--c-brand);
 
     --c-interact:      #7b8fc4;
     --c-interact-bg:   #1e2438;
@@ -157,6 +182,7 @@ a:focus-visible {
     --c-red:      #f0997b;
     --c-red-bg:   #4a1b0c;
     --c-red-text: #f5c4b3;
+    --c-on-red:   #1a1a18;
 
     --c-green:      #97c459;
     --c-green-bg:   #173404;
@@ -458,6 +484,16 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .guard-switch-btn:active { opacity: 0.7; }
 
 /* ─── GUARD CARD HEADER ──────────────────────────────────────────────────── */
+/* Two custom properties, set together by every caller:
+     --guard-color      the identity colour, for borders and pips (decoration)
+     --guard-color-text a darker variant of it, for text
+   They are separate because the border colours are chosen for presence against
+   a surface, not legibility as small text: six of the eight fail WCAG AA at
+   4.5:1 in light mode (teal 2.87, cerulean 3.04, amber 3.15) and four fail in
+   dark. GUARD_COLOR_MAP already carries a purpose-built `text` variant for each
+   guard — every one clears 7.9:1 — and the app was simply wiring `border` into
+   both roles. Decoration keeps --guard-color; nothing about the identity
+   colours themselves changed. */
 /* 3px colored top border accent set inline per-guard via --guard-color */
 .guard-card { border-top: 3px solid var(--guard-color, var(--c-accent)) !important; }
 .guard-header {
@@ -474,7 +510,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 600;
-  color: var(--guard-color, var(--c-text));
+  color: var(--guard-color-text, var(--c-text));
 }
 .guard-role {
   font-size: 11px;
@@ -492,7 +528,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--guard-color, var(--c-accent));
+  color: var(--guard-color-text, var(--c-accent-text));
   margin-bottom: 6px;
   font-family: var(--font-display);
   display: flex;
@@ -684,7 +720,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 /* Matches .adj-btn:disabled / .stat-adj-btn:disabled — pointer-events: none so
    the :active and :hover rules above can't fire on a capped stack. */
 .satchel-qty-btn:disabled      { opacity: 0.3; cursor: default; pointer-events: none; }
-.satchel-qty-val { font-size: 11px; font-weight: 500; color: var(--c-accent); min-width: 16px; text-align: center; }
+.satchel-qty-val { font-size: 11px; font-weight: 500; color: var(--c-brand-ink); min-width: 16px; text-align: center; }
 
 /* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
@@ -1033,7 +1069,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-style: italic;
 }
 .stash-add-result--custom:active { background: var(--c-border2); }
-.stash-add-result--custom .stash-add-cat { color: var(--c-brand); font-style: normal; }
+.stash-add-result--custom .stash-add-cat { color: var(--c-brand-ink); font-style: normal; }
 
 
 /* ─── MORE TAB (Encounters + Log) ────────────────────────────────────────── */
@@ -1097,12 +1133,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .encounter-group { margin-bottom: 8px; }
 .encounter-retry-note {
   padding: 4px 12px 0;
-  opacity: 0.6;
+  color: var(--c-text2);
   font-style: italic;
 }
 .encounter-defeat-note {
   padding: 8px 12px 12px;
-  opacity: 0.7;
 }
 .encounter-defeat-note-label {
   font-size: 10px;
@@ -1142,8 +1177,17 @@ button, input, select, textarea { font-family: var(--font-ui); }
   background: var(--c-surface2);
 }
 
+/* Completed state is a surface tint plus a strikethrough on the name, matching
+   .quest-row.done / .quest-lbl.done — not opacity. Container opacity composites
+   every descendant toward the background, which took the card's already-muted
+   metadata line to 2.05:1; and it was redundant emphasis, since the card
+   already carries a green check and an "Completed:" accessible name. */
 .encounter-card.completed {
-  opacity: 0.5;
+  background: var(--c-surface2);
+}
+.encounter-card.completed .encounter-name {
+  color: var(--c-text2);
+  text-decoration: line-through;
 }
 
 .encounter-card-row {
@@ -1401,7 +1445,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   margin-bottom: 2px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--guard-color, var(--c-text));
+  color: var(--guard-color-text, var(--c-text));
   font-family: var(--font-display);
   letter-spacing: 0.03em;
 }
@@ -1450,7 +1494,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .settings-action-btn:active { opacity: 0.6; }
 .settings-action-btn--danger {
   border-color: var(--c-red);
-  color: var(--c-red);
+  color: var(--c-red-text);
   background: var(--c-red-bg);
 }
 
@@ -1811,7 +1855,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border: 1px solid var(--c-red);
   border-radius: var(--radius-sm);
   background: var(--c-red-bg);
-  color: var(--c-red);
+  color: var(--c-red-text);
   cursor: pointer;
   touch-action: manipulation;
   line-height: 1;
@@ -1892,7 +1936,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .campaign-remove-btn:hover {
   border-color: var(--c-red);
-  color: var(--c-red);
+  color: var(--c-red-text);
   background: var(--c-red-bg);
 }
 .campaign-remove-btn:active { opacity: 0.7; }
@@ -2069,16 +2113,24 @@ button, input, select, textarea { font-family: var(--font-ui); }
   touch-action: manipulation;
   user-select: none; -webkit-user-select: none;
 }
+/* Active pills use the tinted-background + dark-text pairing, matching
+   .step-btn.active. A literal #fff on the solid brand/red measured 2.70:1 and
+   2.20:1 in dark mode — the base colours are chosen for presence on a surface,
+   not as backgrounds for white text, and they invert to bright tints in dark
+   mode where white has nothing to contrast against. The border keeps the base
+   colour, so the pill still reads as selected at a glance. */
 .craft-star-pill--active {
-  background: var(--c-brand);
-  color: #fff;
+  background: var(--c-brand-bg);
+  color: var(--c-brand-text);
   border-color: var(--c-brand);
+  font-weight: 600;
 }
-.craft-star-pill--ft { color: var(--c-red); }
+.craft-star-pill--ft { color: var(--c-red-text); }
 .craft-star-pill--ft-active {
-  background: var(--c-red);
-  color: #fff;
+  background: var(--c-red-bg);
+  color: var(--c-red-text);
   border-color: var(--c-red);
+  font-weight: 600;
 }
 
 .craft-filter-row2 {
@@ -2090,7 +2142,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   font-size: 10px;
   color: var(--c-text3);
 }
-.craft-legend-stars { color: var(--c-brand); font-size: 10px; }
+.craft-legend-stars { color: var(--c-brand-ink); font-size: 10px; }
 .craft-legend-stars--ft { color: var(--c-red); }
 .craft-legend-sep { margin: 0 4px; }
 
@@ -2131,7 +2183,9 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 .craft-card--ready   { border-left-color: var(--c-green); }
 .craft-card--partial { border-left-color: var(--c-amber); }
-.craft-card--missing { border-left-color: var(--c-border2); opacity: 0.8; }
+/* No opacity: the muted left border and the "Missing" status badge already say
+   this, and dimming the container pushed its own badge text under AA. */
+.craft-card--missing { border-left-color: var(--c-border2); }
 
 .craft-card-header {
   display: flex;
@@ -2160,7 +2214,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 
 /* Stars */
-.craft-stars { font-size: 11px; color: var(--c-brand); }
+.craft-stars { font-size: 11px; color: var(--c-brand-ink); }
 .craft-stars--ft { color: var(--c-red); }
 
 /* Status badges */
@@ -2190,7 +2244,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .craft-restriction svg,
 .craft-prereq svg { flex-shrink: 0; color: var(--c-text3); }
 .craft-prereq strong { color: var(--c-text); font-weight: 500; }
-.craft-restriction { color: var(--c-brand); }
+.craft-restriction { color: var(--c-brand-ink); }
 
 /* Effect text */
 .craft-effect {
@@ -2249,7 +2303,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .craft-cost-badge {
   font-weight: 500;
   font-size: 11px;
-  color: var(--c-brand);
+  color: var(--c-brand-text);
   background: var(--c-brand-bg);
   padding: 1px 7px;
   border-radius: var(--radius-pill);
@@ -2397,7 +2451,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .gs-result-title { font-size: 14px; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-result-meta { font-size: 11px; color: var(--c-text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.gs-stars { font-size: 12px; color: var(--c-brand); letter-spacing: 1px; flex-shrink: 0; }
+.gs-stars { font-size: 12px; color: var(--c-brand-ink); letter-spacing: 1px; flex-shrink: 0; }
 .gs-stars--ft { color: var(--c-red); }
 
 .gs-count {
@@ -2723,7 +2777,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
   border-radius: var(--radius-md);
   border: 0.5px solid var(--c-brand);
   background: var(--c-brand);
-  color: #fff;
+  color: var(--c-on-brand);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -2903,7 +2957,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .err-boundary-btn--primary {
   background: var(--c-brand);
   border-color: var(--c-brand);
-  color: #fff;
+  color: var(--c-on-brand);
 }
 
 .err-boundary-btn--primary:hover { filter: brightness(0.95); }
@@ -2988,7 +3042,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .corruption-banner-btn:hover {
   background: var(--c-red);
-  color: #fff;
+  color: var(--c-on-red);
 }
 
 .corruption-banner-btn--ghost {
@@ -3027,7 +3081,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 .corruption-banner--update .corruption-banner-btn:hover {
   background: var(--c-brand);
-  color: #fff;
+  color: var(--c-on-brand);
 }
 
 .corruption-banner--update .corruption-banner-btn--ghost {

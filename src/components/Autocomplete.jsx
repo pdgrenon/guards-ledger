@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect, useId } from 'react';
 
-export function Autocomplete({ value, onChange, options, placeholder, className, allowFreeText = false }) {
+// `ariaLabel` names the combobox for assistive tech. Without it the only name
+// an input gets is its placeholder, which is both non-distinguishing (the Guards
+// tab mounts ~12 of these, announcing "empty" or "— empty —") and wrong the
+// moment a slot is filled, since the placeholder stops describing the control's
+// contents. Callers pass what the field IS ("Weapon", "Satchel slot 3").
+export function Autocomplete({ value, onChange, options, placeholder, className, ariaLabel, allowFreeText = false }) {
   const [open, setOpen] = useState(false);
   // `draft === null` means "not editing" — the input renders the committed
   // `value` prop. While the user is typing, `draft` holds the in-flight text and
@@ -144,6 +149,7 @@ export function Autocomplete({ value, onChange, options, placeholder, className,
         autoCorrect="off"
         spellCheck="false"
         role="combobox"
+        aria-label={ariaLabel}
         aria-expanded={open}
         aria-autocomplete="list"
         aria-activedescendant={activeDescendantId}
