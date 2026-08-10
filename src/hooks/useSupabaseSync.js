@@ -189,7 +189,29 @@ export function normalizeRow(row) {
   return out;
 }
 
-/** Build the full Supabase row payload from state (all sections + columns). */
+/**
+ * Build the full Supabase row payload from state (all sections + columns).
+ *
+ * KNOWN LIMITATION — the `_updated_at` values here come from the *client*
+ * clock, while every other write path (`merge_section`) fills them with the
+ * server's `now()`. `sectionChanged` compares all of them as one timeline, so a
+ * creating device with a fast clock writes a baseline from the future: until
+ * real time catches up, every genuine edit from either player is gated out,
+ * silently, with the badge on green. Only `createCampaign` and `replaceRow`
+ * (reset / import / demo load) go through here, so it is a once-per-campaign
+ * and once-per-replacement exposure rather than a per-edit one.
+ *
+ * Fixing it properly means moving the full-row write into a `replace_row` RPC
+ * that sets each timestamp to `now()` and bumps `generation` in one statement —
+ * which would also close the read-then-write generation race that replaceRow
+ * concedes below. That needs a database migration and a live instance to verify
+ * against, so it is deliberately left for the same change that adds the
+ * membership RPCs rather than shipping a second unverified migration.
+ *
+ * What IS closed here: the baseline seeded from these values is merged
+ * monotonically, so a *slow* clock can no longer regress the baseline and
+ * re-admit already-applied events.
+ */
 function buildFullRow(campaignId, state) {
   const now = new Date().toISOString();
   const row = { id: campaignId };
@@ -1336,7 +1358,15 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
     // Update timestamp baseline so unrelated future events gate correctly. Do
     // NOT seed lastSeenGen — see the doc comment above (AVE-527).
-    lastSeenTs.current = { ...lastSeenTs.current, ...snapshotTimestamps(row) };
+    //
+    // Monotonic, like every other baseline write in this file. A plain spread
+    // was the one exception, and it is the dangerous direction: `row` carries
+    // client-clock timestamps (see buildFullRow), so a device whose clock runs
+    // *behind* would move the baseline backwards and re-admit events this
+    // client had already applied. mergeSeenTimestamps keeps max(existing,
+    // incoming) per section, so a slow clock can only fail to advance the
+    // baseline — never regress it.
+    lastSeenTs.current = mergeSeenTimestamps(lastSeenTs.current, snapshotTimestamps(row));
     setSyncStatus('idle');
     setSyncError(null);
     return { error: null };
