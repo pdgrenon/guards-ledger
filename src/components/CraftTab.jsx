@@ -271,7 +271,11 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
         const matMatch = r.materials.some(m => m.name.toLowerCase().includes(q));
         const cityMatch = r.city.toLowerCase().includes(q);
         const prereqMatch = r.prereq?.toLowerCase().includes(q) ?? false;
-        if (!nameMatch && !matMatch && !cityMatch && !prereqMatch) return false;
+        // The five apothecary recipes carry no materials — their entire
+        // ingredient list is itemReq, so omitting it made them unfindable by
+        // the ingredient a player is actually holding.
+        const reqMatch = parseItemReq(r.itemReq).some(req => req.name.toLowerCase().includes(q));
+        if (!nameMatch && !matMatch && !cityMatch && !prereqMatch && !reqMatch) return false;
       }
       return true;
     });

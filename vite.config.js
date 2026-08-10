@@ -141,7 +141,12 @@ export default defineConfig(({ mode }) => ({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/hooks/gameReducers.js', 'src/data/recipes.js'],
+      // All of src, not a two-file allowlist. Narrowing `include` to the two
+      // best-covered modules reported 99.7% for the project while saying
+      // nothing about the hooks and components that actually carry the risk —
+      // a number that reads as reassurance and isn't one.
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/**/*.test.{js,jsx}', 'src/main.jsx'],
     },
   },
 }));

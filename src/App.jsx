@@ -501,7 +501,8 @@ export default function App() {
 
         {/* Settings overlay */}
         {settingsOpen && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="tab-loading" role="status">Loading…</div>}>
+            <ErrorBoundary level="tab" tabName="Settings">
             <SettingsPanel
               state={state}
               actions={settingsActions}
@@ -511,12 +512,14 @@ export default function App() {
               scrollToMultiplayer={settingsScrollToMultiplayer}
               onClose={closeSettings}
             />
+            </ErrorBoundary>
           </Suspense>
         )}
 
         {/* Global search overlay — only mounted when open so its chunk loads on demand */}
         {searchOpen && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="tab-loading" role="status">Loading…</div>}>
+            <ErrorBoundary level="tab" tabName="Search">
             <GlobalSearch
               open={searchOpen}
               onClose={() => setSearchOpen(false)}
@@ -526,6 +529,7 @@ export default function App() {
               onOpenEncounter={openEncounterFromSearch}
               onOpenCity={openCityFromSearch}
             />
+            </ErrorBoundary>
           </Suspense>
         )}
 
