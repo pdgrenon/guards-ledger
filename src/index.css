@@ -1071,6 +1071,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .stash-add-result--custom:active { background: var(--c-border2); }
 .stash-add-result--custom .stash-add-cat { color: var(--c-brand-ink); font-style: normal; }
 
+/* An item the player already holds. Shown so the add search answers rather than
+   rendering nothing; still tappable to increment. */
+.stash-add-result--held { background: var(--c-surface2); }
+.stash-add-result--held:active { background: var(--c-border2); }
+.stash-add-result--held .stash-add-cat { color: var(--c-green-text); font-style: normal; }
+
 
 /* ─── MORE TAB (Encounters + Log) ────────────────────────────────────────── */
 .more-section {

@@ -42,6 +42,22 @@ export function StashTab({
       ).slice(0, 12)
     : [], [addSearch, stashLower]);
 
+  // Items the player already holds are excluded from the add list above — you
+  // cannot "add" what is already there — but excluding them silently meant
+  // typing "Pearl" while holding Pearl rendered nothing at all: no rows, no
+  // container, no message, which reads as a broken search rather than an
+  // answered one. Surface them as informational rows that still increment on
+  // tap. Built from `stash` itself rather than the predefined list so custom
+  // items are covered too.
+  const heldMatches = useMemo(() => {
+    const q = addSearch.trim().toLowerCase();
+    if (!q) return [];
+    return Object.entries(stash)
+      .filter(([name, count]) => (count ?? 0) > 0 && name.toLowerCase().includes(q))
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(0, 12);
+  }, [addSearch, stash]);
+
   const trimmedSearch = addSearch.trim();
   const trimmedLower = trimmedSearch.toLowerCase();
   const isKnownItem = ALL_KNOWN_ITEMS_LOWER.has(trimmedLower);
@@ -261,7 +277,7 @@ export function StashTab({
             value={addSearch}
             onChange={e => setAddSearch(e.target.value)}
           />
-          {(predefinedAddResults.length > 0 || showCustomOption) && (
+          {(predefinedAddResults.length > 0 || heldMatches.length > 0 || showCustomOption) ? (
             <div className="stash-add-results">
               {predefinedAddResults.map(({ item, category }) => (
                 <button
@@ -273,6 +289,17 @@ export function StashTab({
                   <span className="stash-add-cat">{category}</span>
                 </button>
               ))}
+              {heldMatches.map(([item, count]) => (
+                <button
+                  key={`held-${item}`}
+                  className="stash-add-result stash-add-result--held"
+                  onClick={() => adjustStash(item, 1)}
+                  aria-label={`${item}, ${count} in stash. Add one more.`}
+                >
+                  <span>{item}</span>
+                  <span className="stash-add-cat">in stash &times;{count}</span>
+                </button>
+              ))}
               {showCustomOption && (
                 <button
                   className="stash-add-result stash-add-result--custom"
@@ -282,6 +309,10 @@ export function StashTab({
                   <span className="stash-add-cat">Custom item</span>
                 </button>
               )}
+            </div>
+          ) : trimmedSearch.length > 0 && (
+            <div className="stash-empty">
+              <div className="stash-empty-sub">No items match &ldquo;{trimmedSearch}&rdquo;.</div>
             </div>
           )}
         </div>
