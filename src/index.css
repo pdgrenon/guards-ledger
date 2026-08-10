@@ -681,6 +681,9 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .satchel-qty-btn.minus:active  { background: var(--c-red-bg);  border-color: var(--c-red); color: var(--c-red); opacity: 1; }
 .satchel-qty-btn.plus:hover    { border-color: var(--c-green); color: var(--c-green); }
 .satchel-qty-btn.plus:active   { background: var(--c-green-bg); border-color: var(--c-green); color: var(--c-green); opacity: 1; }
+/* Matches .adj-btn:disabled / .stat-adj-btn:disabled — pointer-events: none so
+   the :active and :hover rules above can't fire on a capped stack. */
+.satchel-qty-btn:disabled      { opacity: 0.3; cursor: default; pointer-events: none; }
 .satchel-qty-val { font-size: 11px; font-weight: 500; color: var(--c-accent); min-width: 16px; text-align: center; }
 
 /* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */

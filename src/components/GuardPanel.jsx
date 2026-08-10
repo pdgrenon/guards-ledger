@@ -206,7 +206,9 @@ export function GuardPanel({ guard, guardIdx, actions }) {
                     else setGuardSatchelItem(guardIdx, si, 'qty', slot.qty - 1);
                   }} aria-label={`Decrease ${slot.item || 'satchel item'} quantity`}>−</button>
                   <span className="satchel-qty-val">×{slot.qty}</span>
-                  <button className="satchel-qty-btn plus"  onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(satchelStackLimit(slot.item), slot.qty + 1))} aria-label={`Increase ${slot.item || 'satchel item'} quantity`}>+</button>
+                  <button className="satchel-qty-btn plus"
+                    disabled={slot.qty >= satchelStackLimit(slot.item)}
+                    onClick={() => setGuardSatchelItem(guardIdx, si, 'qty', Math.min(satchelStackLimit(slot.item), slot.qty + 1))} aria-label={`Increase ${slot.item || 'satchel item'} quantity`}>+</button>
                 </div>
               )}
             </div>

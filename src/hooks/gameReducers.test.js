@@ -2269,3 +2269,141 @@ describe('reduceSetFtIstraBuilding (AVE-940)', () => {
     expect(reduceSetFtIstraBuilding(s, name, 'not_owned')).toBe(s);
   });
 });
+
+// ─── Clamped no-op writes ─────────────────────────────────────────────────────
+//
+// The "set"-style reducers have long returned their input unchanged on a no-op
+// write, and setState treats `next === prev` as the app's single signal for
+// "nothing happened" — bailing out before it overwrites the undo snapshot,
+// re-labels Undo, and dispatches a sync write for the section.
+//
+// The clamping reducers escaped that guard. They clamped, then unconditionally
+// built a new state and logged, so a delta the clamp swallowed entirely still
+// returned a fresh object: a false log line ("Grigory HP +1 → 20"), the
+// player's real pending undo replaced by a snapshot of the state they were
+// already in, and a pointless write. None of these controls are disabled at
+// their limits, so it takes one extra tap to hit.
+//
+// These assert identity (`toBe`), not equality — an equal-but-new object is
+// exactly the bug.
+
+describe('clamped adjustments are no-op writes', () => {
+  it('reduceSetSil: − at 0 returns the same state', () => {
+    expect(reduceSetSil(s, -1)).toBe(s);
+    expect(reduceSetSil(s, -999)).toBe(s);
+  });
+
+  it('reduceSetLux: − at 0 returns the same state', () => {
+    expect(reduceSetLux(s, -1)).toBe(s);
+  });
+
+  it('reduceSetSil: a real change still goes through', () => {
+    const next = reduceSetSil(s, 5);
+    expect(next).not.toBe(s);
+    expect(next.sil).toBe(5);
+    // A partial clamp is a real change: 3 - 999 lands on 0, not on 3.
+    const back = reduceSetSil(next, -999);
+    expect(back).not.toBe(next);
+    expect(back.sil).toBe(0);
+  });
+
+  it('reduceAdjustGuardHp: + at full HP returns the same state', () => {
+    expect(reduceAdjustGuardHp(s, 0, 1)).toBe(s);
+    expect(reduceAdjustGuardHp(s, 0, 999)).toBe(s);
+  });
+
+  it('reduceAdjustGuardHp: − at 0 HP returns the same state', () => {
+    const dead = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, hp: 0 } : g) };
+    expect(reduceAdjustGuardHp(dead, 0, -1)).toBe(dead);
+  });
+
+  it('reduceAdjustGuardHp: no false log entry at the cap', () => {
+    const before = s.log.length;
+    expect(reduceAdjustGuardHp(s, 0, 5).log).toHaveLength(before);
+  });
+
+  it('reduceAdjustGuardMaxHp: − at the floor of 1 returns the same state', () => {
+    const one = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, maxHp: 1, hp: 1 } : g) };
+    expect(reduceAdjustGuardMaxHp(one, 0, -1)).toBe(one);
+  });
+
+  it('reduceAdjustStash: − on a 0-count key returns the same state', () => {
+    const zeroed = { ...s, stash: { Iron: 0 } };
+    expect(reduceAdjustStash(zeroed, 'Iron', -1)).toBe(zeroed);
+  });
+
+  it('reduceAdjustStash: − on an absent key returns the same state, creating no key', () => {
+    const next = reduceAdjustStash(s, 'Iron', -1);
+    expect(next).toBe(s);
+    expect('Iron' in next.stash).toBe(false);
+  });
+
+  it('reduceAdjustStash: a decrement to 0 on a real count still writes the tombstone', () => {
+    const held = { ...s, stash: { Iron: 2 } };
+    const next = reduceAdjustStash(held, 'Iron', -2);
+    expect(next).not.toBe(held);
+    // 0 is kept as a map tombstone, never deleted (AVE-369).
+    expect(next.stash.Iron).toBe(0);
+  });
+
+  it('reduceSetStoneboundMax: − at 0 returns the same state', () => {
+    const zero = { ...s, stonebound: { ...s.stonebound, max: 0 } };
+    expect(reduceSetStoneboundMax(zero, -1)).toBe(zero);
+  });
+
+  it('reduceSetEventToken: − at 0 and + at 3 both return the same state', () => {
+    expect(reduceSetEventToken(s, 'mountain', -1)).toBe(s);
+    const full = {
+      ...s,
+      campaign: { ...s.campaign, eventTokens: { ...s.campaign.eventTokens, mountain: 3 } },
+    };
+    expect(reduceSetEventToken(full, 'mountain', 1)).toBe(full);
+  });
+
+  it('reduceSetEventToken: reaching 3 still logs the trigger exactly once', () => {
+    const two = {
+      ...s,
+      campaign: { ...s.campaign, eventTokens: { ...s.campaign.eventTokens, mountain: 2 } },
+    };
+    const next = reduceSetEventToken(two, 'mountain', 1);
+    expect(next).not.toBe(two);
+    expect(next.log[0].message).toMatch(/event triggered/i);
+    // A further + is clamped, so it must not re-log the trigger.
+    expect(reduceSetEventToken(next, 'mountain', 1)).toBe(next);
+  });
+
+  it('reduceSetGuardSatchelItem: + at the stack cap returns the same state', () => {
+    const withItem = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
+    const cap      = satchelStackLimit('Iron');
+    const atCap    = reduceSetGuardSatchelItem(withItem, 0, 0, 'qty', cap);
+    // The component clamps before dispatching, so the cap tap re-sends `cap`.
+    expect(reduceSetGuardSatchelItem(atCap, 0, 0, 'qty', cap)).toBe(atCap);
+    // Even an unclamped over-cap value resolves to the same slot.
+    expect(reduceSetGuardSatchelItem(atCap, 0, 0, 'qty', cap + 5)).toBe(atCap);
+  });
+
+  it('reduceSetGuardSatchelItem: re-selecting the item already in the slot is a no-op', () => {
+    const withItem = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
+    expect(reduceSetGuardSatchelItem(withItem, 0, 0, 'item', 'Iron')).toBe(withItem);
+  });
+
+  it('reduceSetGuardSatchelItem: clearing an already-empty slot is a no-op', () => {
+    expect(reduceSetGuardSatchelItem(s, 0, 1, 'item', '')).toBe(s);
+  });
+
+  it('reduceSetGuardSatchelItem: a real quantity change still goes through', () => {
+    const withItem = reduceSetGuardSatchelItem(s, 0, 0, 'item', 'Iron');
+    const next     = reduceSetGuardSatchelItem(withItem, 0, 0, 'qty', 2);
+    expect(next).not.toBe(withItem);
+    expect(next.guards[0].satchel[0].qty).toBe(2);
+  });
+
+  it('reduceSetGuardSatchelItem: still pads a short satchel even when the slot is unchanged', () => {
+    // The padding to SATCHEL_EXPANDED_SIZE is itself a real (healing) change,
+    // so the no-op bail-out must not swallow it.
+    const short = { ...s, guards: s.guards.map((g, i) => i === 0 ? { ...g, satchel: [{ item: '', qty: 1 }] } : g) };
+    const next  = reduceSetGuardSatchelItem(short, 0, 0, 'item', '');
+    expect(next).not.toBe(short);
+    expect(next.guards[0].satchel).toHaveLength(8);
+  });
+});

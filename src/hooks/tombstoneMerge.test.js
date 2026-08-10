@@ -283,6 +283,106 @@ describe('undo tombstones — undoing an add propagates through the server merge
   });
 });
 
+// The mirror image, and the direction that was missing: undoing a DELETE.
+//
+// Passing the snapshot element through unchanged looks right locally, but it
+// carries no `deleted` key and the merge preserves keys the payload omits — so
+// the server stayed tombstoned and the write's own echo re-deleted the element
+// about a second later, with the undo snapshot already cleared. Same shape as
+// the "A Feud between Guilds" revert loop the completion reducers fixed by
+// emitting an explicit `deleted: false`.
+describe('undo tombstones — undoing a delete propagates through the server merge', () => {
+  it('undoing a deleted plan revives it after the merge (and survives the echo)', () => {
+    const preDelete = { campaign: { plans: [{ id: 1, text: 'A', done: false }, { id: 2, text: 'B', done: false }] } };
+    const deleted   = reduceDeletePlan(preDelete, 2);
+
+    // The delete's write already flushed, so the server holds the tombstone.
+    const server    = deleted.campaign;
+    expect(server.plans.find(p => p.id === 2).deleted).toBe(true);
+
+    const payload   = withUndoTombstones(preDelete, deleted).campaign;
+    // The payload must state the revival explicitly, not merely omit the flag.
+    expect(payload.plans.find(p => p.id === 2).deleted).toBe(false);
+
+    const merged    = deepMerge(server, payload);
+    const visible   = merged.plans.filter(p => !p.deleted);
+    expect(visible.map(p => p.id)).toEqual([1, 2]);
+
+    // The echo of our own write carries the merged row back; it must not
+    // re-delete what we just restored.
+    const echoed = deepMerge(merged, merged);
+    expect(echoed.plans.filter(p => !p.deleted).map(p => p.id)).toEqual([1, 2]);
+  });
+
+  it('undoing a deleted side quest revives it after the merge', () => {
+    const live      = { id: 2, label: 'y' };
+    const preDelete = { campaign: { locations: { sideQuests: [{ id: 1, label: 'x' }, live] } } };
+    const deleted   = { campaign: { locations: { sideQuests: [{ id: 1, label: 'x' }, { ...live, deleted: true }] } } };
+
+    const server    = deleted.campaign;
+    const payload   = withUndoTombstones(preDelete, deleted).campaign;
+
+    expect(payload.locations.sideQuests.find(e => e.id === 2).deleted).toBe(false);
+
+    const merged  = deepMerge(server, payload);
+    const visible = merged.locations.sideQuests.filter(e => !e.deleted);
+    expect(visible.map(e => e.id)).toEqual([1, 2]);
+  });
+
+  it('undoing a deleted stonebound location revives it, keeping its count', () => {
+    const live      = { id: 2, selection: 'Iron', count: 3 };
+    const preDelete = { stonebound: { max: 6, locations: [{ id: 1, selection: 'Mir', count: 1 }, live] } };
+    const deleted   = { stonebound: { max: 6, locations: [{ id: 1, selection: 'Mir', count: 1 }, { ...live, deleted: true }] } };
+
+    const server    = deleted.stonebound;
+    const payload   = withUndoTombstones(preDelete, deleted).stonebound;
+
+    const merged  = deepMerge(server, payload);
+    const revived = merged.locations.find(l => l.id === 2);
+    expect(revived.deleted).toBe(false);
+    expect(revived.count).toBe(3);
+  });
+
+  it('undoing an un-complete revives the completion', () => {
+    const preToggle = { campaign: { completedEncounters: [{ id: 'ty-1', deleted: false }] } };
+    const unDone    = { campaign: { completedEncounters: [{ id: 'ty-1', deleted: true }] } };
+
+    const server    = unDone.campaign;
+    const payload   = withUndoTombstones(preToggle, unDone).campaign;
+
+    // The snapshot already carried an explicit `deleted: false`, so it states
+    // its own truth and is passed through untouched — no rewrite needed.
+    expect(payload.completedEncounters).toEqual([{ id: 'ty-1', deleted: false }]);
+
+    const merged = deepMerge(server, payload);
+    expect(merged.completedEncounters.find(e => e.id === 'ty-1').deleted).toBe(false);
+  });
+
+  it('handles an add and a delete in the same undo', () => {
+    const snapshot = { campaign: { plans: [{ id: 1, text: 'A' }, { id: 2, text: 'B' }] } };
+    // Since the snapshot: plan 2 was deleted and plan 3 was added.
+    const current  = { campaign: { plans: [
+      { id: 1, text: 'A' },
+      { id: 2, text: 'B', deleted: true },
+      { id: 3, text: 'C' },
+    ] } };
+
+    const payload = withUndoTombstones(snapshot, current).campaign;
+    const merged  = deepMerge(current.campaign, payload);
+    const visible = merged.plans.filter(p => !p.deleted);
+
+    expect(visible.map(p => p.id)).toEqual([1, 2]);
+  });
+
+  it('returns the snapshot array untouched when neither direction applies', () => {
+    const plans    = [{ id: 1, text: 'A' }];
+    const snapshot = { campaign: { plans } };
+    const current  = { campaign: { plans } };
+    // Identity, not just equality — callers use !== to detect a change.
+    expect(withUndoTombstones(snapshot, current).campaign.plans).toBe(plans);
+  });
+});
+
 // ─── withUndoTombstones — plain reducer output ───────────────────────────────
 
 describe('withUndoTombstones — negates elements/keys added since the snapshot', () => {
