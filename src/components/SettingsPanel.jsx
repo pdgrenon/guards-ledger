@@ -1,22 +1,18 @@
 import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { useDialogA11y } from '../hooks/useDialogA11y';
+import { syncStatusView } from '../utils/syncStatus';
 
 // ─── Sync status indicator ────────────────────────────────────────────────────
 
 function SyncBadge({ status }) {
-  const config = {
-    idle:    { label: 'Synced',     color: 'var(--c-green)'  },
-    syncing: { label: 'Syncing…',   color: 'var(--c-brand)'  },
-    offline: { label: 'Offline',    color: 'var(--c-text2)'  },
-    error:   { label: 'Sync error', color: 'var(--c-red)'    },
-  }[status] ?? { label: status, color: 'var(--c-text2)' };
+  const config = syncStatusView(status);
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: config.color }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: config.text }}>
       <span style={{
         width: 7, height: 7, borderRadius: '50%',
-        background: config.color, flexShrink: 0,
+        background: config.dot, flexShrink: 0,
       }} />
       {config.label}
     </span>
@@ -265,9 +261,40 @@ export function SettingsPanel({ state, actions, sync, guardColorMap, allGuards, 
           </div>
 
           {!sync.isConfigured ? (
-            <div className="settings-sub" style={{ marginBottom: 12 }}>
-              Multiplayer sync is not configured in this environment.
-            </div>
+            <>
+              <div className="settings-sub" style={{ marginBottom: 12 }}>
+                Multiplayer sync is not configured in this environment.
+              </div>
+              {/* A stored campaign outlives the configuration that created it —
+                  localStorage survives a deploy that lost its Supabase env
+                  vars. Without this branch the player saw a campaign pill in
+                  the top bar and no mention of it here, and no way to clear it.
+                  leaveCampaign is purely local (it never deletes the server
+                  row), so it works with no client at all. */}
+              {sync.campaignId && (
+                <>
+                  <div className="settings-row" style={{ alignItems: 'flex-start' }}>
+                    <div>
+                      <div className="settings-label">Campaign {sync.campaignId}</div>
+                      <div className="settings-sub">
+                        Saved on this device, but nothing is being sent or received.
+                        Your ledger is still saved locally.
+                      </div>
+                    </div>
+                    <SyncBadge status={sync.syncStatus} />
+                  </div>
+                  <div className="settings-row">
+                    <div className="settings-label">Stop showing this campaign</div>
+                    <button
+                      className="settings-action-btn settings-action-btn--danger"
+                      onClick={handleLeaveCampaign}
+                    >
+                      Leave
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
           ) : sync.campaignId ? (
             /* ── Active campaign ── */
             <>
