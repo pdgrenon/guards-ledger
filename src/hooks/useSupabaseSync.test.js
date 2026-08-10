@@ -264,7 +264,12 @@ describe('useSupabaseSync — upsertSection', () => {
     await act(async () => {
       await result.current.upsertSection('resources', createInitialState());
     });
-    expect(result.current.syncStatus).toBe('idle'); // unchanged
+    // No write was attempted: the status never passed through 'syncing' and
+    // never landed on 'error'. It reports 'disabled' rather than 'idle',
+    // because with no client "up to date" would be a claim we cannot make —
+    // and 'idle' is what the badge paints green and labels "Synced".
+    expect(result.current.syncStatus).toBe('disabled');
+    expect(result.current.syncError).toBeNull();
   });
 });
 

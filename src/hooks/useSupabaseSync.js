@@ -1374,7 +1374,19 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
   return {
     campaignId,
-    syncStatus,   // 'idle' | 'syncing' | 'error' | 'offline'
+    // 'idle' | 'syncing' | 'error' | 'offline' | 'disabled'
+    //
+    // 'disabled' is DERIVED, not a state the machine ever enters: with no client
+    // no sync operation runs, so the internal status would sit on 'idle'
+    // forever — which the badge paints green and labels "Synced". That is
+    // reachable in the field, because `campaignId` is restored from
+    // localStorage independently of the client: a deploy that loses its
+    // Supabase env vars leaves every returning player with a stored campaign
+    // code, a green "Synced" pill, and no sync at all. Deriving it here rather
+    // than threading it through setSyncStatus keeps the internal state machine
+    // (and the error-backoff effect, which already no-ops without a client)
+    // completely untouched.
+    syncStatus: client ? syncStatus : 'disabled',
     syncError,
     upsertSection,
     enqueuePendingSections, // synchronously persist in-debounce edits on tab-hide (AVE-522)

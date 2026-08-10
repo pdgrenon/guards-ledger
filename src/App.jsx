@@ -10,6 +10,7 @@ import { CorruptionBanner } from './components/CorruptionBanner';
 import { UpdateBanner } from './components/UpdateBanner';
 import { GUARDS, GUARD_COLOR_MAP, FALLBACK_COLOR } from './data/constants';
 import { safeActiveGuardIdx } from './hooks/gameReducers';
+import { syncStatusView } from './utils/syncStatus';
 
 // Heavier / less-frequently-used surfaces are split into their own chunks so
 // they aren't part of the initial download (AVE-292). Each loads on first use.
@@ -59,14 +60,6 @@ function SearchIcon() {
     </svg>
   );
 }
-
-// Sync status dot colors — matches SyncBadge in SettingsPanel
-const SYNC_DOT_COLOR = {
-  idle:    'var(--c-green)',
-  syncing: 'var(--c-brand)',
-  offline: 'var(--c-text2)',
-  error:   'var(--c-red)',
-};
 
 export default function App() {
   const [tab, setTab]               = useState('Guards');
@@ -196,7 +189,7 @@ export default function App() {
   }
 
   const { campaignId, syncStatus } = game.sync;
-  const dotColor = SYNC_DOT_COLOR[syncStatus] ?? 'var(--c-text2)';
+  const syncView = syncStatusView(syncStatus);
 
   return (
     <ErrorBoundary level="app">
@@ -288,11 +281,11 @@ export default function App() {
             <button
               className="campaign-pill"
               onClick={openSettingsAtMultiplayer}
-              aria-label={`Connected to campaign ${campaignId}. Tap to open multiplayer settings.`}
+              aria-label={`Campaign ${campaignId}, ${syncView.phrase}. Tap to open multiplayer settings.`}
             >
               <span
                 className="campaign-pill-dot"
-                style={{ background: dotColor }}
+                style={{ background: syncView.dot }}
                 aria-hidden="true"
               />
               {campaignId}
