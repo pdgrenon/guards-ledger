@@ -614,6 +614,20 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
 
   const supportsAuth = !!client?.auth?.signInAnonymously;
 
+  // PostgREST reports an unknown function as PGRST202 ("Could not find the
+  // function ... in the schema cache"). That is precisely the state of a
+  // database that has the client deployed but not yet migrated — and the
+  // rollout depends on that window being safe: the client MUST ship before
+  // 0008, because applying the migration first cuts off every running client
+  // at once. Treating a missing function as "this database has no membership
+  // model" is what makes the client genuinely inert against an unmigrated
+  // database, rather than stopping sync for everyone until the SQL is run.
+  //
+  // It also means forgetting 0008 entirely leaves the app working exactly as it
+  // did before, instead of half-breaking it — the AVE-870 failure mode.
+  const isMissingFunction = err =>
+    err?.code === 'PGRST202' || /could not find the function/i.test(err?.message ?? '');
+
   const ensureSession = useCallback(async () => {
     if (!supportsAuth) return null;
     // Memoized so concurrent callers share one sign-in rather than racing to
@@ -646,7 +660,9 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     if (!pending) {
       pending = Promise.resolve(client.rpc('join_campaign', { campaign_id: id }))
         .then(({ error } = {}) => {
-          if (error) throw error;
+          // An unmigrated database has no membership to establish — the old
+          // policies still grant access, so proceed rather than blocking.
+          if (error && !isMissingFunction(error)) throw error;
           joinedRef.current.add(id);
         })
         .finally(() => joinPromiseRef.current.delete(id));
@@ -1322,10 +1338,16 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       // stranger's campaign, which should be structurally impossible rather
       // than merely improbable (AVE-971). The RPC surfaces the unique violation
       // unchanged, so the retry loop below is untouched.
-      const { error } = await client.rpc('create_campaign', {
+      let { error } = await client.rpc('create_campaign', {
         campaign_id: id,
         row_data:    row,
       });
+      // Not migrated yet: fall back to the pre-0008 insert, which the old
+      // policies still permit. Keeps campaign creation working through the
+      // client-deployed-but-not-migrated window.
+      if (error && isMissingFunction(error)) {
+        ({ error } = await client.from('campaigns').insert(row));
+      }
       if (!error) {
         // The RPC created our membership; don't re-join on the next access check.
         joinedRef.current.add(id);

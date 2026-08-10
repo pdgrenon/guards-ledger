@@ -46,10 +46,17 @@
 -- role loses table access entirely, which is the intended outcome. A keyless or
 -- session-less request gets nothing.
 --
--- DEPLOY ORDER IS LOAD-BEARING: ship the client first, then apply this. The
--- client change is inert against the old policies (it mints a session nobody
--- checks). Applying this first would cut off every already-running client at
--- once, mid-session.
+-- ROLLOUT ORDER IS LOAD-BEARING:
+--   (a) enable Anonymous sign-ins in Authentication → Providers
+--   (b) deploy the client
+--   (c) apply this migration
+--
+-- Applying this first would cut off every already-running client at once,
+-- mid-session. The client is safe to run against an unmigrated database
+-- because it treats PostgREST's PGRST202 ("could not find the function") as
+-- "this database has no membership model" and falls through to the pre-0008
+-- behaviour — so the deploy window, and forgetting this migration entirely,
+-- both leave the app working exactly as it did before.
 --
 -- Idempotent: safe to re-run.
 

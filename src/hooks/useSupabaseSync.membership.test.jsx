@@ -270,6 +270,69 @@ describe('a failed sign-in degrades to local-only', () => {
   });
 });
 
+describe('an unmigrated database (client deployed, 0008 not applied)', () => {
+  // The rollout ships the client BEFORE the migration, because applying the
+  // migration first cuts off every running client mid-session. That window is
+  // only safe if a missing function is not treated as a failure — otherwise the
+  // client stops sync for everyone until the SQL is run, which is the AVE-870
+  // failure mode this ticket exists to prevent.
+  const notFound = { code: 'PGRST202', message: 'Could not find the function public.join_campaign' };
+
+  function unmigratedClient() {
+    const client = makeMockClient();
+    const origRpc = client.rpc;
+    client.rpc = vi.fn(async (name, params) => {
+      await origRpc(name, params);                     // still record the call
+      if (name === 'join_campaign' || name === 'create_campaign') {
+        return { data: null, error: notFound };
+      }
+      return { data: {}, error: null };
+    });
+    return client;
+  }
+
+  it('still writes — a missing join_campaign does not block the write path', async () => {
+    const client = unmigratedClient();
+    localStorage.setItem(CAMPAIGN_ID_KEY, CAMPAIGN);
+    const { result } = render(client);
+
+    await act(async () => {
+      await result.current.upsertSection('resources', createInitialState());
+    });
+
+    expect(client.calls.rpc.some(c => c.name === 'merge_section')).toBe(true);
+    expect(result.current.syncStatus).not.toBe('error');
+  });
+
+  it('still joins a campaign', async () => {
+    const client = unmigratedClient();
+    const { result } = render(client);
+    let ret;
+    await act(async () => { ret = await result.current.joinCampaign(CAMPAIGN); });
+    expect(ret.error).toBe(null);
+  });
+
+  it('falls back to the pre-0008 insert when create_campaign is absent', async () => {
+    const client = unmigratedClient();
+    const { result } = render(client);
+    let ret;
+    await act(async () => { ret = await result.current.createCampaign(); });
+    expect(ret.error).toBe(null);
+    expect(client.log).toContain('insert');
+  });
+
+  it('does not retry the missing function on every call', async () => {
+    const client = unmigratedClient();
+    localStorage.setItem(CAMPAIGN_ID_KEY, CAMPAIGN);
+    const { result } = render(client);
+    await act(async () => {
+      await result.current.upsertSection('resources', createInitialState());
+      await result.current.upsertSection('cities', createInitialState());
+    });
+    expect(client.calls.rpc.filter(c => c.name === 'join_campaign').length).toBeLessThanOrEqual(1);
+  });
+});
+
 describe('generateCampaignId', () => {
   it('keeps the WORD-XXXXXX shape', () => {
     for (let i = 0; i < 200; i++) {
