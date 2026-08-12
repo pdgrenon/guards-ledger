@@ -1,5 +1,5 @@
 // src/components/CraftTab.jsx
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useDeferredValue, memo } from 'react';
 import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
@@ -58,7 +58,21 @@ function StatusBadge({ status }) {
   return <span className="craft-status-badge craft-status-missing">Missing</span>;
 }
 
-function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource, selectedCity, cityPrestigeLevel }) {
+/**
+ * One recipe card. **Memoized — every prop must stay referentially stable.**
+ *
+ * The list is up to 90 cards / ~2,300 DOM nodes, so an unmemoized card meant
+ * every keystroke in the search box re-rendered every surviving card. See the
+ * note at the single call site below, and the measurements in CLAUDE.md.
+ *
+ * `memo` is not self-defending: an inline lambda or a fresh object literal
+ * passed from the call site makes every card re-render anyway, silently, with
+ * no failing test and no visible symptom. That is a real risk here only because
+ * the props are cheap to keep stable — `combined` and `activePartyNames` are
+ * already useMemo'd, `onShowSource` is a setState function, and the rest are
+ * primitives — so keeping them that way is the whole contract.
+ */
+const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource, selectedCity, cityPrestigeLevel }) {
   // Party-restricted recipes with no matching active guard are already filtered
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
@@ -199,12 +213,24 @@ function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource
       </div>
     </div>
   );
-}
+});
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaignId, completedBounties, completedPuzzleQuests, onShowSource, searchSeed, onSeedApplied }) {
   const [search, setSearch] = useState('');
+  // The input is driven by `search` (immediate, so typing never feels laggy);
+  // the *list* is filtered by the deferred copy, so React renders up to 90 cards
+  // at interruptible low priority and abandons an in-progress list render when
+  // the next keystroke lands. This is the half of the fix that carries the win —
+  // see CLAUDE.md for the numbers. A setTimeout debounce would be strictly
+  // worse: it adds fixed latency instead of yielding.
+  //
+  // Do NOT switch the `filtered` memo back to `search`. It looks equivalent and
+  // silently reverts the whole change; nothing in the test suite can catch it,
+  // because the benefit is scheduling-priority-dependent and jsdom cannot
+  // observe it.
+  const deferredSearch = useDeferredValue(search);
   const [typeFilter, setTypeFilter] = useState('All');
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
@@ -258,7 +284,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   const cityPrestigeLevel = selectedCity ? (prestigeMap[selectedCity] ?? 0) : 0;
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     return RECIPES.filter(r => {
       if (typeFilter !== 'All' && r.type !== typeFilter) return false;
       if (minStars > 0 && r.stars < minStars) return false;
@@ -279,7 +305,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
       }
       return true;
     });
-  }, [search, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames]);
+  }, [deferredSearch, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames]);
 
   const grouped = useMemo(() => TYPE_ORDER
     .map(type => ({ type, recipes: filtered.filter(r => r.type === type) }))
@@ -399,6 +425,13 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
         grouped.map(({ type, recipes }) => (
           <div key={type}>
             <div className="sec-label craft-section-label">{type}</div>
+            {/* RecipeCard is memo()'d — the only call site. Every prop below
+                must stay referentially stable across a keystroke, or the memo
+                becomes pure overhead and the list re-renders wholesale again.
+                An inline lambda (`onShowSource={i => …}`) or an object literal
+                is the way that breaks, silently and with green tests. All eight
+                are currently primitives, useMemo'd values, or a setState
+                function — keep them that way. */}
             {recipes.map(r => (
               <RecipeCard
                 key={`${r.name}-${r.city}`}
