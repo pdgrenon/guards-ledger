@@ -250,6 +250,21 @@ There is deliberately **no `type` field** (retired in AVE-874). It used to be se
 
 **Combined inventory for craftability:** `buildCombined(stash, activeGuards)` merges the Fort Istra stash with the active guards' satchel contents. All craftability checks (`craftStatus`) and have/need counts run against this combined total — items a guard is carrying count toward the "have" amount.
 
+**`RecipeCard` is `memo`'d and the search term is deferred — both halves are load-bearing, and neither is testable.** The unfiltered list is up to 90 cards / ~2,300 DOM nodes, so every keystroke used to re-render all of them. Measured in Chromium against a production build at 6× CPU throttle, using the Event Timing API (the input-to-paint measurement Chrome's INP is built on), median of 3 runs:
+
+| variant | worst keystroke | median keystroke |
+|---|---|---|
+| neither | 280 ms | 112 ms |
+| `memo` only | 256 ms (−9%) | 88 ms (−21%) |
+| `useDeferredValue` only | 144 ms (−49%) | 56 ms (−50%) |
+| **both** | **80 ms (−71%)** | **40 ms (−64%)** |
+
+Note what those rows say: **`memo` alone is worth ~9%, inside the noise band — do not conclude from that it is the removable half.** On top of the deferred term it takes 144 ms → 80 ms, because deferral is what makes the render interruptible and reduced per-slice work is what lets each slice finish. They are complements. The worst case is not typing but *clearing* a search (25 → 84 cards re-expanding), which is why the fix targets card mounts rather than the arithmetic — `craftStatus` over all 101 recipes is 40 µs, `availableInCity` 16 µs, `parseItemReq` 5 µs, so memoizing any of those buys nothing.
+
+Two ways this silently reverts, both with green tests: switching the `filtered` memo back from `deferredSearch` to `search`, or passing `RecipeCard` an inline lambda / object literal from its single call site (all eight of its props are currently primitives, `useMemo`'d values, or a setState function). `src/components/CraftTab.test.jsx` covers the tab's **behaviour** and is deliberately invariant to this change — it passes identically with and without it, which was verified, along with its failing on a seeded behaviour break. The perf property genuinely cannot be asserted in jsdom: there is no layout and no concurrent scheduling to observe, so a render-count proxy would be brittle theatre. The comments at the two sites plus this table are the guard.
+
+Neither change touches the tab's own mount (72 ms warm tab switch for 90 cards, unchanged), and the cold path into Crafting is dominated by its lazy chunk. Capping the rendered list would fix both — it was considered and rejected: Crafting is a reference surface, and scrolling the whole catalogue is the feature. At 4× throttle the unfixed worst case was 184 ms, already inside Chrome's "good" INP band, so this is specifically a low-end-device win.
+
 **Filters:**
 - **Search** — matches recipe names, ingredient names, city names, and prereq item names
 - **Type** — All / Weapon / Armor / Accessory / Item (dropdown)
