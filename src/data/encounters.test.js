@@ -6,6 +6,7 @@ import {
   encountersMatchFilter,
   groupEncounters,
 } from './encounters';
+import { ENCOUNTER_NAMES } from './encounterNames';
 import { CAMPAIGNS } from './constants';
 
 const END_GAME_FIGHT = SPIRIT_BOSSES.find(f => f.id === 'c5-end-game');
@@ -165,5 +166,33 @@ describe('groupEncounters — order', () => {
     const grouped = groupEncounters(SPIRIT_BOSSES, 4);
     const labels = grouped.map(g => g.group.label);
     expect(labels).toEqual(['Campaign 1', 'Campaign 2', 'Campaign 3', 'Campaign 4', 'End Game']);
+  });
+});
+
+// ─── ENCOUNTER_NAMES ─────────────────────────────────────────────────────────
+//
+// The id→name map is a committed literal in encounterNames.js rather than a
+// derivation over these arrays, so that gameReducers' encounterLabel (on the
+// eager path) doesn't anchor all of encounters.js to the entry chunk. These
+// assertions are what keep the literal equal to the source of truth: an added,
+// removed or renamed encounter fails here instead of silently logging a raw id
+// like "mir-c1-the-clayhorn-poachers" into the session log.
+
+describe('ENCOUNTER_NAMES', () => {
+  const expected = Object.fromEntries(
+    [...TRAINING_YARD_FIGHTS, ...SPIRIT_BOSSES].map(e => [e.id, e.name])
+  );
+
+  it('has exactly one entry per encounter, with the matching name', () => {
+    expect(ENCOUNTER_NAMES).toEqual(expected);
+  });
+
+  it('carries no ids that are not real encounters', () => {
+    // Covered by the deep-equal above, but pinned separately: a stale id left
+    // behind after an encounter is removed resolves to a name that no longer
+    // exists anywhere in the game.
+    for (const id of Object.keys(ENCOUNTER_NAMES)) {
+      expect(expected).toHaveProperty(id);
+    }
   });
 });

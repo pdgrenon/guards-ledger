@@ -1228,10 +1228,21 @@ export function buildCombined(stash, activeGuards) {
   return combined;
 }
 
-// Maps each item name that is a prerequisite to the next recipe it unlocks.
-export const PREREQ_UPGRADES_TO = (() => {
+/**
+ * Maps each item name that is a prerequisite to the lowest-star recipe it
+ * unlocks: prereq name → { name, stars, isFtIstra }.
+ *
+ * Deliberately NOT invoked at module load. Its only runtime consumer is
+ * StashTab's upgrade hint, and StashTab is eagerly bundled — evaluating this
+ * here anchored all 101 recipes to the entry chunk for an eleven-entry lookup.
+ * The committed output lives in `prereqUpgrades.js`, which StashTab imports;
+ * this function stays the single definition of the rule, and `recipes.test.js`
+ * asserts the two agree. See the header comment in that file before changing
+ * either.
+ */
+export function derivePrereqUpgrades(recipes = RECIPES) {
   const map = {};
-  for (const r of RECIPES) {
+  for (const r of recipes) {
     if (!r.prereq) continue;
     const existing = map[r.prereq];
     if (!existing || r.stars < existing.stars) {
@@ -1239,4 +1250,4 @@ export const PREREQ_UPGRADES_TO = (() => {
     }
   }
   return map;
-})();
+}

@@ -19,8 +19,9 @@ import {
   buildCombined,
   parseItemReq,
   aggregateMaterials,
-  PREREQ_UPGRADES_TO,
+  derivePrereqUpgrades,
 } from './recipes';
+import { PREREQ_UPGRADES_TO } from './prereqUpgrades';
 import {
   ALL_MATERIALS,
   WEAPONS,
@@ -508,6 +509,16 @@ describe('buildCombined', () => {
 // ─── PREREQ_UPGRADES_TO ──────────────────────────────────────────────────────
 
 describe('PREREQ_UPGRADES_TO', () => {
+  // The map is a committed literal in prereqUpgrades.js, not computed from
+  // RECIPES at module load, so that StashTab (eagerly bundled) doesn't drag all
+  // 101 recipes into the entry chunk. derivePrereqUpgrades is still the single
+  // definition of the rule — this is the assertion that keeps the shipped
+  // literal equal to it. If it fails, a recipe's prereq or star tier changed:
+  // update the literal in prereqUpgrades.js, don't relax this.
+  it('deep-equals the live derivation over RECIPES', () => {
+    expect(PREREQ_UPGRADES_TO).toEqual(derivePrereqUpgrades(RECIPES));
+  });
+
   it('is a non-empty object', () => {
     expect(typeof PREREQ_UPGRADES_TO).toBe('object');
     expect(Object.keys(PREREQ_UPGRADES_TO).length).toBeGreaterThan(0);

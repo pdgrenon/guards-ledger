@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { MATERIAL_CATEGORIES, ALL_ITEMS_WITH_CATEGORY, ALL_KNOWN_ITEMS_LOWER, RESOURCE_NODE_ITEMS, ENEMY_DROPS } from '../data/materials';
 import { CITIES } from '../data/constants';
-import { PREREQ_UPGRADES_TO } from '../data/recipes';
+// Not from '../data/recipes' — StashTab is eagerly bundled, and importing the
+// derived map from there pulled all 101 recipes into the entry chunk.
+import { PREREQ_UPGRADES_TO } from '../data/prereqUpgrades';
 import { MaterialName } from './MaterialName';
 
 const CITY_NAMES = CITIES.map(c => c.name);
