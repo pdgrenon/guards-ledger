@@ -762,7 +762,11 @@ describe('reduceAddStoneboundLocation', () => {
     expect(next.stonebound.locations[0]).toEqual(
       expect.objectContaining({ selection: '', count: 1 })
     );
-    expect(typeof next.stonebound.locations[0].id).toBe('number');
+    // String, not number, since AVE ids moved to newId(): the old
+    // `Date.now() + Math.random()` had only ~4096 distinct values per
+    // millisecond. Pre-existing saves keep their numeric ids and are not
+    // migrated — see ids.js.
+    expect(typeof next.stonebound.locations[0].id).toBe('string');
   });
 
   it('does not seed an orphaned `type` key (AVE-874)', () => {
@@ -1149,7 +1153,7 @@ describe('reduceAddDynamicLocation', () => {
     expect(next.campaign.locations.sideQuests[0]).toEqual(
       expect.objectContaining({ label: '' })
     );
-    expect(typeof next.campaign.locations.sideQuests[0].id).toBe('number');
+    expect(typeof next.campaign.locations.sideQuests[0].id).toBe('string');
   });
 
   it('assigns unique ids across multiple calls', () => {
@@ -1245,6 +1249,62 @@ describe('reduceRemoveDynamicLocation', () => {
 
 // ─── Plans ─────────────────────────────────────────────────────────────────────
 
+// ─── Unique ids for id-keyed array elements ──────────────────────────────────
+//
+// These three arrays are merged element-by-id by the server
+// (`merge_jsonb_array_by_id`) and soft-deleted by id (AVE-287 tombstones), so a
+// duplicate id is not a cosmetic React-key problem: editing one element edits
+// the other, deleting one tombstones both, and the merge collapses the pair for
+// every player. The old `Date.now() + Math.random()` generator produced only
+// ~4096 distinct values per millisecond, which surfaced as an intermittent
+// failure in the reduceUpdateStoneboundLocation suite above.
+//
+// Adding in a tight loop is the case that collided — a human tapping "+ Add"
+// is ~100ms apart, so Date.now() alone separated those.
+describe('id-keyed array elements get unique ids (tight-loop / same-millisecond)', () => {
+  const N = 2000;
+
+  it('reduceAddStoneboundLocation', () => {
+    let st = createInitialState();
+    for (let i = 0; i < N; i++) st = reduceAddStoneboundLocation(st);
+    const ids = st.stonebound.locations.map(l => l.id);
+    expect(new Set(ids).size).toBe(N);
+  });
+
+  it('reduceAddPlan', () => {
+    let st = createInitialState();
+    for (let i = 0; i < N; i++) st = reduceAddPlan(st, `plan ${i}`);
+    const ids = st.campaign.plans.map(p => p.id);
+    expect(new Set(ids).size).toBe(N);
+  });
+
+  it('reduceAddDynamicLocation', () => {
+    let st = createInitialState();
+    for (let i = 0; i < N; i++) st = reduceAddDynamicLocation(st, 'sideQuests');
+    const ids = st.campaign.locations.sideQuests.map(q => q.id);
+    expect(new Set(ids).size).toBe(N);
+  });
+
+  it('log entries too — a duplicate key would collapse two rows in the session log', () => {
+    let st = createInitialState();
+    for (let i = 0; i < N; i++) st = reduceAddPlan(st, `plan ${i}`);
+    const ids = st.log.map(e => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('an update by id still hits exactly one element after many same-ms adds', () => {
+    // The failure the old generator actually produced: two locations sharing an
+    // id, so updating one silently updated the other.
+    let st = createInitialState();
+    for (let i = 0; i < N; i++) st = reduceAddStoneboundLocation(st);
+    const target = st.stonebound.locations[N - 1].id;
+    const next = reduceUpdateStoneboundLocation(st, target, 'selection', 'Mir');
+    const changed = next.stonebound.locations.filter(l => l.selection === 'Mir');
+    expect(changed).toHaveLength(1);
+    expect(changed[0].id).toBe(target);
+  });
+});
+
 describe('reduceAddPlan', () => {
   it('appends a new plan with done: false and trimmed text', () => {
     const next = reduceAddPlan(s, ' Defeat the boss ');
@@ -1252,7 +1312,7 @@ describe('reduceAddPlan', () => {
     expect(next.campaign.plans[0]).toEqual(
       expect.objectContaining({ text: 'Defeat the boss', done: false })
     );
-    expect(typeof next.campaign.plans[0].id).toBe('number');
+    expect(typeof next.campaign.plans[0].id).toBe('string');
   });
 
   it('trims whitespace from text before storing', () => {

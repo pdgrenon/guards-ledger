@@ -28,6 +28,7 @@ import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
 // the entry chunk, away from its lazy consumers MoreTab and GlobalSearch.
 import { ENCOUNTER_NAMES } from '../data/encounterNames';
 import { BUILDING_STATES, BUILDING_STATE_LABELS } from '../data/buildings';
+import { newId } from '../utils/ids';
 
 export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
@@ -41,7 +42,7 @@ export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
 export function addLog(state, message) {
   const now   = new Date();
   const time  = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const entry = { time, message, id: Date.now() + Math.random() };
+  const entry = { time, message, id: newId() };
   return { ...state, log: [entry, ...(state.log ?? [])].slice(0, 100) };
 }
 
@@ -347,7 +348,7 @@ export function reduceSetStoneboundMax(s, delta) {
 // same orphaned-state class as AVE-795. Retired in AVE-874; re-derive it only
 // if a consumer actually appears.
 export function reduceAddStoneboundLocation(s) {
-  const id        = Date.now() + Math.random();
+  const id        = newId();
   const locations = [...s.stonebound.locations, { id, selection: '', count: 1 }];
   return addLog(
     { ...s, stonebound: { ...s.stonebound, locations } },
@@ -429,7 +430,7 @@ export function reduceSetCampaignLocation(s, key, value) {
 }
 
 export function reduceAddDynamicLocation(s, type) {
-  const id        = Date.now() + Math.random();
+  const id        = newId();
   const entries   = [...(s.campaign.locations[type] ?? []), { id, label: '' }];
   const locations = { ...s.campaign.locations, [type]: entries };
   const campaign  = { ...s.campaign, locations };
@@ -467,7 +468,7 @@ export function reduceRemoveDynamicLocation(s, type, id) {
 
 export function reduceAddPlan(s, text) {
   if (!text.trim()) return s;
-  const id       = Date.now() + Math.random();
+  const id       = newId();
   const plan     = { id, text: text.trim(), done: false };
   const campaign = { ...s.campaign, plans: [...s.campaign.plans, plan] };
   return addLog({ ...s, campaign }, `Campaign plan added — "${plan.text}"`);
