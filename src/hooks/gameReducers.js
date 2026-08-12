@@ -22,7 +22,11 @@ import { SATCHEL_EXPANDED_SIZE, createInitialGuards, createInitialCities, create
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, satchelStackLimit } from '../data/materials';
 import { BOUNTIES, bountiesForCity } from '../data/bounties';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
-import { TRAINING_YARD_FIGHTS, SPIRIT_BOSSES } from '../data/encounters';
+// The id→name map, not '../data/encounters' itself: gameReducers is on the
+// eager path (useGameState imports it), and encounterLabel below needs only a
+// name. Importing the full encounter records anchored all of encounters.js to
+// the entry chunk, away from its lazy consumers MoreTab and GlobalSearch.
+import { ENCOUNTER_NAMES } from '../data/encounterNames';
 import { BUILDING_STATES, BUILDING_STATE_LABELS } from '../data/buildings';
 
 export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
@@ -77,8 +81,7 @@ export function deriveUndoLabel(prev, next, sectionName) {
 // yield a readable entry.
 
 function encounterLabel(id) {
-  const e = [...TRAINING_YARD_FIGHTS, ...SPIRIT_BOSSES].find(x => x.id === id);
-  return e?.name ?? id;
+  return ENCOUNTER_NAMES[id] ?? id;
 }
 
 function bountyLabel(id) {
