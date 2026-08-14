@@ -155,25 +155,54 @@ $$;
 
 -- ─── Campaign policies ───────────────────────────────────────────────────────
 
--- Enabled here rather than left to schema.sql. A policy on a table without RLS
--- is inert decoration: it is stored, it shows up in pg_policies, and it filters
--- nothing. schema.sql carries this line but schema.sql is FRESH INSTALLS ONLY —
--- a database created before it was committed (which is the production one) has
--- never run it, so replacing `using (true)` with membership policies there
--- swapped one set of inert policies for another and changed nothing at all.
--- The symptom is silent by construction: every query keeps working, and the
--- table stays fully readable. Verify with
+-- The whole policy swap runs as ONE transaction. Between the drop loop and the
+-- three creates, public.campaigns has RLS on and zero policies — which denies
+-- everything to everyone. Uncommitted that state is invisible to other
+-- sessions; run these statements loose and it is a real, if brief, outage.
+begin;
+
+-- Enabled here rather than left to schema.sql, which is FRESH INSTALLS ONLY:
+-- a database upgraded step-by-step never runs it. No-op when already on.
+--
+-- Check enforcement, not the policy list — the two are independent. A policy on
+-- a table without RLS is stored, listed by pg_policies, and filters nothing:
 --   select relrowsecurity from pg_class where oid = 'public.campaigns'::regclass;
--- not with the presence of the policies. No-op when already enabled.
 alter table public.campaigns enable row level security;
 
-drop policy if exists "anon can read campaigns"   on public.campaigns;
-drop policy if exists "anon can insert campaigns" on public.campaigns;
-drop policy if exists "anon can update campaigns" on public.campaigns;
-
-drop policy if exists "members read campaigns"    on public.campaigns;
-drop policy if exists "members insert campaigns"  on public.campaigns;
-drop policy if exists "members update campaigns"  on public.campaigns;
+-- Drop EVERY policy on the table, whatever it is called, rather than naming the
+-- ones we expect to find.
+--
+-- This is the AVE-971 verification's actual finding, and the reason that
+-- migration silently accomplished nothing on production. The earlier version
+-- dropped three literal names taken from schema.sql ("anon can read campaigns"
+-- and friends). The production table had been provisioned by hand under
+-- different names — campaigns_select / campaigns_insert / campaigns_update,
+-- `to public`, `using (true)` — so all three drops matched nothing, all three
+-- survived, and RLS policies are OR'd: a single permissive policy grants
+-- everything no matter what sits beside it. The membership policies were
+-- created, were correct, and were irrelevant.
+--
+-- Note how far it failed open. `to public` covers `anon`, so the table was
+-- readable and writable with no session at all — wider than the `authenticated`
+-- exposure AVE-971 set out to close, and completely invisible to a check that
+-- confirms the three expected policies exist. They did exist.
+--
+-- Enumerating is the only formulation that converges: the three policies below
+-- are the complete intended set for this table, so anything else present is by
+-- definition drift, and a migration that cannot be defeated by a name it did
+-- not anticipate is worth more than one that preserves a hypothetical
+-- hand-added policy. If a legitimate fourth policy is ever wanted, add it here.
+do $$
+declare pol record;
+begin
+  for pol in
+    select policyname from pg_policies
+    where schemaname = 'public' and tablename = 'campaigns'
+  loop
+    execute format('drop policy %I on public.campaigns', pol.policyname);
+  end loop;
+end
+$$;
 
 create policy "members read campaigns"   on public.campaigns for select
   to authenticated using (public.is_member(id));
@@ -181,6 +210,8 @@ create policy "members insert campaigns" on public.campaigns for insert
   to authenticated with check (public.is_member(id));
 create policy "members update campaigns" on public.campaigns for update
   to authenticated using (public.is_member(id)) with check (public.is_member(id));
+
+commit;
 
 -- ─── Grants ──────────────────────────────────────────────────────────────────
 
