@@ -103,14 +103,42 @@ export function isGuardColumn(name) { return /^guard_\d+$/.test(name); }
 /** Guard array index for a per-guard column name. */
 export function guardIndexFromColumn(name) { return Number(name.slice('guard_'.length)); }
 
-/** Generate a campaign code like 'WOLF-7F3K9Q' — word prefix + 6 random alphanumeric chars (~2.2B combinations). */
+/**
+ * Uniformly random integer in [0, max), from the CSPRNG.
+ *
+ * Rejection sampling rather than a plain modulo: 2^32 is not a multiple of 36,
+ * so `value % 36` would bias the low indices. That bias is small, but this
+ * function mints the campaign's access *credential*, and after AVE-971 the code
+ * is the only thing standing between a stranger and a campaign — so it should
+ * not be the weakest link by construction.
+ */
+function randomIndex(max) {
+  const limit = Math.floor(0x100000000 / max) * max;
+  const buf   = new Uint32Array(1);
+  let value;
+  do {
+    crypto.getRandomValues(buf);
+    value = buf[0];
+  } while (value >= limit);
+  return value % max;
+}
+
+/**
+ * Generate a campaign code like 'WOLF-7F3K9Q' — word prefix + 6 random
+ * alphanumeric chars (~2.2B combinations).
+ *
+ * Drawn from crypto.getRandomValues, not Math.random. V8's PRNG state is
+ * recoverable from enough of its outputs, and while that attack needs outputs
+ * from the victim's own session, there is no reason for a capability token to
+ * come from a non-cryptographic source.
+ */
 export function generateCampaignId() {
   const words  = ['WOLF','BEAR','HAWK','IRON','GOLD','SNOW','DARK','FIRE','VALE','DUSK'];
-  const word   = words[Math.floor(Math.random() * words.length)];
   const chars  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const word   = words[randomIndex(words.length)];
   let suffix = '';
   for (let i = 0; i < 6; i++) {
-    suffix += chars[Math.floor(Math.random() * chars.length)];
+    suffix += chars[randomIndex(chars.length)];
   }
   return `${word}-${suffix}`;
 }
@@ -569,6 +597,102 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const replaceFailed = useRef(false);  // a full-row replaceRow failed (AVE-937)
   const refetchFailed = useRef(false);  // the boot/foreground SELECT failed
 
+  // ── Session + membership (AVE-971) ────────────────────────────────────────
+  //
+  // Campaign rows are readable and writable only by users who have joined them,
+  // so every network path needs an identity before it runs. Anonymous sign-in
+  // is not a login — it exists solely to put a subject in the JWT, because
+  // postgres_changes authorizes Realtime delivery against the socket's JWT and
+  // an identity-free policy silently severs it.
+  //
+  // A client with no `auth` is a test double from before membership existed:
+  // there is no session to mint and no point calling join_campaign, so both
+  // helpers degrade to no-ops. Every real @supabase/supabase-js client has it.
+  const sessionRef     = useRef(null);          // memoized anon-session promise
+  const joinedRef      = useRef(new Set());     // campaign ids joined this session
+  const joinPromiseRef = useRef(new Map());     // in-flight join per campaign id
+
+  const supportsAuth = !!client?.auth?.signInAnonymously;
+
+  // PostgREST reports an unknown function as PGRST202 ("Could not find the
+  // function ... in the schema cache"). That is precisely the state of a
+  // database that has the client deployed but not yet migrated — and the
+  // rollout depends on that window being safe: the client MUST ship before
+  // 0008, because applying the migration first cuts off every running client
+  // at once. Treating a missing function as "this database has no membership
+  // model" is what makes the client genuinely inert against an unmigrated
+  // database, rather than stopping sync for everyone until the SQL is run.
+  //
+  // It also means forgetting 0008 entirely leaves the app working exactly as it
+  // did before, instead of half-breaking it — the AVE-870 failure mode.
+  const isMissingFunction = err =>
+    err?.code === 'PGRST202' || /could not find the function/i.test(err?.message ?? '');
+
+  const ensureSession = useCallback(async () => {
+    if (!supportsAuth) return null;
+    // Memoized so concurrent callers share one sign-in rather than racing to
+    // mint several anonymous users. The failure path clears it: a paused
+    // project or a captive portal has to be retryable on the next attempt,
+    // and a memoized rejection would wedge sync until reload.
+    sessionRef.current ??= (async () => {
+      const { data } = await client.auth.getSession();
+      if (data?.session) return data.session;
+      const { data: signedIn, error } = await client.auth.signInAnonymously();
+      if (error) throw error;
+      return signedIn?.session ?? null;
+    })().catch(err => {
+      sessionRef.current = null;
+      throw err;
+    });
+    return sessionRef.current;
+  }, [client, supportsAuth]);
+
+  // Idempotent server-side (`on conflict do nothing`), memoized per id here so
+  // a boot that fires several network paths at once sends it only once.
+  //
+  // This is what makes the migration invisible to existing players: a device
+  // holding a campaign code from before membership existed has no membership
+  // row, and calling this on boot creates one. Without it, every current player
+  // would be locked out of their own campaign until they retyped the code.
+  const ensureMembership = useCallback(async (id) => {
+    if (!supportsAuth || !id || joinedRef.current.has(id)) return;
+    let pending = joinPromiseRef.current.get(id);
+    if (!pending) {
+      pending = Promise.resolve(client.rpc('join_campaign', { campaign_id: id }))
+        .then(({ error } = {}) => {
+          // An unmigrated database has no membership to establish — the old
+          // policies still grant access, so proceed rather than blocking.
+          if (error && !isMissingFunction(error)) throw error;
+          joinedRef.current.add(id);
+        })
+        .finally(() => joinPromiseRef.current.delete(id));
+      joinPromiseRef.current.set(id, pending);
+    }
+    await pending;
+  }, [client, supportsAuth]);
+
+  /**
+   * Session + membership for the active campaign. Returns false instead of
+   * throwing: a failed sign-in must degrade to local-only play, never block a
+   * local edit. Callers queue writes or skip reads accordingly, and the
+   * existing recovery paths retry.
+   */
+  const ensureAccess = useCallback(async () => {
+    if (!client) return false;
+    if (!supportsAuth) return true;   // legacy/mock client — nothing to gate on
+    try {
+      await ensureSession();
+      await ensureMembership(campaignIdRef.current);
+      return true;
+    } catch (err) {
+      setSyncStatus('error');
+      setSyncError(
+        `Could not reach the campaign server${err?.message ? ` — ${err.message}` : ''}. Playing locally until it reconnects.`
+      );
+      return false;
+    }
+  }, [client, supportsAuth, ensureSession, ensureMembership]);
+
   const noteSelfWrite = useCallback((section, value) => {
     const now  = Date.now();
     const list = (selfWrites.current.get(section) || []).filter(e => now - e.at < SELF_WRITE_TTL_MS);
@@ -722,6 +846,12 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const refetchRow = useCallback(async () => {
     const id = campaignIdRef.current;
     if (!client || !id) return;
+    // Membership gates the SELECT: without it RLS returns zero rows and the
+    // read looks like a deleted campaign (AVE-971).
+    if (!(await ensureAccess())) {
+      refetchFailed.current = true;
+      return;
+    }
     const requestedAt = Date.now();
     const { data, error } = await client
       .from('campaigns')
@@ -751,7 +881,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     refetchFailed.current = false;
     if (!data) return;
     applyRemoteRow(data, requestedAt);
-  }, [client, applyRemoteRow]);
+  }, [client, applyRemoteRow, ensureAccess]);
 
   // Keep the ref pointed at the current refetchRow, so the write callbacks can
   // call it without taking it as a dependency (see refetchRowRef above). In an
@@ -855,6 +985,11 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       return;
     }
     if (flushInFlight.current) return;
+
+    // Everything below writes, so it needs membership. Leave the queue intact
+    // on failure — these are the edits we most need not to lose (AVE-971).
+    if (!(await ensureAccess())) return;
+
     flushInFlight.current = true;
 
     try {
@@ -932,7 +1067,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     } finally {
       flushInFlight.current = false;
     }
-  }, [client, noteSelfWrite, unnoteSelfWrite, persistQueue, bumpRetryTick]);
+  }, [client, noteSelfWrite, unnoteSelfWrite, persistQueue, bumpRetryTick, ensureAccess]);
 
   /**
    * One recovery step for the backoff ladder (AVE-938).
@@ -1034,27 +1169,48 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   // ── Subscribe / unsubscribe when campaignId changes ───────────────────────
 
   useEffect(() => {
+    let cancelled = false;
     if (campaignId) {
-      subscribe(campaignId);
-      // Boot / campaign-change fetch (AVE-372): local state came purely from
-      // localStorage, which may be stale if another player edited while this
-      // app was closed. Pull the current row and merge it in through the gated
-      // pipeline. This also seeds `lastSeenTs` on a cold boot (only join/create
-      // seed it otherwise), giving the first Realtime UPDATE a real baseline.
-      // On a join the row was just fetched and applied, so this re-fetch merges
-      // nothing new — harmless and gated.
-      refetchRow();
+      // Access first, socket second. postgres_changes authorizes delivery
+      // against the socket's JWT, so subscribing before the anonymous session
+      // exists opens a channel that RLS will never deliver to — and it fails
+      // silently, which is the exact trap AVE-971 documents (AVE-971).
+      //
+      // ensureAccess also performs the boot re-join: a device holding a
+      // campaign code from before membership existed has no membership row,
+      // and this is what creates one without the player retyping anything.
+      const start = () => {
+        if (cancelled) return;
+        subscribe(campaignId);
+        // Boot / campaign-change fetch (AVE-372): local state came purely from
+        // localStorage, which may be stale if another player edited while this
+        // app was closed. Pull the current row and merge it in through the
+        // gated pipeline. This also seeds `lastSeenTs` on a cold boot (only
+        // join/create seed it otherwise), giving the first Realtime UPDATE a
+        // real baseline. On a join the row was just fetched and applied, so
+        // this re-fetch merges nothing new — harmless and gated.
+        refetchRow();
+      };
+      // Only defer when there is genuinely something to establish. A client
+      // without auth has nothing to wait for, and deferring it by even a
+      // microtask would change subscribe's timing for every existing caller.
+      if (supportsAuth) {
+        void (async () => { if (await ensureAccess()) start(); })();
+      } else {
+        start();
+      }
     } else if (channelRef.current) {
       client?.removeChannel(channelRef.current);
       channelRef.current = null;
     }
     return () => {
+      cancelled = true;
       if (channelRef.current) {
         client?.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [campaignId, client, subscribe, refetchRow]);
+  }, [campaignId, client, subscribe, refetchRow, ensureAccess, supportsAuth]);
 
   // ── Boot / campaign-change queue drain (AVE-522) ──────────────────────────
   // Replay any persisted pending writes as soon as a campaign is active —
@@ -1091,6 +1247,15 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       pendingQueue.current.set(sectionName, sectionData);
       persistQueue(); // survive tab death while offline (AVE-522)
       setSyncStatus('offline');
+      return;
+    }
+
+    // Membership gates the write, so establish it first. A failure here is
+    // treated exactly like being offline — the edit is queued, never dropped,
+    // and the existing backoff/reconnect paths retry it (AVE-971).
+    if (!(await ensureAccess())) {
+      pendingQueue.current.set(sectionName, sectionData);
+      persistQueue();
       return;
     }
 
@@ -1146,7 +1311,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       persistQueue(); // keep the persisted copy in step with the drained queue (AVE-522)
       flushQueue();
     }
-  }, [client, campaignId, noteSelfWrite, unnoteSelfWrite, flushQueue, persistQueue, bumpRetryTick]);
+  }, [client, campaignId, noteSelfWrite, unnoteSelfWrite, flushQueue, persistQueue, bumpRetryTick, ensureAccess]);
 
   // ── Public actions ────────────────────────────────────────────────────────
 
@@ -1156,13 +1321,36 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
    */
   const createCampaign = useCallback(async () => {
     if (!client) return { id: null, error: 'Supabase not configured' };
+    // A campaign cannot be created without an identity to own it.
+    try {
+      await ensureSession();
+    } catch (err) {
+      return { id: null, error: `Could not reach the campaign server${err?.message ? ` — ${err.message}` : ''}.` };
+    }
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const id  = generateCampaignId();
       const row = buildFullRow(id, stateRef.current);
 
-      const { error } = await client.from('campaigns').insert(row);
+      // One RPC, one transaction: the row and the membership row land together
+      // or not at all. Doing it as join-then-insert would leave a stray
+      // membership behind on a 23505 collision — a permission grant on a
+      // stranger's campaign, which should be structurally impossible rather
+      // than merely improbable (AVE-971). The RPC surfaces the unique violation
+      // unchanged, so the retry loop below is untouched.
+      let { error } = await client.rpc('create_campaign', {
+        campaign_id: id,
+        row_data:    row,
+      });
+      // Not migrated yet: fall back to the pre-0008 insert, which the old
+      // policies still permit. Keeps campaign creation working through the
+      // client-deployed-but-not-migrated window.
+      if (error && isMissingFunction(error)) {
+        ({ error } = await client.from('campaigns').insert(row));
+      }
       if (!error) {
+        // The RPC created our membership; don't re-join on the next access check.
+        joinedRef.current.add(id);
         // Seed the timestamp baseline from the row we just wrote so the first
         // inbound UPDATE can gate correctly (AVE-314). A freshly inserted row
         // starts at generation 0 (column default) — seed the counter to match
@@ -1178,7 +1366,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
       }
     }
     return { id: null, error: 'Could not generate a unique campaign ID. Try again.' };
-  }, [client]);
+  }, [client, ensureSession]);
 
   /**
    * Join an existing campaign by code.
@@ -1202,6 +1390,25 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // input (AVE-786).
     const id = normalizeCampaignCode(code);
     const notFound = `No campaign found with code ${id}. Check the code and try again.`;
+
+    // Membership BEFORE the read, and the order is load-bearing: under
+    // membership RLS a non-member sees zero rows, so selecting first would
+    // return PGRST116 and report "No campaign found" for every correct code
+    // (AVE-971). join_campaign deliberately does not verify the campaign
+    // exists — checking would make it an oracle for "is this code real", which
+    // is the one thing the keyspace protects. A membership row pointing at a
+    // nonexistent campaign grants access to nothing, and the select below still
+    // reports it as not found.
+    try {
+      await ensureSession();
+      await ensureMembership(id);
+    } catch (err) {
+      return {
+        state: null,
+        error: `Could not reach the campaign server${err?.message ? ` — ${err.message}` : ''}. Check your connection and try again.`,
+      };
+    }
+
     const { data, error } = await client
       .from('campaigns')
       .select('*')
@@ -1258,7 +1465,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     // until the host's next Realtime UPDATE happens to trigger a re-render.
     onRemoteChange(sections);
     return { state: null, error: null };
-  }, [client, onRemoteChange, persistQueue]);
+  }, [client, onRemoteChange, persistQueue, ensureSession, ensureMembership]);
 
   /**
    * Leave the current campaign.
@@ -1309,6 +1516,18 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
   const replaceRow = useCallback(async (state) => {
     const id = campaignIdRef.current;
     if (!client || !id) return { error: null };
+
+    // Read-then-write, both gated by membership (AVE-971). Surfaced as a
+    // replacement failure rather than silently skipped: App renders a retryable
+    // banner for this, because a replacement that misses the server diverges
+    // local and remote permanently (AVE-937).
+    if (!(await ensureAccess())) {
+      replaceFailed.current = true;
+      const message = 'Could not reach the campaign server.';
+      setSyncError(message);
+      setSyncStatus('error');
+      return { error: message };
+    }
 
     setSyncStatus('syncing');
     replaceFailed.current = false;
@@ -1370,7 +1589,7 @@ export function useSupabaseSync(state, onRemoteChange, injectedClient) {
     setSyncStatus('idle');
     setSyncError(null);
     return { error: null };
-  }, [client, persistQueue]);
+  }, [client, persistQueue, ensureAccess]);
 
   return {
     campaignId,

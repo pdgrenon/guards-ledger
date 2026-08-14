@@ -57,31 +57,108 @@ create table if not exists public.campaigns (
   created_at  timestamptz not null default now()
 );
 
--- Row Level Security: campaigns are shared by anyone holding the short code,
--- so the anon role is allowed to read and write rows. The code itself is the
--- only access control, matching how the app is used.
+-- Row Level Security: access is scoped to MEMBERSHIP, not to holding the anon
+-- key. See supabase/migrations/0008_campaign_membership.sql for the full
+-- rationale; the short version:
 --
--- THREAT MODEL:
---   The anon key is shipped in the client bundle and visible to end users.
---   With that key, anyone who knows (or guesses) a campaign code can read or
---   overwrite every row in this table. The following mitigations are in place:
---     1. Campaign codes now use ~2.2 billion combinations (word + 6 random
---        alphanumeric chars) instead of the previous 900 combinations, making
---        brute-force enumeration impractical.
---     2. Rate-limiting or an Edge Function for create/join could further
---        restrict enumeration at the cost of mobile-offline complexity; this
---        is a known tradeoff accepted for the current tableside-use profile.
---   In a future iteration, consider moving create/join behind a Supabase Edge
---   Function that validates a session or adds a proof-of-work step.
+--   The anon key ships in the client bundle and is public by design. Until
+--   AVE-971 the policies were `using (true)`, and an RLS `using` clause is
+--   evaluated per row and cannot see the query's WHERE — so one unfiltered
+--   request returned every campaign id, and one PATCH could overwrite any
+--   campaign. AVE-104 raised the cost of *guessing* an id to ~2.2 billion tries
+--   and left the cost of *listing* every id at exactly one request; the
+--   mitigation and the hole never met.
+--
+--   Now the campaign code is an enforced capability: `join_campaign(code)` is
+--   the only way to reach a campaign you are not already in, and it takes the
+--   code as an argument so it can grant access without permitting a listing.
+--
+-- THREAT MODEL, HONESTLY STATED:
+--   * Anyone who knows a campaign code can still join that campaign and edit it.
+--     That is the design — it is how a co-player joins, and the code is the
+--     credential. Codes are ~2.2 billion combinations, which makes guessing one
+--     impractical; there is no longer a listing operation to skip that work.
+--   * Anonymous sign-in is not a login. It exists solely to put an identity in
+--     the JWT, because postgres_changes authorizes Realtime delivery against
+--     the socket's JWT. Without it, membership RLS silently severs Realtime.
+--   * A shared device keeps access after Leave: leaveCampaign is local-only and
+--     the membership row is retained deliberately, so Leave → Rejoin does not
+--     need a round trip that can fail offline.
+--   * Stakes remain low-sensitivity board-game state. This is griefing and
+--     data-integrity protection, not a privacy boundary.
 alter table public.campaigns enable row level security;
 
 drop policy if exists "anon can read campaigns"   on public.campaigns;
 drop policy if exists "anon can insert campaigns" on public.campaigns;
 drop policy if exists "anon can update campaigns" on public.campaigns;
 
-create policy "anon can read campaigns"   on public.campaigns for select using (true);
-create policy "anon can insert campaigns" on public.campaigns for insert with check (true);
-create policy "anon can update campaigns" on public.campaigns for update using (true) with check (true);
+create table if not exists public.campaign_members (
+  campaign_id text not null,
+  user_id     uuid not null default auth.uid(),
+  joined_at   timestamptz not null default now(),
+  primary key (campaign_id, user_id)
+);
+alter table public.campaign_members enable row level security;
+
+drop policy if exists "members see own rows" on public.campaign_members;
+create policy "members see own rows" on public.campaign_members
+  for select to authenticated using (user_id = auth.uid());
+
+-- security definer: the campaigns policies call this, so it must not itself be
+-- subject to campaign_members' RLS (that recurses).
+create or replace function public.is_member(cid text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.campaign_members
+    where campaign_id = cid and user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.join_campaign(campaign_id text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+  insert into public.campaign_members (campaign_id, user_id)
+  values (join_campaign.campaign_id, auth.uid())
+  on conflict do nothing;
+end;
+$$;
+
+-- Row + membership in one transaction, so an id collision cannot leave a stray
+-- membership row granting access to a stranger's campaign. The defaults are
+-- merged under row_data because jsonb_populate_record over a NULL base yields
+-- NULL for omitted columns and does not consult column defaults.
+create or replace function public.create_campaign(campaign_id text, row_data jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+  insert into public.campaigns
+  select * from jsonb_populate_record(
+    null::public.campaigns,
+    jsonb_build_object('id', create_campaign.campaign_id,
+                       'generation', 0,
+                       'created_at', now())
+      || row_data
+  );
+  insert into public.campaign_members (campaign_id, user_id)
+  values (create_campaign.campaign_id, auth.uid());
+end;
+$$;
+
+create policy "members read campaigns"   on public.campaigns for select
+  to authenticated using (public.is_member(id));
+create policy "members insert campaigns" on public.campaigns for insert
+  to authenticated with check (public.is_member(id));
+create policy "members update campaigns" on public.campaigns for update
+  to authenticated using (public.is_member(id)) with check (public.is_member(id));
+
+grant execute on function public.is_member(text)              to authenticated;
+grant execute on function public.join_campaign(text)          to authenticated;
+grant execute on function public.create_campaign(text, jsonb) to authenticated;
 
 -- Enable Realtime so postgres_changes UPDATE events are broadcast.
 alter publication supabase_realtime add table public.campaigns;

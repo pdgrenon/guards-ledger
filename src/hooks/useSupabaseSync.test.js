@@ -276,7 +276,13 @@ describe('useSupabaseSync — upsertSection', () => {
 // ─── createCampaign ──────────────────────────────────────────────────────────
 
 describe('useSupabaseSync — createCampaign', () => {
-  it('inserts a full row and sets the campaignId on success', async () => {
+  // The row and its membership row are created by ONE security-definer RPC, not
+  // a bare insert. Splitting it into join-then-insert would leave a stray
+  // membership behind on a 23505 id collision — a permission grant on someone
+  // else's campaign (AVE-971).
+  const createCalls = client => client.calls.rpc.filter(c => c.name === 'create_campaign');
+
+  it('creates the row through create_campaign and sets the campaignId on success', async () => {
     const client = makeMockClient();
     const { result } = setupHook({ client });
 
@@ -290,15 +296,26 @@ describe('useSupabaseSync — createCampaign', () => {
     expect(ret.id).toMatch(/^[A-Z]+-[A-Z0-9]{6}$/); // matches generateCampaignId pattern
     expect(result.current.campaignId).toBe(ret.id);
     expect(localStorage.getItem('guards_ledger_campaign_id')).toBe(ret.id);
-    expect(client.calls.insert).toHaveLength(1);
-    expect(client.calls.insert[0].payload.id).toBe(ret.id);
+
+    expect(createCalls(client)).toHaveLength(1);
+    expect(createCalls(client)[0].params.campaign_id).toBe(ret.id);
+    expect(createCalls(client)[0].params.row_data.id).toBe(ret.id);
+  });
+
+  it('never writes the row with a bare insert', async () => {
+    // A plain insert cannot create the membership row atomically, and under
+    // membership RLS it is refused outright.
+    const client = makeMockClient();
+    const { result } = setupHook({ client });
+    await act(async () => { await result.current.createCampaign(); });
+    expect(client.calls.insert).toHaveLength(0);
   });
 
   it('includes every synced section in the initial row payload', async () => {
     const client = makeMockClient();
     const { result } = setupHook({ client });
     await act(async () => { await result.current.createCampaign(); });
-    const row = client.calls.insert[0].payload;
+    const row = createCalls(client)[0].params.row_data;
     expect(row).toHaveProperty('resources');
     expect(row).toHaveProperty('cities');
     expect(row).toHaveProperty('party');
@@ -312,19 +329,15 @@ describe('useSupabaseSync — createCampaign', () => {
   it('retries on unique-violation (code 23505) and eventually succeeds', async () => {
     let callCount = 0;
     const client = makeMockClient();
-    // Override the chain so the first two inserts fail with 23505, then succeed.
-    const origFrom = client.from;
-    client.from = (table) => {
-      const chain = origFrom(table);
-      const origInsert = chain.insert;
-      chain.insert = (payload) => {
+    const origRpc = client.rpc;
+    client.rpc = (name, params) => {
+      if (name === 'create_campaign') {
         callCount++;
         if (callCount <= 2) {
           return Promise.resolve({ data: null, error: { message: 'duplicate', code: '23505' } });
         }
-        return origInsert.call(chain, payload);
-      };
-      return chain;
+      }
+      return origRpc.call(client, name, params);
     };
 
     const { result } = setupHook({ client });
@@ -336,7 +349,7 @@ describe('useSupabaseSync — createCampaign', () => {
 
   it('returns the error immediately on a non-23505 failure', async () => {
     const client = makeMockClient({
-      insertResult: { data: null, error: { message: 'permission denied', code: '42501' } },
+      rpcResults: { create_campaign: { data: null, error: { message: 'permission denied', code: '42501' } } },
     });
     const { result } = setupHook({ client });
     let ret;
@@ -347,14 +360,9 @@ describe('useSupabaseSync — createCampaign', () => {
   });
 
   it('returns an error after 5 failed collision retries', async () => {
-    const client = makeMockClient();
-    const origFrom = client.from;
-    client.from = (table) => {
-      const chain = origFrom(table);
-      chain.insert = () => Promise.resolve({ data: null, error: { message: 'dup', code: '23505' } });
-      return chain;
-    };
-
+    const client = makeMockClient({
+      rpcResults: { create_campaign: { data: null, error: { message: 'dup', code: '23505' } } },
+    });
     const { result } = setupHook({ client });
     let ret;
     await act(async () => { ret = await result.current.createCampaign(); });
