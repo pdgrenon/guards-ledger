@@ -400,6 +400,28 @@ order by p.proname, args;
 
 Expect exactly one `merge_section`, with `campaign_id text, section_name text, payload jsonb, expected_generation bigint`, plus `deep_merge_jsonb(jsonb, jsonb)` and `merge_jsonb_array_by_id(jsonb, jsonb)`. After `0008` also expect `is_member(text)`, `join_campaign(text)` and `create_campaign(text, jsonb)` — add those three names to the query's `in (...)` list to check them. A three-argument `merge_section` means `0007` has not been applied. Note that `0005` is a `CREATE OR REPLACE` of `deep_merge_jsonb` with an unchanged signature, so this query cannot distinguish "0005 applied" from "0003 only" — if deleted satchel items reappear (the AVE-362 symptom), re-run `0005`.
 
+**The expected policies existing proves nothing — what matters is that no *other* policy exists.** RLS policies are **OR'd**, so one permissive policy grants everything regardless of what sits beside it. This is not hypothetical: `0008` shipped, was applied to production, and changed nothing at all. It dropped three literal policy names taken from `schema.sql` (`"anon can read campaigns"` and friends), but the production table had been provisioned by hand as `campaigns_select` / `campaigns_insert` / `campaigns_update`, `to public`, `using (true)`. All three drops matched nothing, all three survived, and the correctly-created membership policies were simply irrelevant. `to public` also covers `anon`, so the table stayed readable and writable **with no session at all** — wider than the exposure AVE-971 set out to close.
+
+`0008` therefore drops every policy on the table by enumerating `pg_policies`, rather than naming the ones it expects, and wraps the swap in one transaction so the intermediate zero-policy state (which denies everything) is never visible to another session. It also enables RLS itself instead of relying on `schema.sql`, which is fresh-installs-only.
+
+Three properties, all independent, all silent when broken — check each:
+
+```sql
+-- 1. enforcement is on at all (a policy on a table without RLS filters nothing)
+select relrowsecurity from pg_class where oid = 'public.campaigns'::regclass;
+
+-- 2. exactly the three membership policies, and nothing else
+select policyname, cmd, roles::text[], qual, with_check
+from pg_policies where schemaname = 'public' and tablename = 'campaigns';
+
+-- 3. the role does not sidestep RLS entirely
+select rolbypassrls from pg_roles where rolname = 'authenticated';
+```
+
+Expect `true`; exactly three rows, all `to authenticated` with `is_member(id)`; and `false`.
+
+**`supabase/verify/rls_check.sql` runs all of it as one paste** — read-only, safe against production, reports PASS/FAIL per scenario. It checks **behaviour, not structure**: it impersonates a non-member (`set local role authenticated` plus forged `request.jwt.claims`) and asserts it sees **zero** rows, then does the same for `anon` and for a real member. Every structural check came back clean during the incident above; only the behavioural one caught it. It also self-tests that the role switch took and that `auth.uid()` reads the forged claims *before* reporting — without that, "sees nothing" is equally consistent with a harness that never switched roles, and the whole check passes vacuously. The result is delivered as a **red `ERROR`**; that is the mechanism, not the verdict. The longer diagnostic walkthrough is `scratchpad/RLS-PROCEDURE.md`.
+
 ### PWA
 
 `vite-plugin-pwa` (`vite.config.js`) generates the service worker and the web app manifest. Four rules, the middle two learned from AVE-939:
