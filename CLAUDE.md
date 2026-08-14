@@ -400,6 +400,15 @@ order by p.proname, args;
 
 Expect exactly one `merge_section`, with `campaign_id text, section_name text, payload jsonb, expected_generation bigint`, plus `deep_merge_jsonb(jsonb, jsonb)` and `merge_jsonb_array_by_id(jsonb, jsonb)`. After `0008` also expect `is_member(text)`, `join_campaign(text)` and `create_campaign(text, jsonb)` — add those three names to the query's `in (...)` list to check them. A three-argument `merge_section` means `0007` has not been applied. Note that `0005` is a `CREATE OR REPLACE` of `deep_merge_jsonb` with an unchanged signature, so this query cannot distinguish "0005 applied" from "0003 only" — if deleted satchel items reappear (the AVE-362 symptom), re-run `0005`.
 
+**Functions and policies existing does not mean access is enforced — check `relrowsecurity` separately.** A policy on a table with RLS *disabled* is stored, listed by `pg_policies`, and filters nothing; every query keeps working and the table stays fully readable, so there is no symptom to notice. `0008` therefore enables RLS itself rather than relying on `schema.sql`, which carries the line but is fresh-installs-only — the production database predates the file (`schema.sql` was first committed in `c91dc8f`, together with the table definition), so replacing `using (true)` with membership policies there swapped one set of inert policies for another. Verify enforcement, not presence:
+
+```sql
+select relrowsecurity as rls_on, relforcerowsecurity as rls_forced
+from pg_class where oid = 'public.campaigns'::regclass;
+```
+
+`rls_on` must be `true`. The end-to-end check is the harness in `scratchpad/RLS-PROCEDURE.md`, which impersonates a non-member (`set local role authenticated` plus forged `request.jwt.claims`) and asserts it sees **zero** rows — and self-tests that the impersonation took before trusting its own result, so a "sees nothing" cannot come from a broken harness. Do not treat a table as protected on the strength of the policy list alone.
+
 ### PWA
 
 `vite-plugin-pwa` (`vite.config.js`) generates the service worker and the web app manifest. Four rules, the middle two learned from AVE-939:

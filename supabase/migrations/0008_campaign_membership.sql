@@ -155,6 +155,18 @@ $$;
 
 -- ─── Campaign policies ───────────────────────────────────────────────────────
 
+-- Enabled here rather than left to schema.sql. A policy on a table without RLS
+-- is inert decoration: it is stored, it shows up in pg_policies, and it filters
+-- nothing. schema.sql carries this line but schema.sql is FRESH INSTALLS ONLY —
+-- a database created before it was committed (which is the production one) has
+-- never run it, so replacing `using (true)` with membership policies there
+-- swapped one set of inert policies for another and changed nothing at all.
+-- The symptom is silent by construction: every query keeps working, and the
+-- table stays fully readable. Verify with
+--   select relrowsecurity from pg_class where oid = 'public.campaigns'::regclass;
+-- not with the presence of the policies. No-op when already enabled.
+alter table public.campaigns enable row level security;
+
 drop policy if exists "anon can read campaigns"   on public.campaigns;
 drop policy if exists "anon can insert campaigns" on public.campaigns;
 drop policy if exists "anon can update campaigns" on public.campaigns;
