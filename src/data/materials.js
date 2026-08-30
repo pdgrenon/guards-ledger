@@ -40,8 +40,11 @@ export const ACCESSORIES = [
   'Traveling Boots', 'Twilight Guantlet', 'Umbral Ring', 'Wolf Head Tunic', 'Wolf Tooth Ring',
 ];
 
-// Anything here can occupy a guard's "Item" (active) equipment slot — consumables
-// included, since knowing what you can reach mid-battle is the point of that slot.
+// Craftable, quest and shop Items. These occupy a guard's "Item" (active)
+// equipment slot — consumables included, since knowing what you can reach
+// mid-battle is the point of that slot — but they are not the whole of that
+// slot's option list: see EQUIPPABLE_ITEMS below, which is what the slot
+// actually renders.
 //
 // Every recipe with `type: 'Item'` must appear here, or the thing you just
 // crafted cannot be selected at all: the slot's options come from this array, so
@@ -54,6 +57,10 @@ export const ACCESSORIES = [
 // removing it from any hand-written category — as was done for `Health Potion`
 // and then `Tent`. ALL_MATERIALS is a plain flatMap with no dedup, so a name in
 // two categories appears twice in every Autocomplete and twice in search.
+//
+// That constraint is exactly why a consumable food does NOT belong here: it
+// would have to leave `Fish & food` and be filed under `Gear`, which is where
+// it is looked for in the stash. Make it equippable via FOODS instead.
 export const ITEMS = [
   'Aged Drink', 'Barrier Tonic', 'Bottled Courage',
   'Expanded Satchel', 'Fishing Pole', 'Health Potion', 'Invigorating Potion',
@@ -62,6 +69,17 @@ export const ITEMS = [
   'Pickaxe', 'Purifying Dust', "Raven's Beak Flask", 'Ruinous Dust', 'Smoke Bomb',
   'Spicy Stew', 'Tent', 'The Foundations of Telios', 'Wood Chopping Axe',
   'Zamar', "Zoya's Elixir",
+];
+
+// Consumable foods. Every one of these is eaten rather than crafted with — none
+// appears as a recipe material — and the companion book tags them "(Item)" in
+// bounty rewards ("2x Mir Bread (Item)"), so they belong in the Item slot's
+// options just as much as a Health Potion does. They stay in the `Fish & food`
+// category rather than moving into ITEMS/`gear`: EQUIPPABLE_ITEMS exists so the
+// slot can offer them without breaking one-item-one-category (AVE-546).
+export const FOODS = [
+  'Cooked Fish', 'Dusk Tuna', 'Emerald Koi', 'Foxtail Carp', 'Amethyst Trout',
+  'Ryba Blue Fins', 'Golden Potato', 'Clayhorn Steak', 'Mir Bread',
 ];
 
 // ─── MATERIAL CATEGORIES ──────────────────────────────────────────────────────
@@ -93,10 +111,7 @@ export const MATERIAL_CATEGORIES = [
   {
     id: 'fish',
     label: 'Fish & food',
-    items: [
-      'Cooked Fish', 'Dusk Tuna', 'Emerald Koi', 'Foxtail Carp', 'Amethyst Trout',
-      'Ryba Blue Fins', 'Golden Potato', 'Clayhorn Steak', 'Mir Bread',
-    ],
+    items: FOODS,
   },
   {
     id: 'special',
@@ -128,6 +143,13 @@ export const MATERIAL_CATEGORIES = [
 ];
 
 // ─── DERIVED EXPORTS ──────────────────────────────────────────────────────────
+
+// The options for a guard's "Item" (active) slot, and the set the equip reducer
+// recognizes. Deliberately wider than ITEMS: a food is a usable item you can
+// reach mid-battle, but it lives in `Fish & food` for stash purposes, so the two
+// lists cannot be the same array without double-listing it (AVE-546).
+export const EQUIPPABLE_ITEMS = [...new Set([...ITEMS, ...FOODS])].sort();
+
 
 export const ALL_MATERIALS = MATERIAL_CATEGORIES.flatMap(c => c.items).sort();
 

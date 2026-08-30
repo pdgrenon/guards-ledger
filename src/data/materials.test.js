@@ -12,6 +12,8 @@ import {
   MATERIAL_SOURCES,
   ENEMIES,
   ITEMS,
+  FOODS,
+  EQUIPPABLE_ITEMS,
 } from './materials';
 import { RECIPES } from './recipes';
 import { BOUNTIES } from './bounties';
@@ -66,6 +68,42 @@ describe('MATERIAL_SOURCES coverage (AVE-548)', () => {
     for (const name of ['Pickaxe', 'Wood Chopping Axe', 'Fishing Pole']) {
       expect(ITEMS).toContain(name);
     }
+  });
+});
+
+describe('consumable foods are equippable (AVE-548)', () => {
+  // Mir Bread is bought at the Mir market, handed out as a bounty reward tagged
+  // "(Item)", and eaten — a usable item by every definition the slot cares
+  // about. It was unselectable purely because the slot's options were ITEMS and
+  // a food lives in `Fish & food`. The fix is EQUIPPABLE_ITEMS, so assert
+  // against that rather than ITEMS: the foods must stay OUT of ITEMS, or the
+  // derived `gear` category double-lists them.
+  it('offers every food in the Item slot', () => {
+    const missing = FOODS.filter(name => !EQUIPPABLE_ITEMS.includes(name));
+    expect(missing).toEqual([]);
+  });
+
+  it('offers Mir Bread specifically', () => {
+    expect(EQUIPPABLE_ITEMS).toContain('Mir Bread');
+  });
+
+  it('still offers everything in ITEMS', () => {
+    const missing = ITEMS.filter(name => !EQUIPPABLE_ITEMS.includes(name));
+    expect(missing).toEqual([]);
+  });
+
+  // The half of the fix that keeps AVE-546 intact: a food equippable via
+  // EQUIPPABLE_ITEMS must not also be in ITEMS, which `gear` is derived from.
+  it('keeps foods out of ITEMS and in exactly one category', () => {
+    expect(FOODS.filter(name => ITEMS.includes(name))).toEqual([]);
+    const gear = MATERIAL_CATEGORIES.find(c => c.id === 'gear').items;
+    expect(FOODS.filter(name => gear.includes(name))).toEqual([]);
+  });
+
+  it('lists each equippable item once', () => {
+    const seen = new Set();
+    const dupes = EQUIPPABLE_ITEMS.filter(n => seen.size === seen.add(n).size);
+    expect(dupes).toEqual([]);
   });
 });
 

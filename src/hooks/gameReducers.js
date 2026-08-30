@@ -19,7 +19,7 @@
  */
 
 import { SATCHEL_EXPANDED_SIZE, createInitialGuards, createInitialCities, createInitialStash, createInitialCampaign } from '../data/constants';
-import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, satchelStackLimit } from '../data/materials';
+import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, EQUIPPABLE_ITEMS, satchelStackLimit } from '../data/materials';
 import { BOUNTIES, bountiesForCity } from '../data/bounties';
 import { PUZZLE_QUESTS, puzzleQuestForCity } from '../data/puzzleQuests';
 // The id→name map, not '../data/encounters' itself: gameReducers is on the
@@ -30,7 +30,7 @@ import { ENCOUNTER_NAMES } from '../data/encounterNames';
 import { BUILDING_STATES, BUILDING_STATE_LABELS } from '../data/buildings';
 import { newId } from '../utils/ids';
 
-export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...ITEMS]);
+export const ALL_EQUIPMENT     = new Set([...WEAPONS, ...ARMOR, ...ACCESSORIES, ...EQUIPPABLE_ITEMS]);
 export const ALL_MATERIALS_SET = new Set(ALL_MATERIALS);
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
