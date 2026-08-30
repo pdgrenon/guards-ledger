@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
-import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, ITEMS, WEAPON_STATS, ARMOR_STATS, satchelStackLimit } from '../data/materials';
+import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, EQUIPPABLE_ITEMS, WEAPON_STATS, ARMOR_STATS, satchelStackLimit } from '../data/materials';
 import { Autocomplete } from './Autocomplete';
 
 const EQUIPMENT_SLOTS = [
   { key: 'weapon',    label: 'Weapon',    options: WEAPONS    },
   { key: 'armor',     label: 'Armor',     options: ARMOR      },
   { key: 'accessory', label: 'Accessory', options: ACCESSORIES },
-  { key: 'item',      label: 'Item',      options: ITEMS      },
+  // EQUIPPABLE_ITEMS, not ITEMS: the foods are usable items too (AVE-548).
+  { key: 'item',      label: 'Item',      options: EQUIPPABLE_ITEMS },
 ];
 
 const GUARD_ROLES = {
