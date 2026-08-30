@@ -57,6 +57,16 @@ describe('MATERIAL_SOURCES coverage (AVE-548)', () => {
   it("keeps Raven's Beak Flask — a real quest reward — resolvable as an item", () => {
     expect(ITEMS).toContain("Raven's Beak Flask");
   });
+
+  // The gathering tools are non-craftable quest items with no market, node or enemy
+  // source, so they carry no MATERIAL_SOURCES entry — the `gear` category is exempt
+  // from the coverage test above. What matters is that they stay selectable in the
+  // Item slot: that is the only place a guard records carrying one.
+  it('keeps the utility tools equippable in the active item slot', () => {
+    for (const name of ['Pickaxe', 'Wood Chopping Axe', 'Fishing Pole']) {
+      expect(ITEMS).toContain(name);
+    }
+  });
 });
 
 describe('Volrok (enemy) vs Volkrok (place) (AVE-548)', () => {
