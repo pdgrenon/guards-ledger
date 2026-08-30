@@ -56,7 +56,7 @@ export const ACCESSORIES = [
 // two categories appears twice in every Autocomplete and twice in search.
 export const ITEMS = [
   'Aged Drink', 'Barrier Tonic', 'Bottled Courage',
-  'Expanded Satchel', 'Health Potion', 'Invigorating Potion',
+  'Expanded Satchel', 'Fishing Pole', 'Health Potion', 'Invigorating Potion',
   'Natural Remedies Volume 1',
   'Natural Remedies Volume 2', 'Natural Remedies Volume 3', 'Order from Chaos',
   'Pickaxe', 'Purifying Dust', "Raven's Beak Flask", 'Ruinous Dust', 'Smoke Bomb',
@@ -487,7 +487,8 @@ export const MATERIAL_SOURCES = {
   // Purifying Dust, Ruinous Dust, Expanded Satchel: sell '-' — no entry
   // Tent already handled above in Market & misc
   // Quest/Ft. Istra items (Aged Drink, Spicy Stew, Natural Remedies Vol 1-3,
-  // Zamar, The Foundations of Telios, Order from Chaos, Wood Chopping Axe, Pickaxe): sell data unknown — no entry
+  // Zamar, The Foundations of Telios, Order from Chaos, Wood Chopping Axe, Pickaxe,
+  // Fishing Pole): sell data unknown — no entry
 
   // ── Quest & event rewards ────────────────────────────────────────────────────
   // Every speaking stone, every special ingredient, and Cooked Fish. These have no
