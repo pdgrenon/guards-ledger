@@ -32,6 +32,10 @@ import {
   reduceSetLux,
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
+  reduceAdjustGuardTalent,
+  MAX_TALENT_BONUS,
+  healGuard,
+  withUndoTombstones,
   reduceSetGuardSatchelItem,
   reduceToggleExpandedSatchel,
 
@@ -523,6 +527,69 @@ describe('reduceAdjustGuardMaxHp', () => {
   it('reduces current HP to new max when max drops below current', () => {
     const next = reduceAdjustGuardMaxHp(s, 0, -5);
     expect(next.guards[0].hp).toBeLessThanOrEqual(next.guards[0].maxHp);
+  });
+});
+
+describe('reduceAdjustGuardTalent', () => {
+  it('starts from an absent key (treated as 0) and writes the bonus', () => {
+    expect(s.guards[0].talentAtk).toBeUndefined();
+    const next = reduceAdjustGuardTalent(s, 0, 'atk', 1);
+    expect(next.guards[0].talentAtk).toBe(1);
+    expect(next.guards[0].baseAtk).toBe(s.guards[0].baseAtk);
+    expect(next.guards[0].talentDef).toBeUndefined();
+  });
+
+  it('adjusts defense independently', () => {
+    const next = reduceAdjustGuardTalent(s, 3, 'def', 2);
+    expect(next.guards[3].talentDef).toBe(2);
+    expect(next.guards[3].talentAtk).toBeUndefined();
+  });
+
+  it('logs with the guard name first', () => {
+    const next = reduceAdjustGuardTalent(s, 0, 'atk', 1);
+    expect(next.log[0].message).toBe(`${s.guards[0].name} talent Atk bonus → +1`);
+  });
+
+  it('returns the same state at the floor of 0', () => {
+    expect(reduceAdjustGuardTalent(s, 0, 'atk', -1)).toBe(s);
+  });
+
+  it('clamps at MAX_TALENT_BONUS and no-ops beyond it', () => {
+    let next = s;
+    for (let i = 0; i < MAX_TALENT_BONUS + 3; i++) next = reduceAdjustGuardTalent(next, 0, 'def', 1);
+    expect(next.guards[0].talentDef).toBe(MAX_TALENT_BONUS);
+    expect(reduceAdjustGuardTalent(next, 0, 'def', 1)).toBe(next);
+  });
+
+  it('returns the same state for an unknown stat or guard index', () => {
+    expect(reduceAdjustGuardTalent(s, 0, 'hp', 1)).toBe(s);
+    expect(reduceAdjustGuardTalent(s, 99, 'atk', 1)).toBe(s);
+  });
+
+  it('undo of the first change pins the key to 0 instead of dropping it', () => {
+    const next = reduceAdjustGuardTalent(s, 2, 'atk', 1);
+    const restored = withUndoTombstones(s, next);
+    expect(restored.guards[2].talentAtk).toBe(0);
+    expect(restored.guards[2].talentDef).toBeUndefined();
+    expect(restored.guards[0]).toBe(s.guards[0]);
+  });
+});
+
+describe('healGuard talent bonuses', () => {
+  it('does not add the keys to a guard that lacks them', () => {
+    const healed = healGuard(s.guards[0]);
+    expect('talentAtk' in healed).toBe(false);
+    expect('talentDef' in healed).toBe(false);
+  });
+
+  it('clamps present values into 0..MAX_TALENT_BONUS', () => {
+    const healed = healGuard({ ...s.guards[0], talentAtk: 99, talentDef: -4 });
+    expect(healed.talentAtk).toBe(MAX_TALENT_BONUS);
+    expect(healed.talentDef).toBe(0);
+  });
+
+  it('repairs a non-numeric value to 0', () => {
+    expect(healGuard({ ...s.guards[0], talentAtk: 'lots' }).talentAtk).toBe(0);
   });
 });
 
