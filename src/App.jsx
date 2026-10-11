@@ -158,6 +158,7 @@ export default function App() {
   const guardActions = {
     adjustGuardHp:         game.adjustGuardHp,
     adjustGuardMaxHp:      game.adjustGuardMaxHp,
+    adjustGuardTalent:     game.adjustGuardTalent,
     setGuardEquipment:     game.setGuardEquipment,
     setGuardSatchelItem:   game.setGuardSatchelItem,
     toggleExpandedSatchel: game.toggleExpandedSatchel,
