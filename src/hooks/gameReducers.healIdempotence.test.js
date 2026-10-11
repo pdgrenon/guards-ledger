@@ -28,6 +28,7 @@ import {
   reduceSetGuardEquipment,
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
+  reduceAdjustGuardTalent,
   reduceToggleExpandedSatchel,
   reduceAdjustStash,
   reduceAddStoneboundLocation,
@@ -87,6 +88,9 @@ describe('healers are a no-op on reducer output', () => {
     let s = createInitialState();
     s = reduceAdjustGuardHp(s, 2, -7);
     s = reduceAdjustGuardMaxHp(s, 2, 3);
+    s = reduceAdjustGuardTalent(s, 2, 'atk', 2);
+    s = reduceAdjustGuardTalent(s, 2, 'def', 1);
+    s = reduceAdjustGuardTalent(s, 2, 'def', -1);
     s = reduceSetGuardEquipment(s, 2, 'weapon', 'Iron Short Sword');
     s = reduceSetGuardEquipment(s, 2, 'weapon', '');
     s = reduceToggleExpandedSatchel(s, 2);

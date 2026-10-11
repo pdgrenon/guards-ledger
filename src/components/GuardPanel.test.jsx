@@ -31,6 +31,7 @@ const GUARD_FIXTURE = {
 function setup(guard = GUARD_FIXTURE, guardIdx = 0) {
   const actions = {
     adjustGuardHp: vi.fn(),
+    adjustGuardTalent: vi.fn(),
     setGuardEquipment: vi.fn(),
     setGuardSatchelItem: vi.fn(),
     toggleExpandedSatchel: vi.fn(),
@@ -86,5 +87,54 @@ describe('GuardPanel HP controls', () => {
       .toBe('Increase Grigory HP by 1');
     expect(container.querySelector('.adj-pair .minus').getAttribute('aria-label'))
       .toBe('Decrease Grigory HP by 1');
+  });
+});
+
+describe('GuardPanel talent bonus', () => {
+  const toggle = (container, i) => container.querySelectorAll('.combat-stat-toggle')[i];
+
+  it('hides the stepper until the stat is tapped', () => {
+    const { container } = setup();
+    expect(container.querySelector('.talent-edit-row')).toBeNull();
+    fireEvent.click(toggle(container, 0));
+    expect(container.querySelector('.talent-edit-row')).not.toBeNull();
+    expect(toggle(container, 0).getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle(container, 0));
+    expect(container.querySelector('.talent-edit-row')).toBeNull();
+  });
+
+  it('sends the stat and guard index', () => {
+    const { actions, container } = setup(GUARD_FIXTURE, 4);
+    fireEvent.click(toggle(container, 1));
+    fireEvent.click(container.querySelector('.talent-edit-row .plus'));
+    expect(actions.adjustGuardTalent).toHaveBeenCalledWith(4, 'def', 1);
+  });
+
+  it('disables − at 0', () => {
+    const { container } = setup();
+    fireEvent.click(toggle(container, 0));
+    expect(container.querySelector('.talent-edit-row .minus').disabled).toBe(true);
+  });
+
+  it('adds the bonus to the total and shows it in the breakdown', () => {
+    const { container } = setup({
+      ...GUARD_FIXTURE, talentAtk: 1,
+      equipment: { ...GUARD_FIXTURE.equipment },
+    });
+    const box = container.querySelectorAll('.combat-stat-box')[0];
+    expect(box.querySelector('.combat-stat-value').textContent).toBe('4');
+    expect(box.querySelector('.combat-stat-breakdown').textContent).toBe('3 base + 1 talent');
+  });
+
+  it('shows no breakdown when there is only a base value', () => {
+    const { container } = setup();
+    expect(container.querySelector('.combat-stat-breakdown')).toBeNull();
+  });
+
+  it('does not leave the stepper open after switching guards', () => {
+    const { container, rerender, actions } = setup();
+    fireEvent.click(toggle(container, 0));
+    rerender(h(GuardPanel, { guard: { ...GUARD_FIXTURE, name: 'Alek' }, guardIdx: 1, actions }));
+    expect(container.querySelector('.talent-edit-row')).toBeNull();
   });
 });

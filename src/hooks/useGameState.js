@@ -17,6 +17,7 @@ import {
   reduceSetLux,
   reduceAdjustGuardHp,
   reduceAdjustGuardMaxHp,
+  reduceAdjustGuardTalent,
   reduceSetGuardEquipment,
   reduceSetGuardSatchelItem,
   reduceToggleExpandedSatchel,
@@ -722,6 +723,9 @@ export function useGameState() {
   const adjustGuardMaxHp = useCallback((guardIdx, delta) =>
     setState(s => reduceAdjustGuardMaxHp(s, guardIdx, delta), guardColumn(guardIdx)), [setState]);
 
+  const adjustGuardTalent = useCallback((guardIdx, stat, delta) =>
+    setState(s => reduceAdjustGuardTalent(s, guardIdx, stat, delta), guardColumn(guardIdx)), [setState]);
+
   const setGuardEquipment = useCallback((guardIdx, slot, value) =>
     setState(s => reduceSetGuardEquipment(s, guardIdx, slot, value), guardColumn(guardIdx)), [setState]);
 
@@ -957,7 +961,7 @@ export function useGameState() {
     setActiveGuard,
     setPartySlot,
     setSil, setLux,
-    adjustGuardHp, adjustGuardMaxHp,
+    adjustGuardHp, adjustGuardMaxHp, adjustGuardTalent,
     setGuardEquipment, setGuardSatchelItem, toggleExpandedSatchel,
 
     adjustStash,

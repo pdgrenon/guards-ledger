@@ -183,6 +183,33 @@ export function reduceAdjustGuardMaxHp(s, guardIdx, delta) {
   return addLog({ ...s, guards }, `${g.name} max HP → ${newMax}`);
 }
 
+/**
+ * Permanent talent bonuses to Attack / Defense. Stored as `talentAtk` /
+ * `talentDef` on the guard, separate from `baseAtk` / `baseDef`, so "base"
+ * keeps meaning the printed starting stat and the breakdown can show where a
+ * number comes from. Which talent granted it is deliberately not tracked.
+ *
+ * The keys are absent from the guard factory and from saves that predate them;
+ * every read site treats absent as 0. They are written only here, and only
+ * once a player actually changes one.
+ */
+export const MAX_TALENT_BONUS = 5;
+const TALENT_KEYS = { atk: 'talentAtk', def: 'talentDef' };
+const TALENT_LABELS = { atk: 'Atk', def: 'Def' };
+
+export function reduceAdjustGuardTalent(s, guardIdx, stat, delta) {
+  const g   = s.guards[guardIdx];
+  const key = TALENT_KEYS[stat];
+  if (!g || !key) return s;
+  const prev = g[key] ?? 0;
+  const next = Math.min(MAX_TALENT_BONUS, Math.max(0, prev + delta));
+  if (next === prev) return s;
+  const guards = s.guards.map((g2, i) =>
+    i === guardIdx ? { ...g2, [key]: next } : g2
+  );
+  return addLog({ ...s, guards }, `${g.name} talent ${TALENT_LABELS[stat]} bonus → +${next}`);
+}
+
 // ─── Guard equipment ──────────────────────────────────────────────────────────
 
 export function reduceSetGuardEquipment(s, guardIdx, slot, value) {
@@ -828,6 +855,27 @@ export function withUndoTombstones(prevState, currentState) {
     }
   }
 
+  // Guard talent bonuses: keys that only appear once a player first changes
+  // one. Undoing that first change must pin the key to 0 rather than drop it,
+  // or the deep merge keeps the server's value and the echo resurrects it —
+  // the same growable-key case as the maps below (AVE-925).
+  if (Array.isArray(prevState.guards) && Array.isArray(currentState.guards)) {
+    let guardsChanged = false;
+    const guards = prevState.guards.map((g, i) => {
+      const curr = currentState.guards[i];
+      if (!g || !curr) return g;
+      let out = g;
+      for (const key of ['talentAtk', 'talentDef']) {
+        if (curr[key] !== undefined && g[key] === undefined) {
+          out = { ...out, [key]: 0 };
+        }
+      }
+      if (out !== g) guardsChanged = true;
+      return out;
+    });
+    if (guardsChanged) result.guards = guards;
+  }
+
   // stash map: pin every key added since prevState back to 0.
   const stash = withUndoMapTombstones(prevState.stash, currentState.stash, 0);
   if (stash !== (prevState.stash ?? {})) result.stash = stash;
@@ -942,6 +990,10 @@ export function healEventToken(v) {
   return Math.min(3, Math.max(0, Math.trunc(healNumber(v, 0))));
 }
 
+function healTalentBonus(v) {
+  return Math.min(MAX_TALENT_BONUS, Math.max(0, Math.trunc(healNumber(v, 0))));
+}
+
 export function healGuard(raw) {
   const fresh = createInitialGuards().guards[0];
   if (!isPlainObject(raw)) return fresh;
@@ -954,6 +1006,11 @@ export function healGuard(raw) {
     maxHp:             healedMaxHp,
     baseAtk:           Math.max(0, Math.trunc(healNumber(raw.baseAtk, fresh.baseAtk))),
     baseDef:           Math.max(0, Math.trunc(healNumber(raw.baseDef, fresh.baseDef))),
+    // Talent bonuses are healed only when present: adding them to a guard
+    // that lacks them would make every healthy pre-talent row differ from
+    // its healed self and break echo suppression (AVE-922).
+    ...(raw.talentAtk === undefined ? {} : { talentAtk: healTalentBonus(raw.talentAtk) }),
+    ...(raw.talentDef === undefined ? {} : { talentDef: healTalentBonus(raw.talentDef) }),
     expandedSatchel:   !!raw.expandedSatchel,
     satchel:           Array.isArray(raw.satchel)
                          ? Array.from({ length: SATCHEL_EXPANDED_SIZE }, (_, k) => {

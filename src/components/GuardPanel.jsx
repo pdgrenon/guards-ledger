@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE, GUARD_COLOR_MAP } from '../data/constants';
 import { ALL_MATERIALS, WEAPONS, ARMOR, ACCESSORIES, EQUIPPABLE_ITEMS, WEAPON_STATS, ARMOR_STATS, satchelStackLimit } from '../data/materials';
 import { Autocomplete } from './Autocomplete';
+import { MAX_TALENT_BONUS } from '../hooks/gameReducers';
 
 const EQUIPMENT_SLOTS = [
   { key: 'weapon',    label: 'Weapon',    options: WEAPONS    },
@@ -71,6 +72,7 @@ function GuardAvatar({ name, colorKey }) {
 export function GuardPanel({ guard, guardIdx, actions }) {
   const {
     adjustGuardHp,
+    adjustGuardTalent,
     setGuardEquipment,
     setGuardSatchelItem,
     toggleExpandedSatchel,
@@ -83,10 +85,20 @@ export function GuardPanel({ guard, guardIdx, actions }) {
   const colorKey = GUARD_COLOR_MAP[guard.name]?.key ?? 'gold';
   const role     = GUARD_ROLES[guard.name] ?? 'Guard';
 
+  // Which stat's talent stepper is open. Scoped to the guard by name:
+  // GuardPanel is not remounted when switching guards, so a bare stat key
+  // would leave the stepper open on the next guard too.
+  const [talentEdit, setTalentEdit] = useState(null);
+  const editingStat = talentEdit?.guard === guard.name ? talentEdit.stat : null;
+  const toggleTalentEdit = stat =>
+    setTalentEdit(editingStat === stat ? null : { guard: guard.name, stat });
+
   const weaponBonus = WEAPON_STATS[guard.equipment.weapon] ?? 0;
   const armorBonus  = ARMOR_STATS[guard.equipment.armor]  ?? 0;
-  const totalAtk = (guard.baseAtk ?? 0) + weaponBonus;
-  const totalDef = (guard.baseDef ?? 0) + armorBonus;
+  const combatStats = [
+    { stat: 'atk', label: 'Attack',  base: guard.baseAtk ?? 0, talent: guard.talentAtk ?? 0, gear: weaponBonus, gearLabel: 'weapon' },
+    { stat: 'def', label: 'Defense', base: guard.baseDef ?? 0, talent: guard.talentDef ?? 0, gear: armorBonus,  gearLabel: 'armor' },
+  ];
 
   return (
     <div className="card guard-card">
@@ -126,28 +138,46 @@ export function GuardPanel({ guard, guardIdx, actions }) {
       {/* Combat Stats */}
       <div className="sec-label-primary">Combat stats</div>
       <div className="combat-stats-grid">
-        <div className="combat-stat-box">
-          <div className="combat-stat-label">Attack</div>
-          <div className="combat-stat-value-row">
-            <div className="combat-stat-value">{totalAtk}</div>
-          </div>
-          {weaponBonus > 0 && (
-            <div className="combat-stat-breakdown">
-              {guard.baseAtk} base + {weaponBonus} weapon
+        {combatStats.map(({ stat, label, base, talent, gear, gearLabel }) => {
+          const parts = [`${base} base`];
+          if (talent > 0) parts.push(`${talent} talent`);
+          if (gear > 0)   parts.push(`${gear} ${gearLabel}`);
+          const open = editingStat === stat;
+          return (
+            <div className="combat-stat-box" key={stat}>
+              {/* Tapping the stat reveals the talent-bonus stepper. Talents
+                  that raise a stat are rare and permanent, so the control
+                  stays out of sight until someone needs it. */}
+              <button
+                type="button"
+                className="combat-stat-toggle"
+                onClick={() => toggleTalentEdit(stat)}
+                aria-expanded={open}
+                aria-label={`${label} ${base + talent + gear}. ${open ? 'Hide' : 'Edit'} ${guard.name} talent bonus`}
+              >
+                <span className="combat-stat-label">{label}</span>
+                <span className="combat-stat-value-row">
+                  <span className="combat-stat-value">{base + talent + gear}</span>
+                </span>
+                {parts.length > 1 && (
+                  <span className="combat-stat-breakdown">{parts.join(' + ')}</span>
+                )}
+              </button>
+              {open && (
+                <div className="talent-edit-row">
+                  <span className="talent-edit-label">Talent bonus</span>
+                  <button className="adj-btn adj-btn-sm minus" onClick={() => adjustGuardTalent(guardIdx, stat, -1)}
+                    disabled={talent <= 0}
+                    aria-label={`Decrease ${guard.name} talent ${label} bonus`}>−</button>
+                  <span className="adj-val">{talent}</span>
+                  <button className="adj-btn adj-btn-sm plus" onClick={() => adjustGuardTalent(guardIdx, stat, 1)}
+                    disabled={talent >= MAX_TALENT_BONUS}
+                    aria-label={`Increase ${guard.name} talent ${label} bonus`}>+</button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className="combat-stat-box">
-          <div className="combat-stat-label">Defense</div>
-          <div className="combat-stat-value-row">
-            <div className="combat-stat-value">{totalDef}</div>
-          </div>
-          {armorBonus > 0 && (
-            <div className="combat-stat-breakdown">
-              {guard.baseDef} base + {armorBonus} armor
-            </div>
-          )}
-        </div>
+          );
+        })}
       </div>
 
       <div className="divider" />
