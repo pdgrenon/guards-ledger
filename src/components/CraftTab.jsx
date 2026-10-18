@@ -1,6 +1,6 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo, useEffect, useDeferredValue, memo } from 'react';
-import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials, upgradeDelta } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 import { MaterialName } from './MaterialName';
@@ -39,6 +39,16 @@ function formatCityBreakdown(recipe, selectedCity) {
   return entries.map(([city, cost]) => `${city} ${cost} sil`).join(' · ');
 }
 
+// The upgrade line's text. The sign carries the meaning; the green on a better
+// line is reinforcement, never the only signal (WCAG 1.4.1).
+function upgradeText({ delta, isEquipped }, glyph, equippedName) {
+  if (isEquipped) return 'Equipped';
+  if (equippedName === '') return `+${delta} ${glyph} (slot empty)`;
+  if (delta > 0) return `+${delta} ${glyph} vs ${equippedName}`;
+  if (delta === 0) return `±0 ${glyph} vs ${equippedName}`;
+  return `−${Math.abs(delta)} ${glyph} vs ${equippedName}`;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
@@ -72,7 +82,7 @@ function StatusBadge({ status }) {
  * `onShowSource` is a setState function, and the rest are primitives — so
  * keeping them that way is the whole contract.
  */
-const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel }) {
+const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor }) {
   // Party-restricted recipes with no matching active guard are already filtered
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
@@ -81,13 +91,20 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
   const cost = formatCost(recipe, selectedCity);
   const cityLine = formatCityBreakdown(recipe, selectedCity);
 
+  // Upgrade comparison: only with a guard picked, and only for Weapon/Armor,
+  // against what that guard has in the slot the crafted item would replace.
+  const equippedName = recipe.type === 'Weapon' ? equippedWeapon : equippedArmor;
+  const cmp = forGuard !== null ? upgradeDelta(recipe, equippedName) : null;
+  const glyph = recipe.type === 'Weapon' ? '👊' : '⛊';
+  const notUpgrade = cmp !== null && (cmp.isEquipped || cmp.delta <= 0);
+
   const borderClass =
     status === 'ready' ? 'craft-card--ready' :
     status === 'partial' ? 'craft-card--partial' :
     'craft-card--missing';
 
   return (
-    <div className={`card craft-card ${borderClass}`}>
+    <div className={`card craft-card ${borderClass}${notUpgrade ? ' craft-card--not-upgrade' : ''}`}>
       {/* Header */}
       <div className="craft-card-header">
         <div className="craft-card-header-left">
@@ -105,6 +122,14 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
           <StatusBadge status={status} />
         </div>
       </div>
+
+      {cmp !== null && (
+        <div className="craft-upgrade">
+          <span className={`craft-upgrade-value${cmp.delta > 0 && !cmp.isEquipped ? ' craft-upgrade-value--better' : ''}`}>
+            {upgradeText(cmp, glyph, equippedName)}
+          </span>
+        </div>
+      )}
 
       {/* Guard restriction note — the item's full restriction, not just the
           guards who happen to be in the party: intersecting with the party made
@@ -269,6 +294,12 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   // party swap can never leave the list filtered for a guard who left it.
   const selectedGuard = forGuard !== null && activePartyNames.includes(forGuard) ? forGuard : null;
   const exclusive = selectedGuard !== null && exclusiveOnly;
+
+  // What the selected guard has equipped, as plain strings so the memoised
+  // cards compare them by value (empty when nothing is equipped).
+  const selectedGuardObj = selectedGuard !== null ? (guards ?? []).find(g => g.name === selectedGuard) : null;
+  const equippedWeapon = selectedGuardObj?.equipment?.weapon ?? '';
+  const equippedArmor  = selectedGuardObj?.equipment?.armor ?? '';
 
   const activeGuards = useMemo(
     () => (guards ?? []).filter(g => activePartyNames.includes(g.name)),
@@ -467,7 +498,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 must stay referentially stable across a keystroke, or the memo
                 becomes pure overhead and the list re-renders wholesale again.
                 An inline lambda (`onShowSource={i => …}`) or an object literal
-                is the way that breaks, silently and with green tests. All seven
+                is the way that breaks, silently and with green tests. All ten
                 are currently primitives, useMemo'd values, or a setState
                 function — keep them that way. */}
             {recipes.map(r => (
@@ -480,6 +511,9 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 onShowSource={onShowSource}
                 selectedCity={selectedCity}
                 cityPrestigeLevel={cityPrestigeLevel}
+                forGuard={selectedGuard}
+                equippedWeapon={equippedWeapon}
+                equippedArmor={equippedArmor}
               />
             ))}
           </div>

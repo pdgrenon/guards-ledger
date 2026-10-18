@@ -70,6 +70,7 @@ Results are grouped by type (Weapon, Armor, Accessory, Item) and each card shows
 
 - Name, type, stat bonus, and bonus chip
 - A **Ready / Partial / Missing** status badge
+- With a guard selected, how a weapon or armor compares with what that guard has equipped (e.g. `+1 👊 vs Volk Blade`); cards that aren't an upgrade are muted
 - Guard restriction note (for guard-specific items)
 - Prerequisite equipment required (`prereq`)
 - Special ingredient requirement for apothecary items (`itemReq`)

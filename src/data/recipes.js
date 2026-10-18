@@ -24,6 +24,7 @@
 //               null means no discount applies (Ft. Istra, speaking-stone items, etc.)
 
 import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE } from '../data/constants';
+import { WEAPON_STATS, ARMOR_STATS } from './materials';
 
 export const RECIPES = [
   // ── ARMOR ────────────────────────────────────────────────────────────────
@@ -1207,6 +1208,23 @@ export function shortageCount(recipe, stash, useDiscount = false) {
   const reqShort = parseItemReq(recipe.itemReq)
     .filter(r => (stash[r.name] ?? 0) < r.qty).length;
   return matShort + reqShort;
+}
+
+/**
+ * How a Weapon/Armor recipe compares with what a guard has equipped in that slot.
+ * Stats come from WEAPON_STATS/ARMOR_STATS, never `statBonus` (AVE-544).
+ * Returns null when no comparison applies: Accessory/Item, or no stat entry.
+ * An empty or unknown equipped name compares against 0.
+ */
+export function upgradeDelta(recipe, equippedName) {
+  const table = recipe.type === 'Weapon' ? WEAPON_STATS
+              : recipe.type === 'Armor'  ? ARMOR_STATS
+              : null;
+  if (!table || table[recipe.name] === undefined) return null;
+  return {
+    delta: table[recipe.name] - (equippedName ? (table[equippedName] ?? 0) : 0),
+    isEquipped: recipe.name === equippedName,
+  };
 }
 
 /**
