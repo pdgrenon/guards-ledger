@@ -116,20 +116,20 @@ export const MATERIAL_CATEGORIES = [
   {
     id: 'special',
     label: 'Special ingredients',
-    // Jade, Black Diamond, and Ancient Roots are also speaking stones —
+    // Jade and Black Diamond are also speaking stones —
     // they're tracked here as a single quantity usable for either purpose.
     items: [
       'Coastal Bluecaps', 'Midnight Hydrangea', 'Falmundian Rosehips',
-      'Purifying Seed', 'Ruinous Seed', 'Ancient Roots', 'Jade', 'Onyx', 'Black Diamond',
+      'Purifying Seed', 'Ruinous Seed', 'Jade', 'Onyx', 'Black Diamond',
     ],
   },
   {
     id: 'speaking_stones',
     label: 'Speaking stones',
-    // Excludes Jade, Black Diamond, Ancient Roots (tracked in Special ingredients)
+    // Excludes Jade, Black Diamond (tracked in Special ingredients)
     // and Diamond (tracked in Ores). All are the same physical item regardless of use.
     items: [
-      'Adamant', 'Aquamarine', 'Aventurine', 'Carnelian',
+      'Adamant', 'Ancient Roots', 'Aquamarine', 'Aventurine', 'Carnelian',
       'Coral', 'Garnet', 'Lapis Lazuli', 'Obsidian', 'Orichalcum',
       'Pearl', 'Peridot', 'Rainbow Obsidian', 'Star Fragment', 'Star Quartz',
       'Topaz',
@@ -524,11 +524,11 @@ export const MATERIAL_SOURCES = {
   ...Object.fromEntries(
     [
       // Speaking stones
-      'Adamant', 'Aquamarine', 'Aventurine', 'Carnelian', 'Coral', 'Garnet',
+      'Adamant', 'Ancient Roots', 'Aquamarine', 'Aventurine', 'Carnelian', 'Coral', 'Garnet',
       'Lapis Lazuli', 'Obsidian', 'Orichalcum', 'Pearl', 'Peridot',
       'Rainbow Obsidian', 'Star Fragment', 'Star Quartz', 'Topaz',
-      // Special ingredients (Ancient Roots, Jade, Onyx and Black Diamond double as stones)
-      'Ancient Roots', 'Black Diamond', 'Coastal Bluecaps', 'Falmundian Rosehips',
+      // Special ingredients (Jade, Onyx and Black Diamond double as stones)
+      'Black Diamond', 'Coastal Bluecaps', 'Falmundian Rosehips',
       'Jade', 'Midnight Hydrangea', 'Onyx', 'Purifying Seed', 'Ruinous Seed',
       // Fish & food
       'Cooked Fish',

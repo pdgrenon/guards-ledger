@@ -12,7 +12,7 @@ Load this when working on CraftTab, StashTab, recipes, or MATERIAL_SOURCES.
 ## Stash
 
 - **Stash search** filters out items already present in the stash. It is for adding new items, not a universal item lookup. Do not change this behavior.
-- **Speaking stones** (Jade, Black Diamond, Ancient Roots, and others) are tracked as a single quantity usable for either crafting or their speaking stone purpose. There is no separate speaking stone inventory.
+- **Speaking stones** (Jade, Black Diamond, and others) are tracked as a single quantity usable for either crafting or their speaking stone purpose. There is no separate speaking stone inventory.
 
 ## Derived values — never store
 
