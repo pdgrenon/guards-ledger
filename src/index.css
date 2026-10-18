@@ -2264,6 +2264,11 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .craft-restriction svg,
 .craft-prereq svg { flex-shrink: 0; color: var(--c-text3); }
 .craft-prereq strong { color: var(--c-text); font-weight: 500; }
+.craft-prereq { flex-wrap: wrap; row-gap: 3px; }
+/* Under the requirement text: 16px = the 11px icon + the row's 5px gap. */
+.craft-prereq-status-line { flex-basis: 100%; padding-left: 16px; }
+/* Green text only on --c-green-bg (the .craft-mat-qty--have pairing). */
+.craft-prereq-status--ok { background: var(--c-green-bg); color: var(--c-green-text); padding: 1px 6px; border-radius: var(--radius-pill); font-weight: 500; }
 .craft-restriction { color: var(--c-brand-ink); }
 
 /* Upgrade comparison (guard selected). Green text only ever on --c-green-bg,
