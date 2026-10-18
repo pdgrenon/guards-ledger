@@ -59,6 +59,7 @@ A stash-aware recipe reference for all 101 craftable items — weapons, armor, a
 
 **Filters:**
 
+- **Crafting for** — gear for both active guards, or just one; **Exclusive** narrows to the gear restricted to that guard
 - **Search** — matches item names, ingredient names, cities, and prereq item names
 - **Type** — All / Weapon / Armor / Accessory / Item
 - **City** — narrows to recipes craftable in a specific city; affects cost display and prestige discounts

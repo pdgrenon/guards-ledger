@@ -68,11 +68,11 @@ function StatusBadge({ status }) {
  * `memo` is not self-defending: an inline lambda or a fresh object literal
  * passed from the call site makes every card re-render anyway, silently, with
  * no failing test and no visible symptom. That is a real risk here only because
- * the props are cheap to keep stable — `combined` and `activePartyNames` are
- * already useMemo'd, `onShowSource` is a setState function, and the rest are
- * primitives — so keeping them that way is the whole contract.
+ * the props are cheap to keep stable — `combined` is already useMemo'd,
+ * `onShowSource` is a setState function, and the rest are primitives — so
+ * keeping them that way is the whole contract.
  */
-const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, activePartyNames, onShowSource, selectedCity, cityPrestigeLevel }) {
+const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel }) {
   // Party-restricted recipes with no matching active guard are already filtered
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
@@ -80,10 +80,6 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, active
   const itemReqs = parseItemReq(recipe.itemReq);
   const cost = formatCost(recipe, selectedCity);
   const cityLine = formatCityBreakdown(recipe, selectedCity);
-
-  const activeGuardMatch = recipe.limitedTo.length > 0
-    ? recipe.limitedTo.filter(g => activePartyNames.includes(g))
-    : [];
 
   const borderClass =
     status === 'ready' ? 'craft-card--ready' :
@@ -110,14 +106,16 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, active
         </div>
       </div>
 
-      {/* Guard restriction note */}
-      {activeGuardMatch.length > 0 && (
+      {/* Guard restriction note — the item's full restriction, not just the
+          guards who happen to be in the party: intersecting with the party made
+          Alek/Yury gear read "Alek only" whenever Yury was benched. */}
+      {recipe.limitedTo.length > 0 && (
         <div className="craft-restriction">
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path d="M6 1L6 6M6 8.5V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
             <circle cx="6" cy="6" r="5.25" stroke="currentColor" strokeWidth="1.5"/>
           </svg>
-          {activeGuardMatch.join(', ')} only
+          {recipe.limitedTo.join(', ')} only
         </div>
       )}
 
@@ -235,6 +233,9 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
   const [selectedCity, setSelectedCity] = useState(null);
+  // "Crafting for": null means Both — the whole active party, today's list.
+  const [forGuard, setForGuard] = useState(null);
+  const [exclusiveOnly, setExclusiveOnly] = useState(false);
   // Starts null (not the incoming nonce) so a seed present on the very first
   // mount — the common case, since this tab is unmounted until the deep-link
   // switches to it — still counts as "changed" and gets applied.
@@ -251,6 +252,8 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
     setMinStars(0);
     setCanCraftOnly(false);
     setSelectedCity(null);
+    setForGuard(null);
+    setExclusiveOnly(false);
   }
 
   // The seed is a one-shot — tell the parent to clear it once consumed so it
@@ -261,6 +264,11 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   }, [searchSeed, onSeedApplied]);
 
   const activePartyNames = useMemo(() => activeParty ?? [], [activeParty]);
+
+  // Derived against the current party rather than reset in an effect, so a
+  // party swap can never leave the list filtered for a guard who left it.
+  const selectedGuard = forGuard !== null && activePartyNames.includes(forGuard) ? forGuard : null;
+  const exclusive = selectedGuard !== null && exclusiveOnly;
 
   const activeGuards = useMemo(
     () => (guards ?? []).filter(g => activePartyNames.includes(g.name)),
@@ -292,6 +300,8 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
       if (selectedCity && !availableInCity(r, selectedCity)) return false;
       if (canCraftOnly && craftStatus(r, combined, sil, lux, selectedCity, cityPrestigeLevel) !== 'ready') return false;
       if (r.limitedTo.length > 0 && !r.limitedTo.some(g => activePartyNames.includes(g))) return false;
+      if (selectedGuard !== null && r.limitedTo.length > 0 && !r.limitedTo.includes(selectedGuard)) return false;
+      if (exclusive && !r.limitedTo.includes(selectedGuard)) return false;
       if (q) {
         const nameMatch = r.name.toLowerCase().includes(q);
         const matMatch = r.materials.some(m => m.name.toLowerCase().includes(q));
@@ -305,7 +315,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
       }
       return true;
     });
-  }, [deferredSearch, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames]);
+  }, [deferredSearch, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames, selectedGuard, exclusive]);
 
   const grouped = useMemo(() => TYPE_ORDER
     .map(type => ({ type, recipes: filtered.filter(r => r.type === type) }))
@@ -331,6 +341,34 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
 
       {/* ── Filters ── */}
       <div className="craft-filters">
+        <div className="craft-filter-row">
+          <div className="step-selector craft-guard-selector" role="group" aria-label="Crafting for">
+            <button
+              className={`step-btn${selectedGuard === null ? ' active' : ''}`}
+              aria-pressed={selectedGuard === null}
+              onClick={() => setForGuard(null)}
+            >Both</button>
+            {/* Deduped: the party picker keeps the slots distinct, but nothing
+                downstream enforces it (healPartySection accepts any two names). */}
+            {[...new Set(activePartyNames)].map(name => (
+              <button
+                key={name}
+                className={`step-btn${selectedGuard === name ? ' active' : ''}`}
+                aria-pressed={selectedGuard === name}
+                onClick={() => setForGuard(name)}
+              >{name}</button>
+            ))}
+          </div>
+          {/* "Exclusive to whom?" has no answer under Both. */}
+          {selectedGuard !== null && (
+            <button
+              className={`craft-toggle${exclusive ? ' craft-toggle--on' : ''}`}
+              aria-pressed={exclusive}
+              onClick={() => setExclusiveOnly(v => !v)}
+            >Exclusive</button>
+          )}
+        </div>
+
         <div className="craft-filter-row">
           <div className="craft-type-wrap">
             <select
@@ -429,7 +467,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 must stay referentially stable across a keystroke, or the memo
                 becomes pure overhead and the list re-renders wholesale again.
                 An inline lambda (`onShowSource={i => …}`) or an object literal
-                is the way that breaks, silently and with green tests. All eight
+                is the way that breaks, silently and with green tests. All seven
                 are currently primitives, useMemo'd values, or a setState
                 function — keep them that way. */}
             {recipes.map(r => (
@@ -439,7 +477,6 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 combined={combined}
                 sil={sil}
                 lux={lux}
-                activePartyNames={activePartyNames}
                 onShowSource={onShowSource}
                 selectedCity={selectedCity}
                 cityPrestigeLevel={cityPrestigeLevel}

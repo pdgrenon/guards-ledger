@@ -148,6 +148,91 @@ describe('CraftTab — deep-link seed', () => {
   });
 });
 
+describe('CraftTab — "Crafting for" guard selector', () => {
+  const click = (el) => act(() => { el.click(); });
+  const button = (name) => screen.getByRole('button', { name });
+  const pressed = (name) => button(name).getAttribute('aria-pressed');
+  const cardOf = (container, name) =>
+    [...container.querySelectorAll('.craft-card')].find(c => c.querySelector('.craft-card-name').textContent === name);
+  // Names repeat (Leather Gauntlets, Scale Shield, Traveling Boots), so a card
+  // is allowed if any recipe of that name is.
+  const usableBy = (name, guard) =>
+    RECIPES.filter(r => r.name === name).some(r => r.limitedTo.length === 0 || r.limitedTo.includes(guard));
+  const sorted = (names) => [...new Set(names)].sort();
+
+  it('offers Both and each active guard, defaulting to Both with the full party list', () => {
+    const { container } = setup();
+    const group = screen.getByRole('group', { name: 'Crafting for' });
+    expect([...group.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Both', 'Alek', 'Grigory']);
+    expect(pressed('Both')).toBe('true');
+    const expected = RECIPES.filter(
+      r => r.limitedTo.length === 0 || r.limitedTo.some(g => baseProps.activeParty.includes(g))
+    );
+    expect(container.querySelectorAll('.craft-card')).toHaveLength(expected.length);
+  });
+
+  it('shows no Exclusive toggle under Both', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: 'Exclusive' })).toBeNull();
+  });
+
+  it("narrows to one guard's gear, keeping universal items", () => {
+    const { container } = setup();
+    click(button('Alek'));
+    const alek = cardNames(container);
+    expect(alek).toEqual(expect.arrayContaining(["Guard's Tunic", 'Journey Attire', "Zephyr's Tunic"]));
+    expect(alek).not.toContain('Tenebris Scale');
+    expect(alek).not.toContain('Tunic of the Wild');
+    for (const name of alek) {
+      expect(usableBy(name, 'Alek'), `${name} is restricted to someone other than Alek`).toBe(true);
+    }
+
+    click(button('Grigory'));
+    const grigory = cardNames(container);
+    expect(grigory).toEqual(expect.arrayContaining(['Tenebris Scale', 'Tunic of the Wild']));
+    expect(grigory).not.toContain('Journey Attire');
+  });
+
+  it("Exclusive leaves only the gear restricted to the chosen guard", () => {
+    const { container } = setup();
+    click(button('Alek'));
+    click(button('Exclusive'));
+    expect(pressed('Exclusive')).toBe('true');
+    expect(sorted(cardNames(container))).toEqual(
+      sorted(RECIPES.filter(r => r.limitedTo.includes('Alek')).map(r => r.name))
+    );
+  });
+
+  it('falls back to Both when the selected guard leaves the party', () => {
+    const { container, rerender } = setup();
+    click(button('Alek'));
+    act(() => { rerender(h(CraftTab, { ...baseProps, activeParty: ['Yana', 'Pavel'] })); });
+    expect(pressed('Both')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Exclusive' })).toBeNull();
+    const count = container.querySelectorAll('.craft-card').length;
+
+    cleanup();
+    const { container: fresh } = setup({ activeParty: ['Yana', 'Pavel'] });
+    expect(count).toBe(fresh.querySelectorAll('.craft-card').length);
+  });
+
+  it('a deep-link seed resets the guard selection so the target is visible', () => {
+    const { container, rerender } = setup();
+    click(button('Alek'));
+    click(button('Exclusive'));
+    act(() => {
+      rerender(h(CraftTab, { ...baseProps, searchSeed: { term: 'Tenebris Scale', nonce: 1 } }));
+    });
+    expect(pressed('Both')).toBe('true');
+    expect(cardNames(container)).toContain('Tenebris Scale');
+  });
+
+  it("states the item's full restriction, not just the guards in the party", () => {
+    const { container } = setup();
+    expect(cardOf(container, 'Journey Attire').querySelector('.craft-restriction').textContent).toBe('Alek, Yury only');
+  });
+});
+
 describe('CraftTab — can-craft filter', () => {
   it('hides everything when the stash is empty, and reveals a recipe once its materials are held', () => {
     // Guard's Tunic: 2 Metal Frag. + 4 Rough Leather, 10 sil, craftable in Mir.
