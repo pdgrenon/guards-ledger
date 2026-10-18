@@ -1,6 +1,6 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo, useEffect, useDeferredValue, memo } from 'react';
-import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials, upgradeDelta } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials, upgradeDelta, shortageCount } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 import { MaterialName } from './MaterialName';
@@ -258,6 +258,9 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   const [minStars, setMinStars] = useState(0);
   const [canCraftOnly, setCanCraftOnly] = useState(false);
   const [selectedCity, setSelectedCity] = useState(null);
+  // Card order within each type section. Not reset by the deep-link seed:
+  // sorting reorders cards but never hides one.
+  const [sortBy, setSortBy] = useState('book');
   // "Crafting for": null means Both — the whole active party, today's list.
   const [forGuard, setForGuard] = useState(null);
   const [exclusiveOnly, setExclusiveOnly] = useState(false);
@@ -348,9 +351,22 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
     });
   }, [deferredSearch, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames, selectedGuard, exclusive]);
 
-  const grouped = useMemo(() => TYPE_ORDER
-    .map(type => ({ type, recipes: filtered.filter(r => r.type === type) }))
-    .filter(g => g.recipes.length > 0), [filtered]);
+  const grouped = useMemo(() => {
+    // Same discount rule as RecipeCard, so "missing" matches the card's
+    // have/need rows. Sorts are stable (ES2019), so ties keep book order.
+    const missing = r => shortageCount(
+      r, combined, selectedCity !== null && cityPrestigeLevel >= 2 && !r.isFtIstra,
+    );
+    const order = sortBy === 'tier'    ? (a, b) => a.stars - b.stars
+                : sortBy === 'missing' ? (a, b) => missing(a) - missing(b)
+                : null;
+    return TYPE_ORDER
+      .map(type => {
+        const recipes = filtered.filter(r => r.type === type);
+        return { type, recipes: order ? [...recipes].sort(order) : recipes };
+      })
+      .filter(g => g.recipes.length > 0);
+  }, [filtered, sortBy, combined, selectedCity, cityPrestigeLevel]);
 
   return (
     <>
@@ -432,6 +448,22 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                   {c}{prestigeMap[c] >= 2 ? ' ✦' : ''}
                 </option>
               ))}
+            </select>
+            <svg className="craft-select-chevron" width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+
+          <div className="craft-type-wrap">
+            <select
+              className="craft-type-select"
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              aria-label="Sort recipes"
+            >
+              <option value="book">Book order</option>
+              <option value="tier">Tier</option>
+              <option value="missing">Fewest missing</option>
             </select>
             <svg className="craft-select-chevron" width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

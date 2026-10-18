@@ -65,6 +65,7 @@ A stash-aware recipe reference for all 101 craftable items — weapons, armor, a
 - **City** — narrows to recipes craftable in a specific city; affects cost display and prestige discounts
 - **Star tier** — minimum tier filter (★ through ★★★★★); 5-star Ft. Istra items are styled distinctly in red
 - **Can craft** — hides any recipe that isn't currently ready given your stash, sil, and lux
+- **Sort** — book order, tier, or fewest missing ingredients first
 
 Results are grouped by type (Weapon, Armor, Accessory, Item) and each card shows:
 
