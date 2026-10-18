@@ -1,5 +1,5 @@
 // src/components/CraftTab.jsx
-import { useState, useMemo, useEffect, useDeferredValue, memo } from 'react';
+import { useState, useMemo, useEffect, useCallback, useDeferredValue, memo } from 'react';
 import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials, upgradeDelta, shortageCount, ftIstraLock } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
@@ -88,7 +88,7 @@ function StatusBadge({ status }) {
  * `onShowSource` is a setState function, and the rest are primitives — so
  * keeping them that way is the whole contract.
  */
-const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor, prereqEquippedBy, prereqGuardNames, lockedBy }) {
+const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor, prereqEquippedBy, prereqGuardNames, lockedBy, upgradesInto, onOpenRecipe }) {
   // Party-restricted recipes with no matching active guard are already filtered
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
@@ -181,6 +181,20 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
               ? <span className="craft-prereq-status craft-prereq-status--ok">✓ Equipped by {prereqEquippedBy}</span>
               : <span className="craft-prereq-status">Not equipped by {prereqGuardNames}</span>}
           </span>
+        </div>
+      )}
+
+      {/* The other direction of the prereq chain: every recipe that needs this
+          one equipped. Every target, not just the lowest-star one — the point
+          is to see where a chain branches. */}
+      {upgradesInto && (
+        <div className="craft-upgrades">
+          <span className="craft-upgrades-label">Upgrades into</span>
+          {upgradesInto.map(t => (
+            <button key={`${t.name}-${t.city}`} type="button" className="craft-upgrades-link" onClick={() => onOpenRecipe(t.name)}>
+              {t.name} {starsLabel(t.stars)}
+            </button>
+          ))}
         </div>
       )}
 
@@ -299,19 +313,28 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   // switches to it — still counts as "changed" and gets applied.
   const [seedNonce, setSeedNonce] = useState(null);
 
-  // Deep-link from global search: seed the search box with the recipe name and
-  // clear any active filters so the target recipe is guaranteed to be visible.
-  // Adjust-state-on-prop-change during render (the pattern Autocomplete uses),
-  // keyed on the seed's nonce so re-selecting the same recipe re-applies.
-  if (searchSeed && searchSeed.nonce !== seedNonce) {
-    setSeedNonce(searchSeed.nonce);
-    setSearch(searchSeed.term);
+  // Show one recipe: search for it and clear every filter that could hide it.
+  // Shared by the global-search deep link and the cards' "Upgrades into"
+  // links, so both always reset the same filters. The sort is left alone —
+  // it reorders cards but never hides one. Stable (setters only), so passing
+  // it to the memoised cards costs nothing.
+  const openRecipe = useCallback(name => {
+    setSearch(name);
     setTypeFilter('All');
     setMinStars(0);
     setCanCraftOnly(false);
     setSelectedCity(null);
     setForGuard(null);
     setExclusiveOnly(false);
+  }, []);
+
+  // Deep-link from global search: seed the search box with the recipe name and
+  // clear any active filters so the target recipe is guaranteed to be visible.
+  // Adjust-state-on-prop-change during render (the pattern Autocomplete uses),
+  // keyed on the seed's nonce so re-selecting the same recipe re-applies.
+  if (searchSeed && searchSeed.nonce !== seedNonce) {
+    setSeedNonce(searchSeed.nonce);
+    openRecipe(searchSeed.term);
   }
 
   // The seed is a one-shot — tell the parent to clear it once consumed so it
@@ -351,6 +374,20 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
     () => (guards ?? []).filter(g => activePartyNames.includes(g.name)),
     [guards, activePartyNames]
   );
+
+  // prereq name → the recipes requiring it equipped, in RECIPES order, limited
+  // to recipes the party can use (the list filter's rule) so a link never
+  // lands on a hidden card. Memoised on the party so each card's array stays
+  // referentially stable across keystrokes.
+  const upgradesFor = useMemo(() => {
+    const map = {};
+    for (const r of RECIPES) {
+      if (!r.prereq) continue;
+      if (r.limitedTo.length > 0 && !r.limitedTo.some(g => activePartyNames.includes(g))) continue;
+      (map[r.prereq] ??= []).push(r);
+    }
+    return map;
+  }, [activePartyNames]);
   const combined = useMemo(
     () => buildCombined(stash, activeGuards),
     [stash, activeGuards]
@@ -573,9 +610,9 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 must stay referentially stable across a keystroke, or the memo
                 becomes pure overhead and the list re-renders wholesale again.
                 An inline lambda (`onShowSource={i => …}`) or an object literal
-                is the way that breaks, silently and with green tests. All thirteen
-                are currently primitives, useMemo'd values, or a setState
-                function — keep them that way. */}
+                is the way that breaks, silently and with green tests. All fifteen
+                are currently primitives, useMemo'd values, a setState function,
+                or a useCallback with no deps — keep them that way. */}
             {recipes.map(r => (
               <RecipeCard
                 key={`${r.name}-${r.city}`}
@@ -592,6 +629,8 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 prereqEquippedBy={prereqEquippedBy(r)}
                 prereqGuardNames={prereqGuardNames}
                 lockedBy={ftIstraLock(r, ftIstraBuildings)}
+                upgradesInto={upgradesFor[r.name]}
+                onOpenRecipe={openRecipe}
               />
             ))}
           </div>

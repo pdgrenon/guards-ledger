@@ -383,6 +383,69 @@ describe('CraftTab — Fort Istra building lock', () => {
   });
 });
 
+describe('CraftTab — "Upgrades into" links', () => {
+  const links = (container, name) =>
+    [...cardOf(container, name).querySelectorAll('.craft-upgrades-link')];
+  // Match by name prefix, not the whole string, so the test survives the star
+  // renderer changing (AVE-1184); the stars are checked against the target's
+  // own card below.
+  const expectLinks = (container, name, targets) => {
+    const texts = links(container, name).map(b => b.textContent);
+    expect(texts, `${name} links`).toHaveLength(targets.length);
+    targets.forEach((t, i) => expect(texts[i].startsWith(`${t} `), `${texts[i]} → ${t}`).toBe(true));
+  };
+
+  it('lists every recipe a card upgrades into, in book order', () => {
+    const { container } = setup();
+    expectLinks(container, "Guard's Tunic", ['Reinforced Tunic', "Hero's Armor"]);
+    expectLinks(container, 'Reinforced Tunic', ['Bear Tunic', 'Horned Cuirass']);
+  });
+
+  it('includes restricted targets only when their guard is in the party', () => {
+    const { container } = setup({ activeParty: ['Vera', 'Alek'] });
+    expectLinks(container, 'Reinforced Tunic', ['Bear Tunic', 'Horned Cuirass', "Hunter's Tunic", 'Wanderer of the Fields']);
+  });
+
+  it("shows each target's stars exactly as the target's own card does", () => {
+    const { container } = setup();
+    for (const link of links(container, "Guard's Tunic")) {
+      const name = ["Reinforced Tunic", "Hero's Armor"].find(n => link.textContent.startsWith(`${n} `));
+      const stars = cardOf(container, name).querySelector('.craft-stars').textContent;
+      expect(link.textContent).toBe(`${name} ${stars}`);
+    }
+  });
+
+  it('links both Traveling Boots recipes to Chronos Boots', () => {
+    const { container } = setup();
+    const boots = [...container.querySelectorAll('.craft-card')]
+      .filter(c => c.querySelector('.craft-card-name').textContent === 'Traveling Boots');
+    expect(boots).toHaveLength(2);
+    for (const card of boots) {
+      const texts = [...card.querySelectorAll('.craft-upgrades-link')].map(b => b.textContent);
+      expect(texts.some(t => t.startsWith('Chronos Boots '))).toBe(true);
+    }
+  });
+
+  it("adds nothing to a recipe that is nobody's prereq", () => {
+    const { container } = setup();
+    expect(cardOf(container, 'Bear Tunic').querySelector('.craft-upgrades')).toBeNull();
+  });
+
+  it('a link opens its target, clearing the filters that hid it', () => {
+    const { container } = setup();
+    act(() => { fireEvent.change(screen.getByRole('combobox', { name: 'Filter by city' }), { target: { value: 'Mir' } }); });
+    // Mir keeps Guard's Tunic and hides Hero's Armor (Vouno).
+    expect(cardNames(container)).toContain("Guard's Tunic");
+    expect(cardNames(container)).not.toContain("Hero's Armor");
+
+    const link = links(container, "Guard's Tunic").find(b => b.textContent.startsWith("Hero's Armor "));
+    click(link);
+    expect(container.querySelector('.craft-search').value).toBe("Hero's Armor");
+    expect(screen.getByRole('combobox', { name: 'Filter by city' }).value).toBe('');
+    expect(cardNames(container)).toContain("Hero's Armor");
+  });
+});
+
 describe('CraftTab — sort', () => {
   const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
   const partyRecipes = RECIPES.filter(
