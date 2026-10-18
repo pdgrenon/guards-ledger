@@ -21,6 +21,7 @@ import {
   aggregateMaterials,
   derivePrereqUpgrades,
   upgradeDelta,
+  ftIstraLock,
 } from './recipes';
 import { PREREQ_UPGRADES_TO } from './prereqUpgrades';
 import {
@@ -444,6 +445,52 @@ describe('upgradeDelta', () => {
   it('returns null for accessories and items', () => {
     expect(upgradeDelta(find('Aegis Shield'), 'x')).toBeNull();
     expect(upgradeDelta(find('Tent'), 'x')).toBeNull();
+  });
+});
+
+// ─── ftIstraLock ─────────────────────────────────────────────────────────────
+
+describe('ftIstraLock', () => {
+  const find = n => RECIPES.find(r => r.name === n);
+  const GATED = ['Ft. Istra (Blacksmith)', "Ft. Istra (Baren's Forge)", 'Ft. Istra (Apothecary)'];
+
+  it('Blacksmith recipes need the Blacksmith built — upgraded counts too (AVE-145)', () => {
+    expect(ftIstraLock(find('Lapis Blade'), {})).toBe('Blacksmith');
+    expect(ftIstraLock(find('Lapis Blade'), { Blacksmith: 'built' })).toBeNull();
+    expect(ftIstraLock(find('Lapis Blade'), { Blacksmith: 'upgraded' })).toBeNull();
+  });
+
+  it("Baren's Forge recipes need the Blacksmith upgraded (AVE-133)", () => {
+    expect(ftIstraLock(find('Sword of Isofar'), { Blacksmith: 'built' })).toBe("Baren's Forge (Blacksmith upgrade)");
+    expect(ftIstraLock(find('Sword of Isofar'), { Blacksmith: 'upgraded' })).toBeNull();
+  });
+
+  it('Apothecary recipes need the Apothecary built', () => {
+    expect(ftIstraLock(find('Barrier Tonic'), {})).toBe('Apothecary');
+    expect(ftIstraLock(find('Barrier Tonic'), { Apothecary: 'built' })).toBeNull();
+  });
+
+  it('reads an unrecognised stored state as locked', () => {
+    expect(ftIstraLock(find('Lapis Blade'), { Blacksmith: 'garbage' })).toBe('Blacksmith');
+  });
+
+  it('leaves city smiths and the four named Fort Istra smiths ungated', () => {
+    for (const name of ['Aegis Shield', 'Chrono Locket', 'Relic Glove', "Guard's Tunic"]) {
+      expect(ftIstraLock(find(name), {}), name).toBeNull();
+    }
+    const scaleShields = RECIPES.filter(r => r.name === 'Scale Shield');
+    expect(scaleShields.map(r => r.city).sort()).toEqual(['Ft. Istra (The Misty Forge)', 'Ryba']);
+    for (const r of scaleShields) expect(ftIstraLock(r, {}), r.city).toBeNull();
+  });
+
+  it("gates exactly the Blacksmith, Baren's Forge and Apothecary recipes", () => {
+    // Derived rather than counted: the photo corrections (AVE-1186) may move
+    // recipes between stations.
+    const locked = RECIPES.filter(r => ftIstraLock(r, {}) !== null);
+    expect(locked).toEqual(RECIPES.filter(r => GATED.includes(r.city)));
+    for (const station of GATED) {
+      expect(locked.some(r => r.city === station), station).toBe(true);
+    }
   });
 });
 

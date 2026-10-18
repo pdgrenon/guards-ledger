@@ -70,7 +70,7 @@ A stash-aware recipe reference for all 101 craftable items — weapons, armor, a
 Results are grouped by type (Weapon, Armor, Accessory, Item) and each card shows:
 
 - Name, type, stat bonus, and bonus chip
-- A **Ready / Partial / Missing** status badge
+- A **Ready / Partial / Missing** status badge — or **Locked**, naming the building to build, for a Fort Istra recipe whose building doesn't exist yet
 - With a guard selected, how a weapon or armor compares with what that guard has equipped (e.g. `+1 👊 vs Volk Blade`); cards that aren't an upgrade are muted
 - Guard restriction note (for guard-specific items)
 - Prerequisite equipment required (`prereq`), and whether the selected guard — or either guard — has it equipped

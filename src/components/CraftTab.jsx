@@ -1,6 +1,6 @@
 // src/components/CraftTab.jsx
 import { useState, useMemo, useEffect, useDeferredValue, memo } from 'react';
-import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials, upgradeDelta, shortageCount } from '../data/recipes';
+import { RECIPES, craftStatus, craftCostForCity, availableInCity, buildCombined, parseItemReq, aggregateMaterials, upgradeDelta, shortageCount, ftIstraLock } from '../data/recipes';
 import { CITIES } from '../data/constants';
 import { cityPrestige } from '../hooks/gameReducers';
 import { MaterialName } from './MaterialName';
@@ -8,6 +8,9 @@ import { MaterialName } from './MaterialName';
 const CITY_NAMES = CITIES.map(c => c.name);
 const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
 const STAR_LABELS = ['All', '★', '★★', '★★★', '★★★★', '★★★★★'];
+// Default for an absent ftIstraBuildings prop — one shared object, so the
+// `filtered` memo that depends on it doesn't recompute on every render.
+const NO_BUILDINGS = {};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,6 +68,9 @@ function StatusBadge({ status }) {
   if (status === 'partial') {
     return <span className="craft-status-badge craft-status-partial">Partial</span>;
   }
+  if (status === 'locked') {
+    return <span className="craft-status-badge craft-status-missing">Locked</span>;
+  }
   return <span className="craft-status-badge craft-status-missing">Missing</span>;
 }
 
@@ -82,7 +88,7 @@ function StatusBadge({ status }) {
  * `onShowSource` is a setState function, and the rest are primitives — so
  * keeping them that way is the whole contract.
  */
-const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor, prereqEquippedBy, prereqGuardNames }) {
+const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor, prereqEquippedBy, prereqGuardNames, lockedBy }) {
   // Party-restricted recipes with no matching active guard are already filtered
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
@@ -98,9 +104,12 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
   const glyph = recipe.type === 'Weapon' ? '👊' : '⛊';
   const notUpgrade = cmp !== null && (cmp.isEquipped || cmp.delta <= 0);
 
+  // A green Ready on something the fort can't make yet was the bug, so a
+  // locked recipe reads Locked; its have/need rows still show progress.
+  const badge = lockedBy !== null ? 'locked' : status;
   const borderClass =
-    status === 'ready' ? 'craft-card--ready' :
-    status === 'partial' ? 'craft-card--partial' :
+    badge === 'ready' ? 'craft-card--ready' :
+    badge === 'partial' ? 'craft-card--partial' :
     'craft-card--missing';
 
   return (
@@ -119,9 +128,18 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
           <span className={`craft-stars${recipe.isFtIstra ? ' craft-stars--ft' : ''}`}>
             {starsLabel(recipe.stars)}
           </span>
-          <StatusBadge status={status} />
+          <StatusBadge status={badge} />
         </div>
       </div>
+
+      {lockedBy !== null && (
+        <div className="craft-prereq">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {`Needs ${lockedBy} — set it in Campaign › Fort Istra Buildings`}
+        </div>
+      )}
 
       {cmp !== null && (
         <div className="craft-upgrade">
@@ -248,7 +266,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaignId, completedBounties, completedPuzzleQuests, onShowSource, searchSeed, onSeedApplied }) {
+export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaignId, completedBounties, completedPuzzleQuests, ftIstraBuildings = NO_BUILDINGS, onShowSource, searchSeed, onSeedApplied }) {
   const [search, setSearch] = useState('');
   // The input is driven by `search` (immediate, so typing never feels laggy);
   // the *list* is filtered by the deferred copy, so React renders up to 90 cards
@@ -353,7 +371,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
       if (minStars > 0 && r.stars < minStars) return false;
       // City filter: hide recipes not available in selected city
       if (selectedCity && !availableInCity(r, selectedCity)) return false;
-      if (canCraftOnly && craftStatus(r, combined, sil, lux, selectedCity, cityPrestigeLevel) !== 'ready') return false;
+      if (canCraftOnly && (craftStatus(r, combined, sil, lux, selectedCity, cityPrestigeLevel) !== 'ready' || ftIstraLock(r, ftIstraBuildings) !== null)) return false;
       if (r.limitedTo.length > 0 && !r.limitedTo.some(g => activePartyNames.includes(g))) return false;
       if (selectedGuard !== null && r.limitedTo.length > 0 && !r.limitedTo.includes(selectedGuard)) return false;
       if (exclusive && !r.limitedTo.includes(selectedGuard)) return false;
@@ -370,7 +388,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
       }
       return true;
     });
-  }, [deferredSearch, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames, selectedGuard, exclusive]);
+  }, [deferredSearch, typeFilter, minStars, canCraftOnly, selectedCity, cityPrestigeLevel, combined, sil, lux, activePartyNames, selectedGuard, exclusive, ftIstraBuildings]);
 
   const grouped = useMemo(() => {
     // Same discount rule as RecipeCard, so "missing" matches the card's
@@ -551,7 +569,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 must stay referentially stable across a keystroke, or the memo
                 becomes pure overhead and the list re-renders wholesale again.
                 An inline lambda (`onShowSource={i => …}`) or an object literal
-                is the way that breaks, silently and with green tests. All twelve
+                is the way that breaks, silently and with green tests. All thirteen
                 are currently primitives, useMemo'd values, or a setState
                 function — keep them that way. */}
             {recipes.map(r => (
@@ -569,6 +587,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 equippedArmor={equippedArmor}
                 prereqEquippedBy={prereqEquippedBy(r)}
                 prereqGuardNames={prereqGuardNames}
+                lockedBy={ftIstraLock(r, ftIstraBuildings)}
               />
             ))}
           </div>

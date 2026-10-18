@@ -359,6 +359,30 @@ describe('CraftTab — prereq status', () => {
   });
 });
 
+describe('CraftTab — Fort Istra building lock', () => {
+  const lapis = RECIPES.find(r => r.name === 'Lapis Blade');
+  const stash = Object.fromEntries(lapis.materials.map(m => [m.name, m.qty]));
+  const canCraft = (container) =>
+    [...container.querySelectorAll('button')].find(b => b.textContent.includes('Can craft'));
+  const badge = (container) => cardOf(container, 'Lapis Blade').querySelector('.craft-status-badge').textContent;
+
+  it('reads Locked, says what to build, and drops out of Can craft', () => {
+    const { container } = setup({ stash, lux: 999, ftIstraBuildings: {} });
+    expect(badge(container)).toBe('Locked');
+    expect(cardOf(container, 'Lapis Blade').textContent)
+      .toContain('Needs Blacksmith — set it in Campaign › Fort Istra Buildings');
+    click(canCraft(container));
+    expect(cardNames(container)).not.toContain('Lapis Blade');
+  });
+
+  it('reads Ready and stays under Can craft once the building is built', () => {
+    const { container } = setup({ stash, lux: 999, ftIstraBuildings: { Blacksmith: 'built' } });
+    expect(badge(container)).toBe('Ready');
+    click(canCraft(container));
+    expect(cardNames(container)).toContain('Lapis Blade');
+  });
+});
+
 describe('CraftTab — sort', () => {
   const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
   const partyRecipes = RECIPES.filter(
