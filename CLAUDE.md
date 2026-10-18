@@ -279,6 +279,7 @@ Neither change touches the tab's own mount (72 ms warm tab switch for 90 cards, 
 - **City** — filters to recipes craftable in a specific city; affects cost display (city-specific Sil prices) and whether the prestige discount applies. Cities with prestige ≥ 2 show a `✦` suffix in the dropdown.
 - **Star tier** — minimum star pill filter (All / ★ / ★★ / ★★★ / ★★★★ / ★★★★★); 5-star tier is styled in red to distinguish Ft. Istra items
 - **Can craft** — hides recipes not currently `'ready'`
+- **Sort** — Book order (the default: `RECIPES` source order) / Tier (stars ascending) / Fewest missing (`shortageCount`: materials and required items still short, not Sil/Lux, with the same discount rule as the card's have/need rows). It reorders cards within each type section, stably, and never changes which cards render — which is why the deep-link seed doesn't reset it.
 
 Results are grouped by type (Weapon, Armor, Accessory, Item).
 

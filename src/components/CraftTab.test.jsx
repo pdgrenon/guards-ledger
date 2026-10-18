@@ -15,7 +15,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { render, cleanup, act, screen, fireEvent } from '@testing-library/react';
 import { CraftTab } from './CraftTab';
-import { RECIPES } from '../data/recipes';
+import { RECIPES, shortageCount } from '../data/recipes';
 import { createInitialCities, createInitialGuards } from '../data/constants';
 
 const h = React.createElement;
@@ -308,6 +308,59 @@ describe('CraftTab — upgrade comparison', () => {
     const { container } = setup({ guards });
     expect(container.querySelectorAll('.craft-upgrade')).toHaveLength(0);
     expect(container.querySelectorAll('.craft-card--not-upgrade')).toHaveLength(0);
+  });
+});
+
+describe('CraftTab — sort', () => {
+  const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
+  const partyRecipes = RECIPES.filter(
+    r => r.limitedTo.length === 0 || r.limitedTo.some(g => baseProps.activeParty.includes(g))
+  );
+  // Book order, split into the tab's sections. Names repeat (Leather
+  // Gauntlets, Scale Shield, Traveling Boots), so compare ordered arrays.
+  const bookSections = TYPE_ORDER.map(t => partyRecipes.filter(r => r.type === t)).filter(l => l.length > 0);
+  const names = (sections) => sections.map(list => list.map(r => r.name));
+  const renderedSections = (container) =>
+    [...container.querySelectorAll('.craft-section-label')].map(label =>
+      [...label.parentElement.querySelectorAll('.craft-card-name')].map(el => el.textContent));
+  const sortSelect = () => screen.getByRole('combobox', { name: 'Sort recipes' });
+  const sortBy = (value) => act(() => { fireEvent.change(sortSelect(), { target: { value } }); });
+
+  it('defaults to book order, which is today\'s order', () => {
+    const { container } = setup();
+    expect(sortSelect().value).toBe('book');
+    expect(renderedSections(container)).toEqual(names(bookSections));
+  });
+
+  it('Tier sorts each section by stars, keeping book order for ties', () => {
+    const { container } = setup();
+    sortBy('tier');
+    expect(renderedSections(container)).toEqual(
+      names(bookSections.map(list => [...list].sort((a, b) => a.stars - b.stars)))
+    );
+  });
+
+  it('Fewest missing puts what you can nearly make first', () => {
+    const volk = RECIPES.find(r => r.name === 'Volk Blade');
+    const stash = Object.fromEntries(volk.materials.map(m => [m.name, m.qty]));
+    const { container } = setup({ stash });
+    sortBy('missing');
+    const sections = renderedSections(container);
+    expect(sections[TYPE_ORDER.indexOf('Weapon')][0]).toBe('Volk Blade');
+    expect(sections).toEqual(
+      names(bookSections.map(list =>
+        [...list].sort((a, b) => shortageCount(a, stash, false) - shortageCount(b, stash, false))))
+    );
+  });
+
+  it('never changes which cards render', () => {
+    const { container } = setup();
+    const count = () => container.querySelectorAll('.craft-card').length;
+    const before = count();
+    for (const value of ['tier', 'missing', 'book']) {
+      sortBy(value);
+      expect(count(), value).toBe(before);
+    }
   });
 });
 
