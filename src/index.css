@@ -2266,6 +2266,13 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .craft-prereq strong { color: var(--c-text); font-weight: 500; }
 .craft-restriction { color: var(--c-brand-ink); }
 
+/* Upgrade comparison (guard selected). Green text only ever on --c-green-bg,
+   and a muted card gets a background rather than opacity, which would drop
+   its text below AA. */
+.craft-upgrade { padding: 0 12px 7px; font-size: 11px; color: var(--c-text2); }
+.craft-upgrade-value--better { background: var(--c-green-bg); color: var(--c-green-text); padding: 1px 6px; border-radius: var(--radius-pill); font-weight: 500; }
+.craft-card--not-upgrade { background: var(--c-surface2); }
+
 /* Effect text */
 .craft-effect {
   padding: 0 12px 8px;

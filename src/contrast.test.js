@@ -148,6 +148,7 @@ describe('active pills do not put white on a mid-tone fill', () => {
   const pills = [
     ['.craft-star-pill--active',    '--c-brand-bg', '--c-brand-text'],
     ['.craft-star-pill--ft-active', '--c-red-bg',   '--c-red-text'],
+    ['.craft-upgrade-value--better', '--c-green-bg', '--c-green-text'],
   ];
 
   for (const [selector, bgToken, fgToken] of pills) {

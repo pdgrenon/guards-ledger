@@ -50,6 +50,11 @@ function type(input, value) {
   act(() => { fireEvent.change(input, { target: { value } }); });
 }
 
+const click = (el) => act(() => { el.click(); });
+const button = (name) => screen.getByRole('button', { name });
+const cardOf = (container, name) =>
+  [...container.querySelectorAll('.craft-card')].find(c => c.querySelector('.craft-card-name').textContent === name);
+
 afterEach(cleanup);
 
 describe('CraftTab — unfiltered list', () => {
@@ -149,11 +154,7 @@ describe('CraftTab — deep-link seed', () => {
 });
 
 describe('CraftTab — "Crafting for" guard selector', () => {
-  const click = (el) => act(() => { el.click(); });
-  const button = (name) => screen.getByRole('button', { name });
   const pressed = (name) => button(name).getAttribute('aria-pressed');
-  const cardOf = (container, name) =>
-    [...container.querySelectorAll('.craft-card')].find(c => c.querySelector('.craft-card-name').textContent === name);
   // Names repeat (Leather Gauntlets, Scale Shield, Traveling Boots), so a card
   // is allowed if any recipe of that name is.
   const usableBy = (name, guard) =>
@@ -230,6 +231,83 @@ describe('CraftTab — "Crafting for" guard selector', () => {
   it("states the item's full restriction, not just the guards in the party", () => {
     const { container } = setup();
     expect(cardOf(container, 'Journey Attire').querySelector('.craft-restriction').textContent).toBe('Alek, Yury only');
+  });
+});
+
+describe('CraftTab — upgrade comparison', () => {
+  // Grigory, not Alek: the spreadsheet restricts Volk Blade and Argent Blade to
+  // Grigory, so this fixture is the one the coming data corrections (AVE-1186)
+  // are least likely to hide them from.
+  const guards = createInitialGuards().guards.map(g =>
+    g.name === 'Grigory'
+      ? { ...g, equipment: { weapon: 'Volk Blade', armor: 'Reinforced Tunic', accessory: '', item: '' } }
+      : g
+  );
+  const upgrade = (container, name) => cardOf(container, name).querySelector('.craft-upgrade');
+  const better = (container, name) =>
+    upgrade(container, name).querySelector('.craft-upgrade-value').classList.contains('craft-upgrade-value--better');
+  const muted = (container, name) => cardOf(container, name).classList.contains('craft-card--not-upgrade');
+  const section = (container, type) =>
+    [...container.querySelectorAll('.craft-section-label')].find(el => el.textContent === type).parentElement;
+
+  function forGrigory() {
+    const { container } = setup({ guards });
+    click(button('Grigory'));
+    return container;
+  }
+
+  it('shows the gain over the equipped weapon and highlights it', () => {
+    const container = forGrigory();
+    expect(upgrade(container, 'Argent Blade').textContent).toBe('+1 👊 vs Volk Blade');
+    expect(better(container, 'Argent Blade')).toBe(true);
+    expect(muted(container, 'Argent Blade')).toBe(false);
+  });
+
+  it('compares armor with the equipped armor', () => {
+    const container = forGrigory();
+    expect(upgrade(container, 'Horned Cuirass').textContent).toBe('+1 ⛊ vs Reinforced Tunic');
+  });
+
+  it('marks the equipped item and mutes it', () => {
+    const container = forGrigory();
+    expect(upgrade(container, 'Volk Blade').textContent).toBe('Equipped');
+    expect(better(container, 'Volk Blade')).toBe(false);
+    expect(muted(container, 'Volk Blade')).toBe(true);
+  });
+
+  it('mutes a sidegrade', () => {
+    const container = forGrigory();
+    expect(upgrade(container, 'Alloy Short Sword').textContent).toBe('±0 👊 vs Volk Blade');
+    expect(muted(container, 'Alloy Short Sword')).toBe(true);
+  });
+
+  it('shows a downgrade with a true minus sign, and mutes it', () => {
+    const container = forGrigory();
+    // Guard's Tunic is 0 ⛊ against Reinforced Tunic's 1.
+    expect(upgrade(container, "Guard's Tunic").textContent).toBe('−1 ⛊ vs Reinforced Tunic');
+    expect(muted(container, "Guard's Tunic")).toBe(true);
+  });
+
+  it('says when the slot is empty', () => {
+    const { container } = setup({ guards });
+    click(button('Alek'));
+    expect(upgrade(container, 'Alloy Short Sword').textContent).toBe('+1 👊 (slot empty)');
+  });
+
+  it('never compares accessories or items', () => {
+    const container = forGrigory();
+    for (const type of ['Accessory', 'Item']) {
+      const cards = section(container, type);
+      expect(cards.querySelectorAll('.craft-card').length, `${type} section renders cards`).toBeGreaterThan(0);
+      expect(cards.querySelectorAll('.craft-upgrade')).toHaveLength(0);
+      expect(cards.querySelectorAll('.craft-card--not-upgrade')).toHaveLength(0);
+    }
+  });
+
+  it('shows no comparison under Both', () => {
+    const { container } = setup({ guards });
+    expect(container.querySelectorAll('.craft-upgrade')).toHaveLength(0);
+    expect(container.querySelectorAll('.craft-card--not-upgrade')).toHaveLength(0);
   });
 });
 

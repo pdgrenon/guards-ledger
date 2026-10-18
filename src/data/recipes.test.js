@@ -20,6 +20,7 @@ import {
   parseItemReq,
   aggregateMaterials,
   derivePrereqUpgrades,
+  upgradeDelta,
 } from './recipes';
 import { PREREQ_UPGRADES_TO } from './prereqUpgrades';
 import {
@@ -415,6 +416,34 @@ describe('shortageCount', () => {
   it('counts required items for a materials-free apothecary recipe', () => {
     expect(shortageCount(barrierTonic, emptyStash())).toBe(2);
     expect(shortageCount(barrierTonic, { 'Coastal Bluecaps': 1, 'Midnight Hydrangea': 1 })).toBe(0);
+  });
+});
+
+// ─── upgradeDelta ────────────────────────────────────────────────────────────
+
+describe('upgradeDelta', () => {
+  const find = n => RECIPES.find(r => r.name === n);
+
+  it('compares a weapon with the equipped weapon (WEAPON_STATS, not statBonus)', () => {
+    expect(upgradeDelta(find('Argent Blade'), 'Volk Blade')).toEqual({ delta: 1, isEquipped: false });
+  });
+
+  it('flags the equipped item itself', () => {
+    expect(upgradeDelta(find('Volk Blade'), 'Volk Blade')).toEqual({ delta: 0, isEquipped: true });
+  });
+
+  it('compares armor with the equipped armor', () => {
+    expect(upgradeDelta(find("Zephyr's Tunic"), 'Journey Attire')).toEqual({ delta: 2, isEquipped: false });
+  });
+
+  it('compares against 0 for an empty slot or an unknown name', () => {
+    expect(upgradeDelta(find('Volk Blade'), '')).toEqual({ delta: 1, isEquipped: false });
+    expect(upgradeDelta(find('Argent Blade'), 'Not A Weapon')).toEqual({ delta: 2, isEquipped: false });
+  });
+
+  it('returns null for accessories and items', () => {
+    expect(upgradeDelta(find('Aegis Shield'), 'x')).toBeNull();
+    expect(upgradeDelta(find('Tent'), 'x')).toBeNull();
   });
 });
 
