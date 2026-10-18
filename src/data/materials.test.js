@@ -65,7 +65,7 @@ describe('MATERIAL_SOURCES coverage (AVE-548)', () => {
   // from the coverage test above. What matters is that they stay selectable in the
   // Item slot: that is the only place a guard records carrying one.
   it('keeps the utility tools equippable in the active item slot', () => {
-    for (const name of ['Pickaxe', 'Wood Chopping Axe', 'Fishing Pole']) {
+    for (const name of ['Pickaxe', 'Wood Chopping Axe', 'Fishing Pole', 'Master Angler']) {
       expect(ITEMS).toContain(name);
     }
   });
