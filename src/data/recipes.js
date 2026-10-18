@@ -25,6 +25,7 @@
 
 import { SATCHEL_SIZE, SATCHEL_EXPANDED_SIZE } from '../data/constants';
 import { WEAPON_STATS, ARMOR_STATS } from './materials';
+import { BUILDING_STATES } from './buildings';
 
 export const RECIPES = [
   // ── ARMOR ────────────────────────────────────────────────────────────────
@@ -1208,6 +1209,29 @@ export function shortageCount(recipe, stash, useDiscount = false) {
   const reqShort = parseItemReq(recipe.itemReq)
     .filter(r => (stash[r.name] ?? 0) < r.qty).length;
   return matShort + reqShort;
+}
+
+// Fort Istra stations gated by campaign.ftIstraBuildings. Baren's Forge is the
+// Blacksmith's upgrade (AVE-133); an upgraded building keeps its base station
+// (AVE-145). The four named smiths — The Brothers' Anvil, Anvil Artistry,
+// The Cottage Smith, The Misty Forge — are not in the building tracker and
+// stay ungated until we know what unlocks them.
+const FT_ISTRA_STATIONS = {
+  'Ft. Istra (Blacksmith)':    { building: 'Blacksmith', minState: 'built',    label: 'Blacksmith' },
+  "Ft. Istra (Baren's Forge)": { building: 'Blacksmith', minState: 'upgraded', label: "Baren's Forge (Blacksmith upgrade)" },
+  'Ft. Istra (Apothecary)':    { building: 'Apothecary', minState: 'built',    label: 'Apothecary' },
+};
+
+/**
+ * The building a recipe still needs, as a display label — or null if it isn't
+ * gated or is unlocked. An unrecognised stored state gives indexOf −1, which
+ * reads as locked: the safe direction.
+ */
+export function ftIstraLock(recipe, ftIstraBuildings = {}) {
+  const station = FT_ISTRA_STATIONS[recipe.city];
+  if (!station) return null;
+  const have = BUILDING_STATES.indexOf(ftIstraBuildings?.[station.building] ?? 'not_owned');
+  return have >= BUILDING_STATES.indexOf(station.minState) ? null : station.label;
 }
 
 /**

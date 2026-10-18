@@ -445,6 +445,7 @@ export default function App() {
                 campaignId={state.campaign.campaignId}
                 completedBounties={state.campaign.completedBounties}
                 completedPuzzleQuests={state.campaign.completedPuzzleQuests}
+                ftIstraBuildings={state.campaign.ftIstraBuildings}
                 onShowSource={setSourceItem}
                 searchSeed={craftSeed}
                 onSeedApplied={clearCraftSeed}
