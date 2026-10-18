@@ -73,7 +73,7 @@ Results are grouped by type (Weapon, Armor, Accessory, Item) and each card shows
 - A **Ready / Partial / Missing** status badge
 - With a guard selected, how a weapon or armor compares with what that guard has equipped (e.g. `+1 👊 vs Volk Blade`); cards that aren't an upgrade are muted
 - Guard restriction note (for guard-specific items)
-- Prerequisite equipment required (`prereq`)
+- Prerequisite equipment required (`prereq`), and whether the selected guard — or either guard — has it equipped
 - Special ingredient requirement for apothecary items (`itemReq`)
 - Effect text for accessories and consumables
 - Per-ingredient have/need counts; ingredients in the satchel count toward the total

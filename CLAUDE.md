@@ -285,6 +285,8 @@ Results are grouped by type (Weapon, Armor, Accessory, Item).
 
 **Upgrade comparison:** with a guard selected, every Weapon and Armor card gets a line comparing its Attack/Defense with what that guard has equipped in the same slot (`+1 👊 vs Volk Blade`, `±0`, a true-minus `−1`, `Equipped`, `(slot empty)`). It comes from `upgradeDelta` in `recipes.js`, which reads `WEAPON_STATS`/`ARMOR_STATS` — never `statBonus` (AVE-544). Cards that aren't an upgrade are muted with a `--c-surface2` background, never `opacity`, which would drop their text below AA. Accessories, items and the Both view get no comparison.
 
+**Prereq status:** a card with a `prereq` says, on its own line under the requirement, whether that item is equipped — by the selected guard, or by anyone in the party under Both (`✓ Equipped by Alek` / `Not equipped by Alek or Grigory`), matching any equipment slot. It is display-only: `craftStatus`, the Ready badge and "Can craft" ignore it, since a player may equip the prereq right before crafting.
+
 **Prestige discount:** When a city with prestige ≥ 2 is selected, material quantities use `qty2R` (the reduced amount) instead of `qty` for standard (non-Ft. Istra) recipes. Discounted ingredients show the original quantity struck through with the reduced quantity beside it. A `2★` badge appears on the card footer when the discount is active.
 
 `craftStatus(recipe, stash, sil, lux, selectedCity, cityPrestigeLevel)` returns `'ready' | 'partial' | 'missing'`:

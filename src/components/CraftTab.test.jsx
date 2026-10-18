@@ -311,6 +311,54 @@ describe('CraftTab — upgrade comparison', () => {
   });
 });
 
+describe('CraftTab — prereq status', () => {
+  const withArmor = (armorByGuard) => createInitialGuards().guards.map(g =>
+    armorByGuard[g.name] ? { ...g, equipment: { ...g.equipment, armor: armorByGuard[g.name] } } : g
+  );
+  const status = (container, name) => cardOf(container, name).querySelector('.craft-prereq-status');
+  const ok = (el) => el.classList.contains('craft-prereq-status--ok');
+
+  it('under Both, says which active guard has the prereq equipped', () => {
+    const { container } = setup({ guards: withArmor({ Alek: 'Reinforced Tunic' }) });
+    expect(status(container, 'Bear Tunic').textContent).toBe('✓ Equipped by Alek');
+    expect(ok(status(container, 'Bear Tunic'))).toBe(true);
+  });
+
+  it('under Both, names the whole party when nobody has it equipped', () => {
+    const { container } = setup({ guards: withArmor({ Alek: 'Reinforced Tunic' }) });
+    // Guard's Armor requires Horned Cuirass.
+    expect(status(container, "Guard's Armor").textContent).toBe('Not equipped by Alek or Grigory');
+    expect(ok(status(container, "Guard's Armor"))).toBe(false);
+  });
+
+  it('checks only the selected guard once one is chosen', () => {
+    const { container } = setup({ guards: withArmor({ Alek: 'Reinforced Tunic' }) });
+    click(button('Grigory'));
+    expect(status(container, 'Bear Tunic').textContent).toBe('Not equipped by Grigory');
+    click(button('Alek'));
+    expect(status(container, 'Bear Tunic').textContent).toBe('✓ Equipped by Alek');
+  });
+
+  it('lists every active guard who has it equipped', () => {
+    const { container } = setup({ guards: withArmor({ Alek: 'Reinforced Tunic', Grigory: 'Reinforced Tunic' }) });
+    expect(status(container, 'Bear Tunic').textContent).toBe('✓ Equipped by Alek, Grigory');
+  });
+
+  it('adds nothing to a recipe without a prereq', () => {
+    const { container } = setup();
+    const card = cardOf(container, 'Woven Spine Armor');
+    expect(card.querySelector('.craft-prereq')).toBeNull();
+    expect(card.querySelector('.craft-prereq-status')).toBeNull();
+  });
+
+  it('is display-only: an unmet prereq does not take away Ready', () => {
+    const bear = RECIPES.find(r => r.name === 'Bear Tunic');
+    const stash = Object.fromEntries(bear.materials.map(m => [m.name, m.qty]));
+    const { container } = setup({ stash, sil: 999 });
+    expect(cardOf(container, 'Bear Tunic').querySelector('.craft-status-badge').textContent).toBe('Ready');
+  });
+});
+
 describe('CraftTab — sort', () => {
   const TYPE_ORDER = ['Weapon', 'Armor', 'Accessory', 'Item'];
   const partyRecipes = RECIPES.filter(

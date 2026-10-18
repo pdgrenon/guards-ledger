@@ -82,7 +82,7 @@ function StatusBadge({ status }) {
  * `onShowSource` is a setState function, and the rest are primitives — so
  * keeping them that way is the whole contract.
  */
-const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor }) {
+const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShowSource, selectedCity, cityPrestigeLevel, forGuard, equippedWeapon, equippedArmor, prereqEquippedBy, prereqGuardNames }) {
   // Party-restricted recipes with no matching active guard are already filtered
   // out before this renders, so no early-return guard is needed here.
   const useDiscount = selectedCity !== null && cityPrestigeLevel >= 2 && !recipe.isFtIstra;
@@ -150,7 +150,15 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Requires <strong>{recipe.prereq}</strong> equipped
+          <span>Requires <strong>{recipe.prereq}</strong> equipped</span>
+          {/* Display only: Ready still ignores the prereq, since a player may
+              equip it right before crafting. On its own line, because as a
+              third inline item it squeezed the row into columns on a phone. */}
+          <span className="craft-prereq-status-line">
+            {prereqEquippedBy
+              ? <span className="craft-prereq-status craft-prereq-status--ok">✓ Equipped by {prereqEquippedBy}</span>
+              : <span className="craft-prereq-status">Not equipped by {prereqGuardNames}</span>}
+          </span>
         </div>
       )}
 
@@ -303,6 +311,19 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
   const selectedGuardObj = selectedGuard !== null ? (guards ?? []).find(g => g.name === selectedGuard) : null;
   const equippedWeapon = selectedGuardObj?.equipment?.weapon ?? '';
   const equippedArmor  = selectedGuardObj?.equipment?.armor ?? '';
+
+  // Whose equipment satisfies a prereq: the selected guard, or anyone in the
+  // party under Both — either could be the one receiving the upgrade.
+  const prereqGuards = selectedGuard !== null ? [selectedGuard] : [...new Set(activePartyNames)];
+  const prereqGuardNames = prereqGuards.join(' or ');
+  // Called per card during render, never passed down, so it needn't be stable;
+  // it returns a string (or null), which the memoised card compares by value.
+  function prereqEquippedBy(recipe) {
+    if (!recipe.prereq) return null;
+    return prereqGuards
+      .filter(name => Object.values((guards ?? []).find(g => g.name === name)?.equipment ?? {}).includes(recipe.prereq))
+      .join(', ');
+  }
 
   const activeGuards = useMemo(
     () => (guards ?? []).filter(g => activePartyNames.includes(g.name)),
@@ -530,7 +551,7 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 must stay referentially stable across a keystroke, or the memo
                 becomes pure overhead and the list re-renders wholesale again.
                 An inline lambda (`onShowSource={i => …}`) or an object literal
-                is the way that breaks, silently and with green tests. All ten
+                is the way that breaks, silently and with green tests. All twelve
                 are currently primitives, useMemo'd values, or a setState
                 function — keep them that way. */}
             {recipes.map(r => (
@@ -546,6 +567,8 @@ export function CraftTab({ stash, sil, lux, activeParty, guards, cities, campaig
                 forGuard={selectedGuard}
                 equippedWeapon={equippedWeapon}
                 equippedArmor={equippedArmor}
+                prereqEquippedBy={prereqEquippedBy(r)}
+                prereqGuardNames={prereqGuardNames}
               />
             ))}
           </div>
