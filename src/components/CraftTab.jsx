@@ -132,10 +132,14 @@ const RecipeCard = memo(function RecipeCard({ recipe, combined, sil, lux, onShow
         </div>
       </div>
 
+      {/* Not .craft-prereq: that row wraps (for its status line), and under
+          wrap this text was too long to share a line with its icon, so the
+          icon sat alone above it on every phone width. */}
       {lockedBy !== null && (
-        <div className="craft-prereq">
+        <div className="craft-lock">
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="2.25" y="5.25" width="7.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M4 5.25V3.75a2 2 0 0 1 4 0v1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           {`Needs ${lockedBy} — set it in Campaign › Fort Istra Buildings`}
         </div>
